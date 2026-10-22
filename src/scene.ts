@@ -178,66 +178,106 @@ const U = 2
 const px = (x: number, y: number, w: number, h: number, fill: string, extra = '') =>
   `<rect x="${x * U}" y="${y * U}" width="${w * U}" height="${h * U}" fill="${fill}"${extra}/>`
 
+const INK = '#2A211C'
+type Rect = [number, number, number, number, string]
+// all outlines first, then the fills: a 1px dark contour that keeps small sprites readable on any floor
+const inked = (rects: Rect[]) =>
+  rects.map(([x, y, w, h]) => px(x - 0.5, y - 0.5, w + 1, h + 1, INK)).join('') + rects.map(([x, y, w, h, f]) => px(x, y, w, h, f)).join('')
+const lit = (x: number, y: number, w: number, h: number, o = 0.3) => px(x, y, w, h, '#FFFFFF', ` opacity="${o}"`)
+const dim = (x: number, y: number, w: number, h: number, o = 0.18) => px(x, y, w, h, '#000', ` opacity="${o}"`)
+
 // Costumes: accessories drawn over the sprite. The body stays currentColor, so it still takes each puesto's colour.
 export type Skin = 'clasico' | 'pirata' | 'alien' | 'astronauta' | 'mago' | 'vaquero' | 'ninja' | 'chef' | 'vikingo'
 export const SKINS: Skin[] = ['clasico', 'pirata', 'alien', 'astronauta', 'mago', 'vaquero', 'ninja', 'chef', 'vikingo']
 let SKILL_SKIN: Skin = 'clasico'
 let AGENT_SKIN: Skin = 'clasico'
 
+const bubbleHelmet = (x: number, y: number, w: number, h: number, rx: number) =>
+  `<rect x="${x * U}" y="${y * U}" width="${w * U}" height="${h * U}" rx="${rx * U}" fill="#CFE8F5" fill-opacity=".25" stroke="${INK}" stroke-width="2.6"/>` +
+  `<rect x="${x * U}" y="${y * U}" width="${w * U}" height="${h * U}" rx="${rx * U}" fill="none" stroke="#FFFFFF" stroke-width="1.2"/>` +
+  `<path d="M${(x + 1.6) * U} ${(y + h * 0.55) * U} Q${(x + 1.6) * U} ${(y + 1.4) * U} ${(x + w * 0.45) * U} ${(y + 1.4) * U}" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-opacity=".75"/>`
+
+const wizardHat = (base: number, apex: number, apexX: number, half: number) =>
+  `<path d="M${-half * U} ${base * U} L${half * U} ${base * U} L${apexX * U} ${apex * U} Z" fill="#5E3FA3" stroke="${INK}" stroke-width="1" stroke-linejoin="round"/>` +
+  `<path d="M${(apexX - 0.6) * U} ${(apex + 2) * U} L${(-half + 2) * U} ${(base - 0.4) * U}" stroke="#FFFFFF" stroke-opacity=".22" stroke-width="2"/>` +
+  `<text x="${(apexX - 2) * U}" y="${(base - 2.4) * U}" font-size="5" fill="#FFE34F">★</text>` + inked([[-half - 1, base - 0.8, half * 2 + 2, 1, '#4A2F85']])
+
+const vikingHorns = (y: number, half: number) =>
+  inked([
+    [-half - 1.4, y + 0.4, 1.6, 1.2, '#F4EBDD'], [-half - 2, y - 1.4, 1.2, 2, '#F4EBDD'], [-half - 2, y - 2.6, 0.8, 1.2, '#E2D6C2'],
+    [half - 0.2, y + 0.4, 1.6, 1.2, '#F4EBDD'], [half + 0.8, y - 1.4, 1.2, 2, '#F4EBDD'], [half + 1.2, y - 2.6, 0.8, 1.2, '#E2D6C2'],
+  ])
+
 function skillCostume(skin: Skin, kind: 'awake' | 'asleep') {
   const open = kind === 'awake'
   switch (skin) {
     case 'pirata':
-      return px(-6, -10.6, 12, 1.8, '#C8423A') + px(-4, -10.6, 1, 1.8, '#FFFFFF', ' opacity=".7"') + px(1, -10.6, 1, 1.8, '#FFFFFF', ' opacity=".7"') + px(6, -10.2, 2, 0.8, '#C8423A') + px(6.4, -9.4, 1.2, 1.6, '#A8322C') +
-        (open ? px(1.4, -8, 2.4, 2.4, '#111') + px(-6, -8.4, 12, 0.5, '#111') : '')
+      return inked([[-6, -10.6, 12, 1.8, '#C8423A'], [6, -10.4, 1.8, 1, '#C8423A'], [6.6, -9.4, 1.2, 1.6, '#A8322C']]) +
+        lit(-4, -10.6, 1, 1.8, 0.7) + lit(-0.5, -10.6, 1, 1.8, 0.7) + lit(3, -10.6, 1, 1.8, 0.7) +
+        (open ? px(-6, -8.6, 12, 0.5, '#111') + px(1.4, -8.2, 2.4, 2.6, '#111') : '')
     case 'alien':
-      return px(-4.3, -13, 0.6, 3.4, '#5FCB4F') + px(3.7, -13, 0.6, 3.4, '#5FCB4F') + px(-4.8, -14, 1.6, 1.6, '#9BFF6B') + px(3.2, -14, 1.6, 1.6, '#9BFF6B') +
-        (open ? px(-0.6, -9.6, 1.2, 1.2, '#2A211C') + px(-0.3, -9.4, 0.5, 0.5, '#9BFF6B') : '')
+      return inked([[-4.3, -13, 0.6, 4, '#5FCB4F'], [3.7, -13, 0.6, 4, '#5FCB4F'], [-4.8, -14.4, 1.6, 1.6, '#9BFF6B'], [3.2, -14.4, 1.6, 1.6, '#9BFF6B']]) +
+        lit(-4.6, -14.2, 0.6, 0.6, 0.8) + lit(3.4, -14.2, 0.6, 0.6, 0.8) +
+        (open ? px(-0.8, -8.8, 1.6, 1.4, '#2A211C') + px(-0.4, -8.6, 0.6, 0.6, '#9BFF6B') : '')
     case 'astronauta':
-      return `<rect x="${-8 * U}" y="${-12 * U}" width="${16 * U}" height="${10 * U}" rx="${4 * U}" fill="#CFE8F5" fill-opacity=".28" stroke="#FFFFFF" stroke-width="1.2"/>` +
-        px(-5, -11.2, 3, 1, '#FFFFFF', ' opacity=".7"') + px(-2, -2.6, 4, 1, '#B8B2A7')
+      return bubbleHelmet(-8, -12, 16, 10, 4) + inked([[-3, -2.8, 6, 0.8, '#B8B2A7']])
     case 'mago':
-      return `<path d="M${-6 * U} ${-9 * U} L${6 * U} ${-9 * U} L${1.5 * U} ${-17 * U} Z" fill="#5E3FA3"/>` + px(-7, -9.8, 14, 1, '#4A2F85') +
-        `<text x="${-1 * U}" y="${-11.2 * U}" font-size="5" fill="#FFE34F">★</text>`
+      return wizardHat(-9.2, -17, 1.5, 6)
     case 'vaquero':
-      return px(-8.5, -10, 17, 1, '#7A4E2D') + px(-4, -12.6, 8, 2.8, '#8A5A3B') + px(-4, -10.8, 8, 0.6, '#3B2A1C')
+      return inked([[-8.5, -10, 17, 1, '#7A4E2D'], [-4, -12.8, 8, 3, '#8A5A3B']]) + px(-4, -10.8, 8, 0.7, '#3B2A1C') + dim(-1, -12.8, 2, 0.6, 0.3) + lit(-3.6, -12.6, 1, 1.6, 0.18)
     case 'ninja':
-      return px(-6, -8.6, 12, 2.6, '#232326') + px(6, -8.2, 2.4, 0.8, '#232326') + px(6.4, -7.4, 1.6, 0.8, '#232326') +
-        (open ? px(-3, -7.7, 1, 1, '#FFFFFF') + px(2, -7.7, 1, 1, '#FFFFFF') : '')
+      return inked([[-6, -8.8, 12, 2.6, '#232326'], [6, -8.4, 2.4, 0.8, '#232326'], [6.6, -7.6, 1.6, 0.8, '#232326']]) +
+        (open ? px(-3.2, -7.9, 1.4, 1, '#FFFFFF') + px(1.8, -7.9, 1.4, 1, '#FFFFFF') : px(-3.2, -7.4, 1.4, 0.4, '#FFFFFF') + px(1.8, -7.4, 1.4, 0.4, '#FFFFFF'))
     case 'chef':
-      return px(-4, -12.6, 8, 3.6, '#FFFFFF') + px(-5, -14.4, 10, 2.2, '#FFFFFF') + px(-4, -9.6, 8, 0.6, '#D8D4CC')
+      return inked([[-4, -12.4, 8, 3.4, '#FFFFFF'], [-5, -14.4, 10, 2.4, '#FFFFFF']]) + px(-4, -9.8, 8, 0.8, '#D8D4CC') + dim(-1.4, -14.4, 0.6, 2, 0.1) + dim(1.6, -14.4, 0.6, 2, 0.1)
     case 'vikingo':
-      return px(-5, -11, 10, 2.2, '#8C8F94') + px(-5, -9.2, 10, 0.6, '#6E7177') + px(-7.4, -12.6, 1.4, 2.6, '#F4EBDD') + px(6, -12.6, 1.4, 2.6, '#F4EBDD') + px(-7.8, -13.6, 1, 1.2, '#F4EBDD') + px(6.8, -13.6, 1, 1.2, '#F4EBDD')
+      return vikingHorns(-10.8, 5) + inked([[-5, -11, 10, 2.2, '#8C8F94'], [-3.8, -11.8, 7.6, 0.8, '#8C8F94']]) +
+        px(-5, -9.4, 10, 0.6, '#6E7177') + px(-0.4, -11.8, 0.8, 2.4, '#6E7177') + lit(-3.4, -11.6, 2, 0.6, 0.45)
     default:
       return ''
   }
 }
 
 // Robots: the shell changes with the costume; the chest light and the antenna tip stay currentColor (the puesto's colour).
-const AGENT_LOOK: Record<Skin, { shell: string; visor: string; eyes: string; hat: string }> = {
+// `crown` is the top of the headgear, where the antenna comes out.
+const AGENT_LOOK: Record<Skin, { shell: string; visor: string; eyes: string; hat: string; crown?: number }> = {
   clasico: { shell: '#EFE6D6', visor: '#262B33', eyes: '#7FE3FF', hat: '' },
-  pirata: { shell: '#E2D2B0', visor: '#262B33', eyes: '#FFD36B', hat: px(-7, -12.4, 14, 1.4, '#1C1A19') + px(-5, -14.6, 10, 2.4, '#1C1A19') + px(-1, -14.2, 2, 1.4, '#F4EBDD') },
-  alien: { shell: '#A8E890', visor: '#1E2B1A', eyes: '#9BFF6B', hat: px(-5, -13.6, 0.6, 3, '#5FCB4F') + px(4.4, -13.6, 0.6, 3, '#5FCB4F') + px(-5.4, -14.6, 1.4, 1.4, '#9BFF6B') + px(4, -14.6, 1.4, 1.4, '#9BFF6B') },
-  astronauta: { shell: '#F7F7F2', visor: '#C9A23A', eyes: '#FFF3C2', hat: `<rect x="${-8 * U}" y="${-13 * U}" width="${16 * U}" height="${11 * U}" rx="${5 * U}" fill="#CFE8F5" fill-opacity=".22" stroke="#FFFFFF" stroke-width="1.2"/>` },
-  mago: { shell: '#D9CCF0', visor: '#262B33', eyes: '#FFE34F', hat: `<path d="M${-6 * U} ${-10.6 * U} L${6 * U} ${-10.6 * U} L${1 * U} ${-19 * U} Z" fill="#5E3FA3"/>` },
-  vaquero: { shell: '#E8D3B0', visor: '#3B2A1C', eyes: '#FFD36B', hat: px(-8.5, -11.4, 17, 1, '#7A4E2D') + px(-4, -14, 8, 2.8, '#8A5A3B') },
-  ninja: { shell: '#2E2B2A', visor: '#111111', eyes: '#FF4F4F', hat: px(-6, -9.8, 12, 1, '#C8423A') + px(6, -9.6, 2.4, 0.8, '#C8423A') },
-  chef: { shell: '#F4F1EA', visor: '#262B33', eyes: '#7FE3FF', hat: px(-4, -14.2, 8, 3.4, '#FFFFFF') + px(-5, -15.8, 10, 2, '#FFFFFF') },
-  vikingo: { shell: '#D8CBB3', visor: '#262B33', eyes: '#7FE3FF', hat: px(-5.4, -12.6, 10.8, 2, '#8C8F94') + px(-7.6, -14, 1.4, 2.6, '#F4EBDD') + px(6.2, -14, 1.4, 2.6, '#F4EBDD') },
+  pirata: {
+    shell: '#E2D2B0', visor: '#262B33', eyes: '#FFD36B', crown: -14.6,
+    hat: inked([[-7, -12.2, 14, 1.2, '#1C1A19'], [-5, -14.6, 10, 2.4, '#1C1A19']]) + px(-1, -14.2, 2, 1.6, '#F4EBDD') + px(-0.6, -13.2, 0.4, 0.4, '#1C1A19') + px(0.2, -13.2, 0.4, 0.4, '#1C1A19') + px(-5, -12.4, 10, 0.4, '#C9A23A'),
+  },
+  alien: {
+    shell: '#A8E890', visor: '#1E2B1A', eyes: '#9BFF6B',
+    hat: inked([[-5, -13.6, 0.6, 3, '#5FCB4F'], [4.4, -13.6, 0.6, 3, '#5FCB4F'], [-5.4, -15, 1.4, 1.4, '#9BFF6B'], [4, -15, 1.4, 1.4, '#9BFF6B']]),
+  },
+  astronauta: { shell: '#F7F7F2', visor: '#C9A23A', eyes: '#FFF3C2', hat: bubbleHelmet(-8, -13, 16, 11, 5) },
+  mago: { shell: '#D9CCF0', visor: '#262B33', eyes: '#FFE34F', crown: -19, hat: wizardHat(-10.6, -19, 1, 6) },
+  vaquero: {
+    shell: '#E8D3B0', visor: '#3B2A1C', eyes: '#FFD36B', crown: -14.4,
+    hat: inked([[-8.5, -11.6, 17, 1, '#7A4E2D'], [-4, -14.4, 8, 2.8, '#8A5A3B']]) + px(-4, -12.4, 8, 0.7, '#3B2A1C') + dim(-1, -14.4, 2, 0.6, 0.3),
+  },
+  ninja: { shell: '#3A3634', visor: '#111111', eyes: '#FF4F4F', hat: inked([[-6, -9.8, 12, 1, '#C8423A'], [6, -9.6, 2.4, 0.8, '#C8423A'], [7.4, -8.8, 1, 1, '#A8322C']]) },
+  chef: { shell: '#F4F1EA', visor: '#262B33', eyes: '#7FE3FF', crown: -16, hat: inked([[-4, -13.6, 8, 3, '#FFFFFF'], [-5, -16, 10, 2.4, '#FFFFFF']]) + px(-4, -11.4, 8, 0.8, '#D8D4CC') },
+  vikingo: {
+    shell: '#D8CBB3', visor: '#262B33', eyes: '#7FE3FF', crown: -13.4,
+    hat: vikingHorns(-12, 4.6) + inked([[-4.6, -12.6, 9.2, 2, '#8C8F94'], [-3.4, -13.4, 6.8, 0.8, '#8C8F94']]) + px(-4.6, -11.2, 9.2, 0.6, '#6E7177') + lit(-3, -13.2, 2, 0.6, 0.45),
+  },
 }
 
 function spriteDef(id: string, kind: 'awake' | 'asleep') {
-  let s = `<ellipse rx="13" ry="4" fill="#000" opacity=".18"/>`
-  for (const lx of [-5, -3, 2, 4]) s += px(lx, -3, 1, 3, 'currentColor') + px(lx, -3, 1, 3, '#000', ' opacity=".22"')
-  s += px(-6, -9, 12, 6, 'currentColor') + px(-6, -4, 12, 1, '#000', ' opacity=".2"')
-  s += px(-7, -6.5, 1, 2, 'currentColor') + px(6, -6.5, 1, 2, 'currentColor')
+  let s = `<ellipse rx="13" ry="4" fill="#000" opacity=".2"/>`
+  s += inked([[-5, -3, 1, 3, 'currentColor'], [-3, -3, 1, 3, 'currentColor'], [2, -3, 1, 3, 'currentColor'], [4, -3, 1, 3, 'currentColor'],
+    [-6, -9, 12, 6, 'currentColor'], [-7, -6.5, 1, 2, 'currentColor'], [6, -6.5, 1, 2, 'currentColor']])
+  for (const lx of [-5, -3, 2, 4]) s += dim(lx, -3, 1, 3, 0.25)
+  // light from the top left: lit top edge, shaded right side and underside
+  s += lit(-6, -9, 12, 0.6, 0.25) + dim(5, -8.4, 1, 5.4, 0.12) + dim(-6, -4, 12, 1, 0.2) + dim(6, -5.5, 1, 1, 0.2)
   if (kind === 'asleep') {
     s += px(-3.5, -6, 2, 0.6, '#2A211C') + px(1.5, -6, 2, 0.6, '#2A211C')
   } else {
-    s += px(-3, -7.5, 1, 2, '#2A211C') + px(2, -7.5, 1, 2, '#2A211C') + px(-6, -8.6, 12, 0.8, 'var(--g, transparent)')
+    s += px(-3, -7.5, 1, 2, '#2A211C') + px(2, -7.5, 1, 2, '#2A211C') + lit(-3, -7.5, 0.5, 0.5, 0.8) + lit(2, -7.5, 0.5, 0.5, 0.8) + px(-6, -8.6, 12, 0.8, 'var(--g, transparent)')
   }
-  // a lit pixel on the shoulder gives the body some volume
-  s += px(-5, -8, 1.4, 1, '#FFFFFF', ' opacity=".28"')
+  s += px(-5, -5.4, 1.2, 0.6, '#FF8A7A', ' opacity=".45"') + px(3.8, -5.4, 1.2, 0.6, '#FF8A7A', ' opacity=".45"')
+  s += lit(-5, -8, 1.4, 1, 0.3)
   s += skillCostume(SKILL_SKIN, kind)
   return `<g id="${id}" shape-rendering="crispEdges">${s}</g>`
 }
@@ -247,20 +287,23 @@ function agentDef(id: string) {
   const look = AGENT_LOOK[AGENT_SKIN]
   const shell = look.shell
   const visor = look.visor
-  let s = `<ellipse rx="12" ry="4" fill="#000" opacity=".18"/>`
-  s += px(-4.5, -2, 2.5, 2, '#5B5650') + px(2, -2, 2.5, 2, '#5B5650')
-  s += px(-4, -11, 8, 1, shell) + px(-5, -10, 10, 1, shell) + px(-6, -9, 12, 7, shell) + px(-6, -3, 12, 1, '#000', ' opacity=".16"')
-  s += px(-4, -11, 3, 1, '#FFFFFF', ' opacity=".35"') + px(-5.4, -9.4, 1, 3, '#FFFFFF', ' opacity=".2"')
-  s += px(-7, -6, 1, 2.5, shell) + px(6, -6, 1, 2.5, shell)
-  s += px(-4.5, -8.5, 9, 3.5, visor) + px(-4.5, -8.5, 9, 0.6, '#FFFFFF', ' opacity=".12"')
+  const crown = look.crown ?? -11
+  const stick = look.crown ? 1.4 : 3
+  let s = `<ellipse rx="12" ry="4" fill="#000" opacity=".2"/>`
+  s += inked([[-4.5, -2, 2.5, 2, '#5B5650'], [2, -2, 2.5, 2, '#5B5650'], [-4, -11, 8, 1, shell], [-5, -10, 10, 1, shell], [-6, -9, 12, 7, shell], [-7, -6, 1, 2.5, shell], [6, -6, 1, 2.5, shell]])
+  s += lit(-4.5, -2, 2.5, 0.5, 0.2) + lit(2, -2, 2.5, 0.5, 0.2)
+  s += lit(-4, -11, 3, 1, 0.45) + lit(-5.4, -9.4, 1, 3, 0.25) + dim(4.6, -9, 1.4, 6, 0.1) + dim(-6, -3, 12, 1, 0.16)
+  s += px(-4.5, -8.5, 9, 3.5, visor) + lit(-4.5, -8.5, 9, 0.6, 0.14) + lit(2.6, -8, 1.4, 0.6, 0.25)
   s += `<g fill="${look.eyes}">${px(-2.8, -7.5, 1.4, 1.4, look.eyes)}${px(1.4, -7.5, 1.4, 1.4, look.eyes)}` +
     `<animate attributeName="opacity" values="1;1;0;1" keyTimes="0;.92;.96;1" dur="4s" repeatCount="indefinite"/></g>`
   if (AGENT_SKIN === 'pirata') s += px(1, -8.2, 2.4, 2.2, '#111')
   // the chest panel takes the colour of the puesto the robot works in
-  s += px(-2, -4.6, 4, 2.2, 'currentColor') + px(-2, -4.6, 4, 0.5, '#FFFFFF', ' opacity=".35"')
-  s += px(-0.3, -14, 0.6, 3, '#8C857C')
-  s += `<rect x="${-1.2 * U}" y="${-16.2 * U}" width="${2.4 * U}" height="${2.4 * U}" fill="currentColor"><animate attributeName="opacity" values="1;.45;1" dur="1.6s" repeatCount="indefinite"/></rect>`
+  s += inked([[-2, -4.6, 4, 2.2, 'currentColor']]) + lit(-2, -4.6, 4, 0.5, 0.35)
   s += look.hat
+  // the antenna comes out of whatever the robot wears, so its currentColor tip is never hidden
+  s += inked([[-0.3, crown - stick, 0.6, stick, '#8C857C']]) + px(-1.7, crown - stick - 2.9, 3.4, 3.4, INK)
+  s += `<rect x="${-1.2 * U}" y="${(crown - stick - 2.4) * U}" width="${2.4 * U}" height="${2.4 * U}" fill="currentColor"><animate attributeName="opacity" values="1;.45;1" dur="1.6s" repeatCount="indefinite"/></rect>`
+  s += lit(-1.2, crown - stick - 2.4, 0.8, 0.8, 0.6)
   return `<g id="${id}" shape-rendering="crispEdges">${s}</g>`
 }
 
@@ -277,16 +320,15 @@ const COAT_COLORS: Record<Coat, { body: string; dark: string; eyes: string; patc
 function catDef(coat: Coat) {
   const c = COAT_COLORS[coat]
   const points = coat === 'siames' ? c.dark : c.body
-  let s = `<ellipse rx="9" ry="3" fill="#000" opacity=".16"/>`
-  s += px(-4, -2, 1, 2, c.dark) + px(2, -2, 1, 2, c.dark)
-  s += px(-4.5, -5, 8, 3, c.body)
+  let s = `<ellipse rx="9" ry="3" fill="#000" opacity=".18"/>`
+  s += inked([[-4, -2, 1, 2, c.dark], [2, -2, 1, 2, c.dark], [-4.5, -5, 8, 3, c.body], [3, -7, 3, 3, points], [3, -8, 1, 1, points], [5, -8, 1, 1, points],
+    [-6, -7, 1, 3, points], [-6, -8, 1, 1, shade(points, 1.2)]])
   if (c.patch) s += px(-3, -5, 2.5, 1.5, c.patch)
   if (c.patch2) s += px(0.5, -4.2, 2, 1.4, c.patch2)
   if (coat === 'naranja') s += px(-2, -5, 0.6, 3, c.dark) + px(0, -5, 0.6, 3, c.dark)
-  s += px(3, -7, 3, 3, points) + px(3, -8, 1, 1, points) + px(5, -8, 1, 1, points)
-  s += `<g class="cat-eyes">${px(4, -6, 0.6, 0.8, c.eyes)}${px(5.2, -6, 0.6, 0.8, c.eyes)}</g>`
-  s += px(-6, -7, 1, 3, points) + px(-6, -8, 1, 1, shade(points, 1.2))
-  if (coat === 'militar') s += px(2.6, -8.6, 3.8, 1.2, '#3F4A2A') + px(3, -9.4, 3, 0.8, '#4A5535')
+  s += lit(-4.5, -5, 7.5, 0.5, 0.22) + dim(-4.5, -2.5, 8, 0.5, 0.18) + lit(3, -7, 1, 0.5, 0.3) + px(3.4, -7.6, 0.4, 0.4, '#F2A0A0', ' opacity=".8"') + px(5.4, -7.6, 0.4, 0.4, '#F2A0A0', ' opacity=".8"')
+  s += `<g class="cat-eyes">${px(4, -6, 0.6, 0.8, c.eyes)}${px(5.2, -6, 0.6, 0.8, c.eyes)}</g>` + px(4.6, -5, 0.6, 0.4, '#E88A8A')
+  if (coat === 'militar') s += inked([[2.6, -8.6, 3.8, 1.2, '#3F4A2A'], [3, -9.4, 3, 0.8, '#4A5535']])
   return `<g id="pt-${coat}" shape-rendering="crispEdges">${s}</g>`
 }
 
@@ -758,20 +800,22 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
   out.push(wallDecor(W))
 
   const glows: string[] = []
-  const windowBack = (xa: number, xb: number) => {
-    const mid = (xa + xb) / 2
-    const glass = [iso(xa + 0.1, 0, 26), iso(xb - 0.1, 0, 26), iso(xb - 0.1, 0, 52), iso(xa + 0.1, 0, 52)] as [number, number][]
+  // one window on either wall: `at(u, z)` maps a position along the wall to the screen
+  const windowOn = (at: (u: number, z: number) => [number, number], ua: number, ub: number, sill: string) => {
+    const q = (a: number, b: number, za: number, zb: number) => [at(a, za), at(b, za), at(b, zb), at(a, zb)] as [number, number][]
+    const mid = (ua + ub) / 2
+    const glass = q(ua + 0.1, ub - 0.1, 26, 52)
     glows.push(poly(glass, '#FFD36B', ' class="win-glow"'))
-    return poly([iso(xa, 0, 24), iso(xb, 0, 24), iso(xb, 0, 54), iso(xa, 0, 54)], '#8F7A63') + poly(glass, 'url(#glass)') +
-      `<path d="M${pts([iso(mid, 0, 26)])}L${pts([iso(mid, 0, 52)])}M${pts([iso(xa + 0.1, 0, 39)])}L${pts([iso(xb - 0.1, 0, 39)])}" stroke="#8F7A63" stroke-width="2"/>`
+    // the sky's reflection: two slanted streaks across the glass
+    const streak = (u: number, w: number) => [at(u, 27), at(u + w, 27), at(u + w + 0.5, 51), at(u + 0.5, 51)] as [number, number][]
+    return poly(q(ua - 0.06, ub + 0.06, 23, 55), '#6E5C49') + poly(q(ua, ub, 24, 54), '#8F7A63') + poly(glass, 'url(#glass)') +
+      poly(streak(ua + 0.25, 0.35), '#FFFFFF', ' fill-opacity=".32"') + poly(streak(ua + 0.75, 0.12), '#FFFFFF', ' fill-opacity=".28"') +
+      poly(q(ua + 0.1, ub - 0.1, 49.5, 52), '#3B2A1C', ' fill-opacity=".15"') +
+      `<path d="M${pts([at(mid, 26)])}L${pts([at(mid, 52)])}M${pts([at(ua + 0.1, 39)])}L${pts([at(ub - 0.1, 39)])}" stroke="#8F7A63" stroke-width="2"/>` +
+      `<path d="M${pts([at(mid + 0.06, 26)])}L${pts([at(mid + 0.06, 52)])}" stroke="#C9B497" stroke-width=".8"/>` + sill
   }
-  const windowSide = (ya: number, yb: number) => {
-    const mid = (ya + yb) / 2
-    const glass = [iso(0, ya + 0.1, 26), iso(0, yb - 0.1, 26), iso(0, yb - 0.1, 52), iso(0, ya + 0.1, 52)] as [number, number][]
-    glows.push(poly(glass, '#FFD36B', ' class="win-glow"'))
-    return poly([iso(0, ya, 24), iso(0, yb, 24), iso(0, yb, 54), iso(0, ya, 54)], '#8F7A63') + poly(glass, 'url(#glass)') +
-      `<path d="M${pts([iso(0, mid, 26)])}L${pts([iso(0, mid, 52)])}M${pts([iso(0, ya + 0.1, 39)])}L${pts([iso(0, yb - 0.1, 39)])}" stroke="#8F7A63" stroke-width="2"/>`
-  }
+  const windowBack = (xa: number, xb: number) => windowOn((u, z) => iso(u, 0, z), xa, xb, box(xa - 0.12, 0, 21.5, xb - xa + 0.24, 0.22, 2.5, '#C9B497'))
+  const windowSide = (ya: number, yb: number) => windowOn((u, z) => iso(0, u, z), ya, yb, box(0, ya - 0.12, 21.5, 0.22, yb - ya + 0.24, 2.5, '#C9B497'))
   out.push(windowBack(1.2, 3.4), windowBack(8.6, 10.8), windowSide(2.2, 4.6), windowSide(D + 3, D + 5.4))
 
   // title floating outside the room, above the side wall and sheared to run parallel to it
@@ -779,10 +823,14 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     const [tx, ty] = iso(-0.2, y, z)
     return `<text transform="matrix(1,-0.5,0,1,${r(tx)},${r(ty)})" font-size="${size}" font-weight="700" fill="${fill}" text-anchor="middle" letter-spacing="${spacing}"${extra}>${esc(text)}</text>`
   }
-  out.push(sideText('SKILL LAB', H / 2 + 0.1, WALL_H + 13, 26, '#000000', 3, ' opacity=".35"'))
-  out.push(sideText('SKILL LAB', H / 2, WALL_H + 15, 26, '#D97757', 3))
-  out.push(sideText('laboratorio de skills', H / 2, WALL_H + 3, 9, '#A99C8B', 1.5))
-
+  // two brackets hold the letters over the roof edge
+  for (const y of [H / 2 - 3.9, H / 2 + 3.9]) out.push(`<path d="M${pts([iso(-0.2, y, WALL_H)])}L${pts([iso(-0.2, y, WALL_H + 8)])}" stroke="#6E6257" stroke-width="2.4"/>`)
+  out.push(`<defs><linearGradient id="title-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2A27F"/><stop offset=".55" stop-color="#D97757"/><stop offset="1" stop-color="#BF5B3F"/></linearGradient></defs>`)
+  out.push(sideText('SKILL LAB', H / 2 + 0.15, WALL_H + 11, 26, '#000000', 3, ' opacity=".25"'))
+  // a stacked extrusion gives the letters depth without a blur filter
+  for (const k of [2, 1]) out.push(sideText('SKILL LAB', H / 2, WALL_H + 15 - k * 0.9, 26, shade('#D97757', 0.62), 3))
+  out.push(sideText('SKILL LAB', H / 2, WALL_H + 15, 26, 'url(#title-fill)', 3, ' stroke="#FFF1E2" stroke-width=".6" stroke-opacity=".7"'))
+  out.push(sideText('laboratorio de skills', H / 2, WALL_H + 3, 9, '#8F7A63', 1.5))
   // floors
   const THEME_FLOOR: Partial<Record<Theme, string>> = {
     gym: '#C9CDD2', cafe: '#E3CBA8', arcade: '#34304A', military: '#9AA27A', smoking: '#B9AFA2',
