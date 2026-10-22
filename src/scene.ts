@@ -207,6 +207,7 @@ export type Skin = 'clasico' | 'pirata' | 'alien' | 'astronauta' | 'mago' | 'vaq
 export const SKINS: Skin[] = ['clasico', 'pirata', 'alien', 'astronauta', 'mago', 'vaquero', 'ninja', 'chef', 'vikingo']
 let SKILL_SKIN: Skin = 'clasico'
 let AGENT_SKIN: Skin = 'clasico'
+let DRONE_SKIN: Skin = 'clasico'
 
 const bubbleHelmet = (x: number, y: number, w: number, h: number, rx: number) =>
   `<rect x="${x * U}" y="${y * U}" width="${w * U}" height="${h * U}" rx="${rx * U}" fill="#CFE8F5" fill-opacity=".25" stroke="${INK}" stroke-width="2.6"/>` +
@@ -304,6 +305,41 @@ function spriteDef(id: string, kind: 'awake' | 'asleep', cycle = 0) {
 }
 
 // Claude sessions: a small dome robot, skill-sized but a different silhouette (two feet, visor, antenna).
+// Drones (sub-agents) have their own costume, drawn small: the body spans x -4..4 and y -12..-5, the rotor turns at -14.6.
+// `top` is where the mast starts (the top of the headgear); the band under the visor stays currentColor.
+const DRONE_LOOK: Record<Skin, { shell: string; visor: string; eyes: string; hat: string; top?: number }> = {
+  clasico: { shell: '#EFE6D6', visor: '#262B33', eyes: '#7FE3FF', hat: '' },
+  pirata: {
+    shell: '#E2D2B0', visor: '#262B33', eyes: '#FFD36B', top: -12.8,
+    hat: inked([[-4.2, -12.8, 8.4, 1.8, '#C8423A'], [4.2, -12.2, 1.2, 0.8, '#C8423A'], [4.8, -11.4, 0.8, 1.4, '#A8322C']]) +
+      lit(-3, -12.8, 0.8, 1.8, 0.7) + lit(-0.4, -12.8, 0.8, 1.8, 0.7) + lit(2.2, -12.8, 0.8, 1.8, 0.7) + px(-1.6, -10.6, 1.4, 1.8, '#111'),
+  },
+  alien: {
+    shell: '#A8E890', visor: '#1E2B1A', eyes: '#9BFF6B',
+    hat: inked([[-3.2, -13.4, 0.5, 1.6, '#5FCB4F'], [2.7, -13.4, 0.5, 1.6, '#5FCB4F'], [-3.6, -14.2, 1.2, 1, '#9BFF6B'], [2.4, -14.2, 1.2, 1, '#9BFF6B']]),
+  },
+  astronauta: { shell: '#F7F7F2', visor: '#C9A23A', eyes: '#FFF3C2', top: -13, hat: bubbleHelmet(-5, -13, 10, 7.4, 3) },
+  mago: {
+    shell: '#D9CCF0', visor: '#262B33', eyes: '#FFE34F', top: -14.4,
+    hat: `<path d="M${-3.6 * U} ${-11.8 * U} L${3.6 * U} ${-11.8 * U} L${0.4 * U} ${-14.4 * U} Z" fill="#5E3FA3" stroke="${INK}" stroke-width="1" stroke-linejoin="round"/>` +
+      inked([[-4.6, -12.2, 9.2, 0.7, '#4A2F85']]) + px(0.8, -13.2, 0.7, 0.7, '#FFE34F'),
+  },
+  vaquero: {
+    shell: '#E8D3B0', visor: '#3B2A1C', eyes: '#FFD36B', top: -14,
+    hat: inked([[-5.6, -12.4, 11.2, 0.8, '#7A4E2D'], [-2.6, -14, 5.2, 1.6, '#8A5A3B']]) + px(-2.6, -12.8, 5.2, 0.4, '#3B2A1C') + dim(-0.6, -14, 1.2, 0.4, 0.3),
+  },
+  ninja: {
+    shell: '#3A3634', visor: '#111111', eyes: '#FF4F4F',
+    hat: inked([[-4, -11.4, 8, 0.9, '#C8423A'], [4, -11.2, 1.6, 0.6, '#C8423A'], [5, -10.6, 1.2, 0.6, '#A8322C']]),
+  },
+  chef: { shell: '#F4F1EA', visor: '#262B33', eyes: '#7FE3FF', top: -14.2, hat: inked([[-2.4, -13.2, 4.8, 1.4, '#FFFFFF'], [-3.2, -14.2, 6.4, 1.2, '#FFFFFF']]) + px(-2.4, -12.2, 4.8, 0.4, '#D8D4CC') },
+  vikingo: {
+    shell: '#D8CBB3', visor: '#262B33', eyes: '#7FE3FF', top: -13.2,
+    hat: inked([[-5.2, -12.6, 1.2, 0.8, '#F4EBDD'], [-5.6, -13.8, 0.8, 1.2, '#F4EBDD'], [4, -12.6, 1.2, 0.8, '#F4EBDD'], [4.8, -13.8, 0.8, 1.2, '#F4EBDD'], [-4, -13.2, 8, 1.6, '#8C8F94']]) +
+      px(-4, -11.8, 8, 0.4, '#6E7177') + lit(-3, -13, 1.6, 0.5, 0.45),
+  },
+}
+
 // `cycle` > 0 draws the strolling version: alternating feet, a bob per step and the eyes looking ahead (right);
 // `still` is the resting one, with no blink or beacon (an idle robot costs no animation)
 function agentDef(id: string, cycle = 0, still = false) {
@@ -828,16 +864,18 @@ export type SceneInput = {
   services?: Record<string, ServiceStatus>
   skillSkin?: Skin
   agentSkin?: Skin
+  droneSkin?: Skin
   // 'auto', 'off' or a season id from season.ts
   season?: string
 }
 
-export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ name: 'Michi', coat: 'gris' }], night = false, services = {}, skillSkin = 'clasico', agentSkin = 'clasico', season = 'auto' }: SceneInput) {
+export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ name: 'Michi', coat: 'gris' }], night = false, services = {}, skillSkin = 'clasico', agentSkin = 'clasico', droneSkin = 'clasico', season = 'auto' }: SceneInput) {
   const { rooms, W } = layout()
   OX = Y_MAX * (TW / 2) + 40
   OY = 150
   SKILL_SKIN = SKINS.includes(skillSkin) ? skillSkin : 'clasico'
   AGENT_SKIN = SKINS.includes(agentSkin) ? agentSkin : 'clasico'
+  DRONE_SKIN = SKINS.includes(droneSkin) ? droneSkin : 'clasico'
   const VIEW_W = Math.ceil((W + Y_MAX) * (TW / 2) + 80)
   const VIEW_H = Math.ceil((W + Y_MAX) * (TH / 2) + OY + 30)
   const roomById = (id: string) => rooms.find(rm => rm.id === id) ?? rooms.find(rm => rm.kind === 'lab')!
@@ -1194,25 +1232,27 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     }
   })
 
-  // Sub-agents: a hovering mini drone with a spinning rotor; the band takes the puesto's colour, the shell follows the robots' costume.
+  // Sub-agents: a hovering mini drone with a spinning rotor; the band takes the puesto's colour, the rest follows the drones' own costume.
   // The hover lives in the def, so a drone costs no animation of its own; three phases keep neighbours out of step.
   const HOVER = 1.2
   const subagentDef = (id: string, phase: number) => {
-    const look = AGENT_LOOK[AGENT_SKIN]
+    const look = DRONE_LOOK[DRONE_SKIN]
     const ease = `keyTimes="0;.5;1" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1" dur="${HOVER}s" begin="${r(-phase * HOVER)}s" repeatCount="indefinite"`
     // the shadow stays on the floor
     let s = `<ellipse rx="6.4" ry="2" fill="#000" opacity=".16"/>`
-    let d = px(-0.4, -14.4, 0.8, 2.4, '#5B5650')
-    // a faint disc for the blur, and the blade: four turns per bob, so both loops restart together
-    d += `<ellipse cy="${-14.6 * U}" rx="${5.4 * U}" ry="1.4" fill="#FFFFFF" opacity=".28"/>`
-    d += `<g transform="translate(0,${-14.6 * U})"><g>${px(-5, -0.4, 10, 0.8, '#3B3631')}${px(-5, -0.4, 2, 0.8, '#FFFFFF', ' opacity=".35"')}` +
-      `<animateTransform attributeName="transform" type="scale" values="1 1;.12 1;-1 1;.12 1;1 1" dur="${HOVER / 4}s" repeatCount="indefinite"/></g></g>`
-    d += px(-5.4, -9.6, 1.4, 2.2, '#5B5650') + px(4, -9.6, 1.4, 2.2, '#5B5650')
-    d += px(-3, -12, 6, 1, look.shell) + px(-4, -11, 8, 5, look.shell) + px(-3, -6, 6, 1, look.shell) + px(-4, -7, 8, 1, '#000', ' opacity=".14"')
-    d += px(-3, -11.6, 2, 0.8, '#FFFFFF', ' opacity=".4"')
+    // inked like the robots, so the little body still reads against any floor
+    let d = inked([[-5.4, -9.6, 1.4, 2.2, '#5B5650'], [4, -9.6, 1.4, 2.2, '#5B5650'], [-3, -12, 6, 1, look.shell], [-4, -11, 8, 5, look.shell], [-3, -6, 6, 1, look.shell]])
+    d += px(-4, -7, 8, 1, '#000', ' opacity=".14"') + px(-3, -11.6, 2, 0.8, '#FFFFFF', ' opacity=".4"')
     d += px(-4, -8.6, 8, 1.3, 'currentColor')
     d += px(-1.6, -10.6, 3.2, 1.8, look.visor) + px(-0.7, -10.2, 1.4, 1, look.eyes)
     d += px(-1, -5, 2, 0.8, look.eyes, ' opacity=".5"')
+    d += look.hat
+    // the mast comes out of the headgear; then a faint disc for the blur and the blade, four turns per bob so both loops restart together
+    const top = look.top ?? -12
+    if (top > -14.4) d += px(-0.4, -14.4, 0.8, top + 14.4, '#5B5650')
+    d += `<ellipse cy="${-14.6 * U}" rx="${5.4 * U}" ry="1.4" fill="#FFFFFF" opacity=".28"/>`
+    d += `<g transform="translate(0,${-14.6 * U})"><g>${px(-5, -0.4, 10, 0.8, '#3B3631')}${px(-5, -0.4, 2, 0.8, '#FFFFFF', ' opacity=".35"')}` +
+      `<animateTransform attributeName="transform" type="scale" values="1 1;.12 1;-1 1;.12 1;1 1" dur="${HOVER / 4}s" repeatCount="indefinite"/></g></g>`
     s += `<g>${d}<animateTransform attributeName="transform" type="translate" values="0 0;0 -3;0 0" ${ease}/></g>`
     return `<g id="${id}" shape-rendering="crispEdges">${s}</g>`
   }
