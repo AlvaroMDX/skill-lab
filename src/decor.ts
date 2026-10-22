@@ -1,5 +1,5 @@
 import type { RoomGeom } from './scene'
-import { D, H, WALL_H, hash, iso, pts, r } from './scene'
+import { D, H, WALL_H, hash, iso, layout, pts, r } from './scene'
 
 type P = [number, number]
 
@@ -43,11 +43,33 @@ function planks(b: Bounds, seed: string, tint?: string) {
     strokePath(seams, '#3B2A1C', 0.2) + strokePath(light, '#FFFFFF', 0.16) + strokePath(joints, '#3B2A1C', 0.22)
 }
 
-function tiles(b: Bounds, size: number, grout: string, groutOpacity: number, width = 1) {
+// Grout lines; rows count from the far wall (y0 on the top row, y1 on the bottom one), so a size that doesn't divide
+// the room leaves its cut row by the door in both rows, never against the outer wall.
+function tiles(b: Bounds, size: number, grout: string, groutOpacity: number, width = 1, fromEnd = false) {
   let d = ''
   for (let x = b.x0 + size; x < b.x1 - 0.01; x += size) d += seg(x, b.y0, x, b.y1)
-  for (let y = b.y0 + size; y < b.y1 - 0.01; y += size) d += seg(b.x0, y, b.x1, y)
+  if (fromEnd) for (let y = b.y1 - size; y > b.y0 + 0.01; y -= size) d += seg(b.x0, y, b.x1, y)
+  else for (let y = b.y0 + size; y < b.y1 - 0.01; y += size) d += seg(b.x0, y, b.x1, y)
   return strokePath(d, grout, groutOpacity, width)
+}
+
+// Soft light for a room: a shadow fading out from the far wall and a faint pool of light in the middle.
+function lighting(room: RoomGeom) {
+  const id = room.id.replace(/[^\w-]/g, '_')
+  const far = room.top ? room.y0 : room.y1
+  const into = room.top ? 1 : -1
+  // a gradient drawn in screen space along the normal of the wall's line on screen, so its bands follow the wall
+  const [ax, ay] = iso(room.x0, far)
+  const [bx, by] = iso(room.x0, far + into * 1.1)
+  const [nx, ny] = [-0.447, 0.894]
+  const t = (bx - ax) * nx + (by - ay) * ny
+  const [cx, cy] = iso((room.x0 + room.x1) / 2, (room.y0 + room.y1) / 2)
+  const rx = (room.x1 - room.x0) * 9
+  return `<defs><linearGradient id="ao-${id}" gradientUnits="userSpaceOnUse" x1="${r(ax)}" y1="${r(ay)}" x2="${r(ax + nx * t)}" y2="${r(ay + ny * t)}">` +
+    `<stop offset="0" stop-color="#2A1E14" stop-opacity=".16"/><stop offset="1" stop-color="#2A1E14" stop-opacity="0"/></linearGradient>` +
+    `<radialGradient id="pool-${id}"><stop offset="0" stop-color="#FFF8EA" stop-opacity=".14"/><stop offset="1" stop-color="#FFF8EA" stop-opacity="0"/></radialGradient></defs>` +
+    `<path d="${quad(room.x0, Math.min(far, far + into * 1.1), room.x1, Math.max(far, far + into * 1.1))}" fill="url(#ao-${id})" pointer-events="none"/>` +
+    `<ellipse cx="${r(cx)}" cy="${r(cy)}" rx="${r(rx)}" ry="${r(rx / 2)}" fill="url(#pool-${id})" pointer-events="none"/>`
 }
 
 // Some tiles slightly lighter or darker than the rest, so a big floor doesn't look flat.
@@ -112,7 +134,12 @@ function carpet(b: Bounds, motif: [string, string], border: string) {
 
 // Floor pattern for a room (planks, tiles, carpet…), drawn over its base colour `fill`.
 // null keeps the generic tile grid and checker.
-export function floorDecor(room: RoomGeom, _fill: string): string | null {
+export function floorDecor(room: RoomGeom, fill: string): string | null {
+  const base = pattern(room, fill)
+  return base ? base + lighting(room) : base
+}
+
+function pattern(room: RoomGeom, _fill: string): string | null {
   const b: Bounds = { x0: room.x0, x1: room.x1, y0: room.y0, y1: room.y1 }
   const seed = room.id
   if (room.kind === 'patio') return null
@@ -129,7 +156,7 @@ export function floorDecor(room: RoomGeom, _fill: string): string | null {
     case 'arcade':
       return carpet(b, ['#FF4FA3', '#4FE3FF'], '#FFD36B')
     case 'military':
-      return camo(b, seed) + tiles(b, 3, '#2F3522', 0.3, 1.2) + specks(b, 1.5, seed, 0.06, [['#2F3522', 0.3]])
+      return camo(b, seed) + tiles(b, 3, '#2F3522', 0.3, 1.2, !room.top) + specks(b, 1.5, seed, 0.06, [['#2F3522', 0.3]])
     case 'space':
     case 'kitchen':
     case 'beach':
@@ -186,9 +213,17 @@ export function wallDecor(W: number) {
   out.push(strokePath(stripes, '#FFFFFF', 0.28, 1.4))
   // wainscot: wood-tinted panels under a chair rail
   out.push(`<path d="${polyD(wallQuadBack(0, W, 6, 20))}${polyD(wallQuadSide(0, H, 6, 20))}" fill="#C9A882" fill-opacity=".42" pointer-events="none"/>`)
+  // panels fitted to each room's stretch of wall, so none is cut in two by a partition
   let panels = ''
-  for (let x = 0.75; x < W; x += 1.5) panels += polyD(wallQuadBack(x - 0.6, x + 0.6, 8.5, 17.5))
-  for (let y = 0.75; y < H; y += 1.5) panels += polyD(wallQuadSide(y - 0.6, y + 0.6, 8.5, 17.5))
+  const fit = (a: number, b: number, quad: (u0: number, u1: number) => P[]) => {
+    const n = Math.max(1, Math.round((b - a) / 1.5))
+    const step = (b - a) / n
+    for (let k = 0; k < n; k++) panels += polyD(quad(a + k * step + 0.15, a + (k + 1) * step - 0.15))
+  }
+  const cuts = [...new Set([0, ...layout().rooms.filter(rm => rm.top).map(rm => rm.x1), W])].sort((a, b) => a - b)
+  cuts.slice(1).forEach((x, k) => fit(cuts[k]!, x, (u0, u1) => wallQuadBack(u0, u1, 8.5, 17.5)))
+  fit(0, D, (u0, u1) => wallQuadSide(u0, u1, 8.5, 17.5))
+  fit(D + 1, H, (u0, u1) => wallQuadSide(u0, u1, 8.5, 17.5))
   out.push(strokePath(panels, '#8F6A48', 0.35))
   out.push(`<path d="${polyD(wallQuadBack(0, W, 20, 22.5))}${polyD(wallQuadSide(0, H, 20, 22.5))}" fill="#A27552" pointer-events="none"/>`)
   out.push(strokePath(seg(0, 0, W, 0, 22.5) + seg(0, 0, 0, H, 22.5), '#FFFFFF', 0.4))
