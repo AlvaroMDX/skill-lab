@@ -71,13 +71,16 @@
     const rf = outside(from) ? null : roomAt(from)
     const rt = roomAt(to)
     const pts = [from]
-    if (!(rf && rf === rt)) {
+    // street to street (a cat rejoining the sidewalk) stays outside instead of cutting through the building
+    if (outside(from) && outside(to)) pts.push({ x: from.x, y: to.y })
+    else if (!(rf && rf === rt)) {
       if (outside(from)) pts.push({ x: geo.W + 0.8, y: from.y }, { x: geo.W + 0.8, y: cy }, { x: geo.W - 0.4, y: cy })
       else if (rf && rf.kind === 'dorm') pts.push({ x: geo.aisle, y: from.y }, { x: geo.aisle, y: cy })
       else if (rf) pts.push({ x: doorX(rf), y: entryY(rf) }, { x: doorX(rf), y: cy })
       else pts.push({ x: from.x, y: cy })
       if (rt && rt.kind === 'dorm') pts.push({ x: geo.aisle, y: cy }, { x: geo.aisle, y: to.y })
       else if (rt) pts.push({ x: doorX(rt), y: cy }, { x: doorX(rt), y: entryY(rt) }, { x: rt.x1 - 0.5, y: entryY(rt) }, { x: rt.x1 - 0.5, y: to.y })
+      else if (outside(to)) pts.push({ x: geo.W - 0.4, y: cy }, { x: geo.W + 0.8, y: cy }, { x: geo.W + 0.8, y: to.y })
     }
     pts.push(to)
     return pts.map(p => iso(p.x, p.y))
@@ -244,11 +247,12 @@
     return scene.querySelector(kind === 'skill' ? `[data-skill="${id}"]` : `[data-session="${id}"]`)
   }
   const hideHeld = () => held.forEach(k => findEl(k)?.style.setProperty('visibility', 'hidden'))
-  const release = key => {
+  const release = (key, seamless = false) => {
     held.delete(key)
     const el = findEl(key)
     if (!el) return
     el.style.removeProperty('visibility')
+    if (seamless) return
     el.classList.add('reappear')
     setTimeout(() => el.classList.remove('reappear'), 500)
   }
@@ -341,9 +345,58 @@
     setTimeout(() => walk(g, path, () => finish(g)), 420)
   }
 
-  function finish(g) {
+  function finish(g, seamless = false) {
     g.ghost.remove()
-    release(g.key)
+    release(g.key, seamless)
+  }
+
+  const posOf = el => {
+    const m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(el.getAttribute('transform') || '')
+    return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 0, y: 0 }
+  }
+  // where the hidden scene cat is right now: its patrol keeps running while the ghost is out
+  function petPos(key) {
+    const m = findEl(key)?.getScreenCTM?.()
+    return m ? scenePoint({ clientX: m.e, clientY: m.f }) : null
+  }
+
+  // a loose cat walks back to its patrolling self and swaps with it on the spot, so it never jumps
+  function rejoin(g) {
+    if (!g.ghost.isConnected) return
+    const to = petPos(g.key)
+    if (!to) return finish(g)
+    g.ghost.setAttribute('class', 'carry pet')
+    g.ghost.querySelector('.props').innerHTML = ''
+    const from = posOf(g.ghost)
+    const path = route(tileOf(from), tileOf(to))
+    path[0] = from
+    walk(g, path, () => chase(g))
+  }
+
+  // the patrol moved on while we walked: catch up in a straight line, or route again if it turned a corner
+  function chase(g) {
+    g.ghost.classList.add('walking')
+    let last = performance.now()
+    const step = now => {
+      if (!g.ghost.isConnected) return
+      const to = petPos(g.key)
+      if (!to) return finish(g)
+      const p = posOf(g.ghost)
+      const dx = to.x - p.x
+      const dy = to.y - p.y
+      const d = Math.hypot(dx, dy)
+      const max = (WALK_SPEED * (now - last)) / 1000
+      last = now
+      if (d <= Math.max(max, 1)) {
+        place(g.ghost, to)
+        return finish(g, true)
+      }
+      if (d > 60) return rejoin(g)
+      if (Math.abs(dx) > 0.5) setFace(g.ghost, Math.sign(dx))
+      place(g.ghost, { x: p.x + (dx / d) * max, y: p.y + (dy / d) * max })
+      requestAnimationFrame(step)
+    }
+    requestAnimationFrame(step)
   }
 
   function walk(g, path, done, speed = WALK_SPEED) {
@@ -434,7 +487,13 @@
       place(g.ghost, land)
       g.ghost.classList.add('popout')
       beep([880, 660, 990], 0.08)
-      setTimeout(() => finish(g), 1300)
+      // shakes the rubbish off, then walks back to its round
+      setTimeout(() => {
+        g.ghost.classList.replace('popout', 'shakeoff')
+        g.ghost.querySelector('.props').innerHTML = '<g class="p-crumbs"><rect x="-9" y="-12" width="2" height="2" fill="#8C857C"/><rect x="8" y="-14" width="2" height="2" fill="#6E6A66"/><rect x="-2" y="-17" width="2" height="1.6" fill="#B9B2A8"/></g>'
+        beep([1200, 1000, 1200], 0.05)
+      }, 1150)
+      setTimeout(() => rejoin(g), 1900)
     }, 1500)
   }
 
@@ -478,8 +537,7 @@
       props: '<ellipse class="p-lick" cx="11" cy="-6" rx="1.6" ry="1" fill="#F2A3A3"/>',
     },
     street: {
-      text: '🚗 ¡bip bip!', cls: 'r-scared', ms: 2400, sound: [880, 440, 880, 440],
-      props: '<g class="p-car"><rect x="-14" y="10" width="28" height="9" rx="3" fill="#C8423A"/><rect x="-8" y="5" width="15" height="6" rx="2" fill="#E2685C"/><rect x="-6" y="6" width="5" height="4" fill="#CFE8F5"/><rect x="0" y="6" width="5" height="4" fill="#CFE8F5"/><circle cx="-8" cy="19" r="3" fill="#222"/><circle cx="8" cy="19" r="3" fill="#222"/><rect x="12" y="12" width="3" height="2" fill="#FFE34F"/></g>',
+      text: '', cls: 'r-street', ms: 0, sound: [660], props: '', run: (g, at, done) => passCar(g, at, done),
     },
     smoking: {
       text: '😮‍💨 ¡cof, cof!', cls: 'r-cough', ms: 2600, sound: [220, 196, 220, 196],
@@ -581,14 +639,75 @@
     g.ghost.classList.add('react', r.cls)
     beep(r.sound, 0.09)
     unlock(`r-${zone === 'joseluis' ? 'smoking' : REACTIONS[zone] ? zone : 'corridor'}`)
-    const leave = () => {
-      g.ghost.classList.add('leaving')
-      setTimeout(() => finish(g), 380)
-    }
+    const leave = () => rejoin(g)
+    if (r.run) return r.run(g, drop, leave)
     if (!r.move) return setTimeout(leave, r.ms)
     // the nyan cat dashes along, rainbow and all, in the way it faces
     const dir = Number(g.ghost.dataset.dir || 1)
     setTimeout(() => walk(g, [drop, { x: drop.x + dir * r.move, y: drop.y }], leave, 60), 350)
+  }
+
+  // the street scare: a car comes down the kerb lane, brakes and swerves with a honk, the cat jumps, the car drives off
+  const CAR_LANE = 2.6
+  const CAR_SWERVE = 3.6
+  // atan(9 / 18): the road's slope on screen, so a side-view car sits along it
+  const CAR_SKEW = 26.57
+  const CAR_SHAPE =
+    '<rect x="-18" y="-1.5" width="36" height="4" rx="2" fill="#000" opacity=".22"/>' +
+    '<path d="M-9 -10 L-6 -16 H5 L9 -10 Z" fill="#E2685C"/><path d="M-7.5 -10.5 L-5.3 -15 H-1 V-10.5 Z" fill="#CFE8F5"/><path d="M.5 -10.5 V-15 H4.4 L7.3 -10.5 Z" fill="#CFE8F5"/>' +
+    '<rect x="-17" y="-10.5" width="34" height="7.5" rx="2" fill="#C8423A"/><rect x="-.4" y="-10" width=".8" height="6" fill="#A9352E"/><rect x="-17" y="-4.6" width="34" height="1.5" fill="#8E2F29"/>' +
+    '<rect x="15" y="-9" width="2.2" height="2" fill="#FFE34F"/><rect x="-17.2" y="-9" width="1.6" height="2" fill="#FF6B5E"/>' +
+    '<circle cx="-10" cy="-3" r="3" fill="#222"/><circle cx="10" cy="-3" r="3" fill="#222"/><circle cx="-10" cy="-3" r="1.1" fill="#8C8C8C"/><circle cx="10" cy="-3" r="1.1" fill="#8C8C8C"/>'
+  const smooth = t => {
+    const k = Math.min(1, Math.max(0, t))
+    return k * k * (3 - 2 * k)
+  }
+  function passCar(g, at, done) {
+    const catX = tileOf(at).x
+    const car = document.createElementNS(SVG_NS, 'g')
+    car.setAttribute('class', 'car')
+    car.innerHTML = `<g transform="skewY(${CAR_SKEW})"><g class="car-body">${CAR_SHAPE}</g></g><g class="honk"><text y="-24" text-anchor="middle">¡PIIII!</text></g>`
+    overlay.appendChild(car)
+    setFace(g.ghost, -1)
+    let x = -6
+    let v = 15
+    let last = performance.now()
+    let honked = false
+    let left = false
+    const step = now => {
+      if (!car.isConnected) return
+      const dt = Math.min(0.05, (now - last) / 1000)
+      last = now
+      const gap = catX - x
+      v += ((gap > 6 ? 15 : gap > -2 ? 4 : 20) - v) * Math.min(1, dt * 5)
+      x += v * dt
+      car.classList.toggle('brake', gap < 6 && gap > -1)
+      if (!honked && gap < 4.5) {
+        honked = true
+        car.classList.add('honking')
+        beep([880, 440, 880, 440], 0.09)
+        setTimeout(() => {
+          if (!g.ghost.isConnected) return
+          const alert = g.ghost.querySelector('.alert')
+          alert.textContent = '🙀 ¡bip bip!'
+          alert.style.animation = 'none'
+          void alert.getBBox()
+          alert.style.removeProperty('animation')
+          g.ghost.classList.add('r-scared')
+          beep([1047, 1319], 0.06)
+        }, 120)
+      }
+      // the car eases into the far lane round the cat and back into its own
+      const swerve = smooth((x - catX + 5) / 4) * (1 - smooth((x - catX - 3) / 4))
+      place(car, iso(x, geo.H + CAR_LANE + (CAR_SWERVE - CAR_LANE) * swerve))
+      if (!left && gap < -4) {
+        left = true
+        setTimeout(done, 500)
+      }
+      if (x > geo.W + 6) return car.remove()
+      requestAnimationFrame(step)
+    }
+    requestAnimationFrame(step)
   }
 
   // 15 clicks on a camouflaged cat, or on any cat inside a barracks, call in the tanks
