@@ -921,12 +921,70 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     if (room.kind !== 'lab') return
     const f = furnish(room, labById(room.id), busy.has(room.id))
     furnished.set(room.id, f)
+    // racks stand against a wall, behind the room's furniture
+    out.push(racks(room, labById(room.id), services))
     out.push(f.svg)
-    // top puestos get their racks after the bunks, which are drawn later and would cover the first one
-    if (!room.top) out.push(racks(room, labById(room.id), services))
   }
 
   // painter's order, back to front: wall signs, top rooms, plants, then the hanging signs and the bottom rooms in front of them
+  // the dorm goes before the top puestos: everything in them stands in front of the bunks
+  // ---------- characters ----------
+
+  const t = (ms: number) => (now - ms) / 1000
+  // by day a third of the idle skills (a different third each day) go out for a walk instead of napping
+  const strolling = (skill: string) => !night && (hash(skill) + dayIndex) % 3 === 0
+  const sleeperAt = new Map<number, string>()
+  const strollers: string[] = []
+  roster.forEach((skill, i) => {
+    const c = crew[skill]
+    if (c?.lab) return
+    const returning = c?.from && t(c.since) < 30
+    if (!returning && strolling(skill)) strollers.push(skill)
+    else sleeperAt.set(i, skill)
+  })
+
+  const returnPath = (bedIndex: number, fromLab: string) => {
+    const room = roomById(fromLab)
+    return screenPath(walkPath(bedSpot(bedIndex).front, room, { x: room.x1 - 0.5, y: entryY(room) }).reverse())
+  }
+
+  const sleeper = (skill: string, i: number) => {
+    const c = crew[skill]
+    const spot = bedSpot(i)
+    const color = colorOf(skill)
+    let appearIn = 0
+    if (c && !c.lab && c.from) {
+      const back = returnPath(i, c.from)
+      if (t(c.since) < back.dur) appearIn = back.dur - t(c.since)
+    }
+    const open = `<g data-skill="${esc(skill)}" data-home="${r(spot.front.x)},${r(spot.front.y)}" data-color="${color}" data-asleep="1" style="cursor:pointer"${appearIn > 0 ? ` opacity="0"><set attributeName="opacity" to="1" begin="${r(appearIn)}s" fill="freeze"/` : ''}>`
+    const title = `<title>${esc(skill)} · durmiendo${c?.uses ? ` · ${c.uses} usos` : ''}</title>`
+    if (spot.bunk) {
+      const b = spot.bunk
+      const z = BED_LEVEL_Z[spot.level ?? 0]!
+      const [sx, sy] = iso(b.x + BUNK_W / 2, b.y + 0.55, z)
+      const zz = r((hash(skill) % 30) / 10)
+      return (
+        `${open}${title}${useSprite('cs', color, sx, sy, 0.75)}<use href="#bl" style="color:${color}" ${at(b.x, b.y, z)}/>` +
+        `<text x="${r(sx + 10)}" font-size="8" fill="#8C7A66" opacity="0">z<animate attributeName="opacity" values="0;1;0" dur="3s" begin="${zz}s" repeatCount="indefinite"/><animate attributeName="y" values="${r(sy - 12)};${r(sy - 24)}" dur="3s" begin="${zz}s" repeatCount="indefinite"/></text><g ${tr([sx, sy])}>${label(skill, -16, 8)}</g></g>`
+      )
+    }
+    const f = spot.floor!
+    const [sx, sy] = iso(f.x, f.y)
+    return `${open}${title}${box(f.x - 0.4, f.y - 0.25, 0, 0.8, 0.5, 3, shade(color, 1.3))}${useSprite('cs', color, sx, sy - 2, 0.7)}</g>`
+  }
+
+  BUNKS.forEach((b, bi) => {
+    out.push(`<use href="#b1" ${at(b.x, b.y)}/>`)
+    const low = sleeperAt.get(bi * 2)
+    if (low) out.push(sleeper(low, bi * 2))
+    out.push(`<use href="#b2" ${at(b.x, b.y)}/>`)
+    const high = sleeperAt.get(bi * 2 + 1)
+    if (high) out.push(sleeper(high, bi * 2 + 1))
+    out.push(`<use href="#b3" ${at(b.x, b.y)}/>`)
+  })
+  for (const [i, skill] of sleeperAt) if (i >= BUNKS.length * 2) out.push(sleeper(skill, i))
+
   rooms.filter(rm => rm.top && rm.kind !== 'dorm').forEach(drawSign)
   rooms.filter(rm => rm.top).forEach(drawRoom)
   const plants: Pt[] = [{ x: W - 0.95, y: D + 0.05 }]
@@ -984,63 +1042,6 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     )
   })
 
-  // ---------- characters ----------
-
-  const t = (ms: number) => (now - ms) / 1000
-  // by day a third of the idle skills (a different third each day) go out for a walk instead of napping
-  const strolling = (skill: string) => !night && (hash(skill) + dayIndex) % 3 === 0
-  const sleeperAt = new Map<number, string>()
-  const strollers: string[] = []
-  roster.forEach((skill, i) => {
-    const c = crew[skill]
-    if (c?.lab) return
-    const returning = c?.from && t(c.since) < 30
-    if (!returning && strolling(skill)) strollers.push(skill)
-    else sleeperAt.set(i, skill)
-  })
-
-  const returnPath = (bedIndex: number, fromLab: string) => {
-    const room = roomById(fromLab)
-    return screenPath(walkPath(bedSpot(bedIndex).front, room, { x: room.x1 - 0.5, y: entryY(room) }).reverse())
-  }
-
-  const sleeper = (skill: string, i: number) => {
-    const c = crew[skill]
-    const spot = bedSpot(i)
-    const color = colorOf(skill)
-    let appearIn = 0
-    if (c && !c.lab && c.from) {
-      const back = returnPath(i, c.from)
-      if (t(c.since) < back.dur) appearIn = back.dur - t(c.since)
-    }
-    const open = `<g data-skill="${esc(skill)}" data-home="${r(spot.front.x)},${r(spot.front.y)}" data-color="${color}" data-asleep="1" style="cursor:pointer"${appearIn > 0 ? ` opacity="0"><set attributeName="opacity" to="1" begin="${r(appearIn)}s" fill="freeze"/` : ''}>`
-    const title = `<title>${esc(skill)} · durmiendo${c?.uses ? ` · ${c.uses} usos` : ''}</title>`
-    if (spot.bunk) {
-      const b = spot.bunk
-      const z = BED_LEVEL_Z[spot.level ?? 0]!
-      const [sx, sy] = iso(b.x + BUNK_W / 2, b.y + 0.55, z)
-      const zz = r((hash(skill) % 30) / 10)
-      return (
-        `${open}${title}${useSprite('cs', color, sx, sy, 0.75)}<use href="#bl" style="color:${color}" ${at(b.x, b.y, z)}/>` +
-        `<text x="${r(sx + 10)}" font-size="8" fill="#8C7A66" opacity="0">z<animate attributeName="opacity" values="0;1;0" dur="3s" begin="${zz}s" repeatCount="indefinite"/><animate attributeName="y" values="${r(sy - 12)};${r(sy - 24)}" dur="3s" begin="${zz}s" repeatCount="indefinite"/></text><g ${tr([sx, sy])}>${label(skill, -16, 8)}</g></g>`
-      )
-    }
-    const f = spot.floor!
-    const [sx, sy] = iso(f.x, f.y)
-    return `${open}${title}${box(f.x - 0.4, f.y - 0.25, 0, 0.8, 0.5, 3, shade(color, 1.3))}${useSprite('cs', color, sx, sy - 2, 0.7)}</g>`
-  }
-
-  BUNKS.forEach((b, bi) => {
-    out.push(`<use href="#b1" ${at(b.x, b.y)}/>`)
-    const low = sleeperAt.get(bi * 2)
-    if (low) out.push(sleeper(low, bi * 2))
-    out.push(`<use href="#b2" ${at(b.x, b.y)}/>`)
-    const high = sleeperAt.get(bi * 2 + 1)
-    if (high) out.push(sleeper(high, bi * 2 + 1))
-    out.push(`<use href="#b3" ${at(b.x, b.y)}/>`)
-  })
-  for (const [i, skill] of sleeperAt) if (i >= BUNKS.length * 2) out.push(sleeper(skill, i))
-  for (const room of rooms.filter(rm => rm.top && rm.kind === 'lab')) out.push(racks(room, labById(room.id), services))
 
   const slotsUsed = new Map<string, number>()
   const layer: { depth: number; svg: string }[] = []

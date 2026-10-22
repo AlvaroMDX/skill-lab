@@ -1,5 +1,8 @@
 # Cambios
 
+## 1.0.1 — 2026-10-22
+- Los servidores se pintan contra la pared, detrás de los muebles de su puesto: ya no tapan la diana y la bandera del cuartel, y las literas tampoco los tapan a ellos.
+
 ## 1.0.0 — 2026-10-22
 - Seis temas nuevos de puesto: invernadero, estudio de música, estación espacial, cocina, chiringuito y casino.
 - Cinco mundos alrededor del edificio: ciudad, playa, bosque, nieve y Luna.

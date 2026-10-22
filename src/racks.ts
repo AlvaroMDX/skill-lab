@@ -12,11 +12,12 @@ const LED = { up: '#4CD964', down: '#FF3B30', unknown: '#8A8F98' }
 type Slot = { x: number; y: number; w: number; d: number; faceRight: boolean }
 
 // Bottom puestos: against the door wall, left of the door, then right of it clear of the entry path.
-// Top puestos: the bottom row's hanging signs hide their door wall, so the racks line the left wall, behind the corner plant.
+// Top puestos: the bottom row's hanging signs hide their door wall, so the racks line the back half of the left wall.
 function slots(room: RoomGeom, n: number): Slot[] {
   const list: Slot[] = []
   if (room.top) {
-    for (let y = 4.9; y >= 1.5 && list.length < n; y -= STEP) list.push({ x: room.x0 + 0.12, y: room.y0 + y, w: DEEP, d: WIDE, faceRight: true })
+    // towards the back of the wall: the front corner holds the plant and theme props (flag, target…)
+    for (let y = 3.4; y >= 0.9 && list.length < n; y -= STEP) list.push({ x: room.x0 + 0.12, y: room.y0 + y, w: DEEP, d: WIDE, faceRight: true })
     return list
   }
   const y = room.y0 + 0.08
