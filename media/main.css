@@ -348,3 +348,42 @@ button.palette .pname { font-size: 11px; white-space: nowrap; }
 button.palette .pname b { color: #9be3a6; margin-left: 3px; }
 button.palette .chips { display: flex; height: 14px; border: 2px solid var(--edge); }
 button.palette .chips i { flex: 1; }
+/* reactions for the newer puestos */
+.carry.r-sneeze .body { animation: sneeze 1.4s ease-in-out infinite; }
+.carry.r-sneeze .p-plant { animation: plantsway 1.4s ease-in-out infinite; }
+.carry.r-sneeze .p-pollen { opacity: 0; animation: pollen 1.4s ease-out infinite; }
+@keyframes sneeze { 0%, 40% { transform: none; } 60% { transform: rotate(-8deg) translateX(-1px); } 70% { transform: rotate(10deg) translateX(3px) scale(1.06, .92); } 85%, 100% { transform: none; } }
+@keyframes plantsway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(5deg); } }
+@keyframes pollen { 0% { opacity: 0; transform: translate(0, 0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(-7px, 4px); } }
+
+.carry.r-rock .body { animation: headbang .3s ease-in-out infinite alternate; }
+.carry.r-rock .p-guitar { animation: strum .15s steps(2) infinite; }
+.carry.r-rock .p-note { opacity: 0; animation: zfloat 1.2s ease-out infinite; }
+@keyframes headbang { from { transform: none; } to { transform: rotate(8deg) translateY(1px); } }
+@keyframes strum { from { transform: translateY(0); } to { transform: translateY(-.8px); } }
+
+.carry.r-float .body, .carry.r-float .p-bubble { animation: zerog 3.4s ease-in-out forwards; }
+.carry.r-float .p-bubble { transform-box: view-box; transform-origin: 0 3px; }
+.carry.r-float .p-star { animation: twinkle .7s steps(2) infinite; }
+@keyframes zerog { 0% { transform: none; } 35% { transform: translateY(-14px) rotate(-14deg); } 70% { transform: translateY(-18px) rotate(12deg); } 100% { transform: none; } }
+
+.carry.r-steal .body { animation: step .18s ease-in-out infinite; }
+.carry.r-steal .p-fish { animation: fishflop .2s steps(2) infinite; }
+.carry.r-steal .p-star { animation: twinkle .4s steps(2) infinite; }
+@keyframes fishflop { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
+
+.carry.r-tan .body { animation: lounge .6s ease-out forwards, breathe2 2s ease-in-out .6s infinite; }
+.carry.r-tan .p-shades { opacity: 0; animation: shades .5s cubic-bezier(.3, 1.6, .6, 1) .5s forwards; }
+.carry.r-tan .p-parasol { animation: plantsway 2.4s ease-in-out infinite; }
+@keyframes lounge { to { transform: scale(1.08, .82); } }
+@keyframes breathe2 { 0%, 100% { transform: scale(1.08, .82); } 50% { transform: scale(1.1, .86); } }
+@keyframes shades { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+
+.carry.r-jackpot .body { animation: scared .5s ease-out 5; }
+.carry.r-jackpot .p-coin { opacity: 0; animation: coinfall 1s ease-in infinite; transform-origin: 50% 50%; }
+.carry.r-jackpot .p-star { animation: twinkle .3s steps(2) infinite; }
+@keyframes coinfall { 0% { opacity: 1; transform: translateY(0) scaleX(1); } 25% { transform: translateY(6px) scaleX(.2); } 50% { transform: translateY(13px) scaleX(1); } 75% { transform: translateY(20px) scaleX(.2); } 100% { opacity: 0; transform: translateY(26px) scaleX(1); } }
+
+/* medal groups */
+.medal-group { margin: 10px 0 4px; display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #ffd66b; text-transform: uppercase; letter-spacing: .5px; }
+.medal-group small { color: var(--muted); font-weight: 400; }

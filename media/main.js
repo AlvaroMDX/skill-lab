@@ -494,6 +494,37 @@
       text: '🎖️ ¡a sus órdenes!', cls: 'r-salute', ms: 2800, sound: [392, 523, 659, 784],
       props: '<g class="p-helmet"><rect x="5" y="-18" width="9" height="2.6" fill="#3F4A2A"/><rect x="5.8" y="-20.2" width="7.4" height="2.4" fill="#4A5535"/></g><rect class="p-paw" x="12" y="-14" width="2" height="5" fill="#6B7A4A"/>',
     },
+    greenhouse: {
+      text: '🌼 ¡a-a-achís!', cls: 'r-sneeze', ms: 2800, sound: [523, 587, 659, 196],
+      props: '<g class="p-plant"><rect x="15" y="-6" width="7" height="6" fill="#B8643A"/><rect x="14" y="-7" width="9" height="1.8" fill="#D07A4A"/><rect x="18" y="-15" width="1.2" height="9" fill="#4E9A3E"/><rect x="15.5" y="-11" width="3" height="1.4" fill="#6BBF4E"/><circle cx="18.6" cy="-16.5" r="2.6" fill="#FFD84F"/><circle cx="18.6" cy="-16.5" r="1.1" fill="#C8742A"/></g>' +
+        '<circle class="p-pollen" cx="15" cy="-17" r=".9" fill="#FFE98A"/><circle class="p-pollen d2" cx="13" cy="-15" r=".8" fill="#FFE98A"/><circle class="p-pollen d3" cx="16" cy="-13" r=".7" fill="#FFE98A"/>',
+    },
+    music: {
+      text: '🎸 ¡miau-rock!', cls: 'r-rock', ms: 3000, sound: [330, 392, 440, 392, 494, 440],
+      props: '<g class="p-guitar"><rect x="-3" y="-9" width="7" height="5" rx="2" fill="#C8423A"/><rect x="-1" y="-8" width="2" height="2" fill="#2E2B2A"/><rect x="4" y="-8" width="10" height="1.4" fill="#8C5A2E"/><rect x="13" y="-9" width="2.4" height="3" fill="#2E2B2A"/></g>' +
+        '<text class="p-note" x="12" y="-20" font-size="7" fill="#FFE34F">♪</text><text class="p-note d2" x="4" y="-22" font-size="6" fill="#7FD0FF">♫</text><text class="p-note d3" x="16" y="-24" font-size="6" fill="#FF8AC8">♪</text>',
+    },
+    space: {
+      text: '🚀 un pequeño paso gatuno', cls: 'r-float', ms: 3400, sound: [262, 392, 523, 784],
+      props: '<g class="p-bubble"><circle cx="9" cy="-12" r="6.5" fill="#CFE8F5" fill-opacity=".28" stroke="#E8F4FA" stroke-width="1"/><rect x="5.5" y="-16" width="2" height="1.2" fill="#FFFFFF" opacity=".7"/></g>' +
+        '<text class="p-star" x="-16" y="-20" font-size="5" fill="#FFFFFF">✦</text><text class="p-star d2" x="18" y="-26" font-size="4" fill="#FFE34F">★</text><text class="p-star d3" x="-6" y="-28" font-size="4" fill="#FFFFFF">✦</text>',
+    },
+    kitchen: {
+      text: '🐟 ¡pescado robado!', cls: 'r-steal', ms: 2600, sound: [784, 988, 784, 1175], move: 60,
+      props: '<g class="p-fish"><ellipse cx="14" cy="-9" rx="4" ry="1.8" fill="#9DB8C8"/><path d="M17.5,-9 L21,-11.4 L21,-6.6 Z" fill="#7F9DB0"/><rect x="11.4" y="-9.8" width="1" height="1" fill="#1C1E22"/></g>' +
+        '<text class="p-star" x="-10" y="-18" font-size="6" fill="#FFFFFF">💨</text>',
+    },
+    beach: {
+      text: '🍹 modo vacaciones', cls: 'r-tan', ms: 3600, sound: [392, 494, 587, 494, 392],
+      props: '<g class="p-parasol"><rect x="-12.6" y="-24" width="1.2" height="24" fill="#E8D8BE"/><path d="M-26,-22 Q-12,-34 2,-22 Z" fill="#FF6B5A"/><path d="M-19,-22 Q-12,-32 -5,-22 Z" fill="#FFF3D6"/></g>' +
+        '<g class="p-shades"><rect x="6.5" y="-13" width="2.8" height="1.8" fill="#1C1E22"/><rect x="9.8" y="-13" width="2.8" height="1.8" fill="#1C1E22"/><rect x="9" y="-12.6" width="1" height=".6" fill="#1C1E22"/></g>' +
+        '<g class="p-drink"><path d="M15,-7 L21,-7 L18.6,-3 L17.4,-3 Z" fill="#FF9F3D"/><rect x="17.6" y="-3" width=".8" height="3" fill="#E8F4FA"/><rect x="19" y="-10" width=".7" height="3.5" fill="#4FB8FF"/><circle cx="15.6" cy="-7.4" r="1.1" fill="#6BE36B"/></g>',
+    },
+    casino: {
+      text: '🎰 ¡JACKPOT!', cls: 'r-jackpot', ms: 3000, sound: [784, 988, 1175, 1568, 1175, 1568],
+      props: [[-12, 0], [-4, 0.3], [5, 0.6], [13, 0.15], [-8, 0.75], [9, 0.45]].map(([x, d]) => `<circle class="p-coin" cx="${x}" cy="-26" r="2.3" fill="#FFD84F" stroke="#C8962A" stroke-width=".7" style="animation-delay:${d}s"/>`).join('') +
+        '<text class="p-star" x="-16" y="-20" font-size="6" fill="#FFE34F">$</text><text class="p-star d2" x="16" y="-22" font-size="6" fill="#FFE34F">$</text>',
+    },
   }
 
   // where the scene makes sense: a free piece of furniture in the room, a lower bunk, the corridor's middle line,
@@ -1004,32 +1035,108 @@
 
   // ---------- medals ----------
 
-  const MEDALS = [
-    ['pet', '💕', 'Mimos', 'Doble clic a un gato'],
-    ['flip', '🤸', 'Acróbata', 'Cinco clics rápidos a un gato'],
-    ['bin-cat', '🗑️', 'Gato al cubo', 'Echa un gato a la papelera o al contenedor'],
-    ['konami', '🎉', 'Desfile gatuno', '↑↑↓↓←→←→BA'],
-    ['military', '🎖️', 'Operación Bigotes', '15 clics a un gato militar o en un cuartel'],
-    ['r-gym', '💪', 'Gato fitness', 'Suelta un gato en un gimnasio'],
-    ['r-cafe', '🥛', 'Barista', 'Suelta un gato en una cafetería'],
-    ['r-library', '📚', 'Ratón de biblioteca', 'Suelta un gato en una biblioteca'],
-    ['r-arcade', '🌈', 'Nyan', 'Suelta un gato en un arcade'],
-    ['r-lab', '🧪', 'Experimento fallido', 'Suelta un gato en un laboratorio'],
-    ['r-military', '🪖', 'Recluta', 'Suelta un gato en un cuartel'],
-    ['r-smoking', '😮‍💨', 'Fumador pasivo', 'Suelta un gato en la sala de fumadores'],
-    ['joseluis', '🚬', 'José Luis', 'Llama a un gato José Luis y suéltalo en la sala de fumadores'],
-    ['r-dorm', '😴', 'Siesta', 'Suelta un gato en las literas'],
-    ['r-patio', '🦋', 'Cazamariposas', 'Suelta un gato en el patio'],
-    ['r-corridor', '🐾', 'Patrulla', 'Suelta un gato en el pasillo'],
-    ['r-street', '🚗', 'Susto', 'Suelta un gato en la calle'],
-    ['bag', '🧹', 'Barrendero', 'Tira una bolsa de basura'],
-    ['bags10', '♻️', 'Ecohéroe', 'Tira 10 bolsas de basura'],
-    ['wake', '⏰', 'Despertador', 'Arrastra una skill que duerme'],
-    ['stop', '✋', 'Alto el fuego', 'Echa una skill o un agente a la papelera'],
-    ['night', '🌙', 'Noctámbulo', 'Haz que sea de noche con el reloj'],
-    ['all', '🏆', 'Coleccionista', 'Consigue todas las demás medallas'],
+  const MEDAL_GROUPS = [
+    ['cats', '🐈 Gatos por las salas'],
+    ['eggs', '🥚 Easter eggs'],
+    ['world', '🌍 Mundo y estilo'],
+    ['chores', '🧹 Faenas y manías'],
   ]
+  const MEDALS = [
+    ['pet', '💕', 'Mimos', 'Doble clic a un gato', 'eggs'],
+    ['flip', '🤸', 'Acróbata', 'Cinco clics rápidos a un gato', 'eggs'],
+    ['bin-cat', '🗑️', 'Gato al cubo', 'Echa un gato a la papelera o al contenedor', 'eggs'],
+    ['konami', '🎉', 'Desfile gatuno', '↑↑↓↓←→←→BA', 'eggs'],
+    ['military', '🎖️', 'Operación Bigotes', '15 clics a un gato militar o en un cuartel', 'eggs'],
+    ['r-gym', '💪', 'Gato fitness', 'Suelta un gato en un gimnasio', 'cats'],
+    ['r-cafe', '🥛', 'Barista', 'Suelta un gato en una cafetería', 'cats'],
+    ['r-library', '📚', 'Ratón de biblioteca', 'Suelta un gato en una biblioteca', 'cats'],
+    ['r-arcade', '🌈', 'Nyan', 'Suelta un gato en un arcade', 'cats'],
+    ['r-lab', '🧪', 'Experimento fallido', 'Suelta un gato en un laboratorio', 'cats'],
+    ['r-military', '🪖', 'Recluta', 'Suelta un gato en un cuartel', 'cats'],
+    ['r-smoking', '😮‍💨', 'Fumador pasivo', 'Suelta un gato en la sala de fumadores', 'cats'],
+    ['joseluis', '🚬', 'José Luis', 'Llama a un gato José Luis y suéltalo en la sala de fumadores', 'eggs'],
+    ['r-dorm', '😴', 'Siesta', 'Suelta un gato en las literas', 'cats'],
+    ['r-patio', '🦋', 'Cazamariposas', 'Suelta un gato en el patio', 'cats'],
+    ['r-corridor', '🐾', 'Patrulla', 'Suelta un gato en el pasillo', 'cats'],
+    ['r-street', '🚗', 'Susto', 'Suelta un gato en la calle', 'cats'],
+    ['r-greenhouse', '🤧', 'Alergia primaveral', 'Suelta un gato en un invernadero', 'cats'],
+    ['r-music', '🎸', 'Gato rockero', 'Suelta un gato en un estudio de música', 'cats'],
+    ['r-space', '🧑‍🚀', 'Gatonauta', 'Suelta un gato en una estación espacial', 'cats'],
+    ['r-kitchen', '🐟', 'Ladrón de sardinas', 'Suelta un gato en una cocina', 'cats'],
+    ['r-beach', '🕶️', 'Gato de chiringuito', 'Suelta un gato en un chiringuito', 'cats'],
+    ['r-casino', '🎰', 'Gato con suerte', 'Suelta un gato en un casino', 'cats'],
+    ['bag', '🧹', 'Barrendero', 'Tira una bolsa de basura', 'chores'],
+    ['bags10', '♻️', 'Ecohéroe', 'Tira 10 bolsas de basura', 'chores'],
+    ['bags25', '🚛', 'Camión de la basura', 'Tira 25 bolsas de basura', 'chores'],
+    ['diogenes', '🪰', 'Síndrome de Diógenes', 'Deja que se junten 6 bolsas sin tirar', 'chores'],
+    ['wake', '⏰', 'Despertador', 'Arrastra una skill que duerme', 'chores'],
+    ['wake10', '🐓', 'Gallo madrugador', 'Despierta 10 skills arrastrándolas', 'chores'],
+    ['stop', '✋', 'Alto el fuego', 'Echa una skill o un agente a la papelera', 'chores'],
+    ['cats3', '😼', 'Gatocalipsis', 'Echa 3 gatos a la papelera en menos de 20 s', 'eggs'],
+    ['pet20', '🧶', 'Rascador oficial', 'Haz 20 mimos a los gatos', 'eggs'],
+    ['night', '🌙', 'Noctámbulo', 'Haz que sea de noche con el reloj', 'chores'],
+    ['witching', '🦉', 'Hora bruja', 'Abre el laboratorio entre las 3 y las 4 de la madrugada', 'chores'],
+    ['zoom-max', '🔍', 'Lupa de Sherlock', 'Acerca el zoom al máximo', 'chores'],
+    ['zoom-min', '🦅', 'Vista de pájaro', 'Aleja el zoom al mínimo', 'chores'],
+    ['robots5', '🤖', 'Granja de robots', 'Ten 5 sesiones de Claude abiertas a la vez', 'chores'],
+    ['world', '🧳', 'Turista', 'Cambia de mundo', 'world'],
+    ['worlds5', '🗺️', 'Trotamundos', 'Visita los 5 mundos', 'world'],
+    ['palette', '🎨', 'Pintor', 'Aplica una paleta de colores', 'world'],
+    ['skin', '🥸', 'Disfraces', 'Cambia un disfraz', 'world'],
+    ['season', '🎃', 'Fiestero', 'Cambia de temporada', 'world'],
+    ['sysadmin', '🖥️', 'Sysadmin', 'Pasa el ratón por un servidor', 'world'],
+    ['down', '🚨', 'Alerta roja', 'Pilla un servidor caído', 'world'],
+    ['all', '🏆', 'Coleccionista', 'Consigue todas las demás medallas', 'eggs'],
+  ]
+
+  // counters and sets behind the medals that need more than one go, kept with the medals as '~' keys
+  const tally = (key, add = 1) => {
+    medals = { ...medals, [`~${key}`]: (medals[`~${key}`] || 0) + add }
+    persist()
+    return medals[`~${key}`]
+  }
+  const collect = (key, item) => {
+    const seen = new Set(String(medals[`~${key}`] || '').split(',').filter(Boolean)).add(String(item))
+    medals = { ...medals, [`~${key}`]: [...seen].join(',') }
+    persist()
+    return seen.size
+  }
+  const binnedCats = []
+  on('act', id => {
+    if (id === 'bag' && thrown >= 25) unlock('bags25')
+    if (id === 'wake' && tally('wake') >= 10) unlock('wake10')
+    if (id === 'pet' && tally('pet') >= 20) unlock('pet20')
+    if (id === 'bin-cat') {
+      const now = Date.now()
+      binnedCats.push(now)
+      if (binnedCats.filter(t => now - t < 20_000).length >= 3) unlock('cats3')
+    }
+  })
+  on('world', id => {
+    unlock('world')
+    if (collect('worlds', id) >= 5) unlock('worlds5')
+  })
+  on('palette', () => unlock('palette'))
+  on('skin', () => unlock('skin'))
+  on('season', () => unlock('season'))
+  on('service-hover', s => {
+    unlock('sysadmin')
+    if (s && s.up === false) unlock('down')
+  })
+  on('service-down', () => unlock('down'))
+  new MutationObserver(() => {
+    if (!view) return
+    if (view.scale >= MAX) unlock('zoom-max')
+    if (view.scale <= MIN) unlock('zoom-min')
+  }).observe($('zoomLevel'), { childList: true, characterData: true, subtree: true })
+  window.addEventListener('message', e => {
+    if (e.data && e.data.type === 'scene' && e.data.stats && e.data.stats.sessions >= 5) unlock('robots5')
+  })
+  setInterval(() => bags.length >= MAX_BAGS && unlock('diogenes'), 20_000)
+  if (new Date().getHours() === 3) setTimeout(() => unlock('witching'), 1500)
+
   function unlock(id) {
+    emit('act', id)
     if (medals[id]) return
     const def = MEDALS.find(m => m[0] === id)
     if (!def) return
@@ -1072,10 +1179,14 @@
     drawerBody.innerHTML =
       `<section class="card plain"><div class="medal-progress"><b>${got} / ${MEDALS.length}</b><span class="bar"><i style="width:${((got / MEDALS.length) * 100).toFixed(1)}%"></i></span></div>
        <small class="muted">Los easter eggs del laboratorio. Las bloqueadas muestran una pista.</small></section>
-       <div class="medals">${MEDALS.map(([id, icon, name, hint]) => {
-         const at = medals[id]
-         return `<div class="medal${at ? ' got' : ''}" title="${at ? `Conseguida el ${new Date(at).toLocaleDateString()}` : 'Bloqueada'}"><span class="mi">${at ? icon : '🔒'}</span><b>${at ? esc(name) : '???'}</b><small>${esc(hint)}</small></div>`
-       }).join('')}</div>`
+       ${MEDAL_GROUPS.map(([group, title]) => {
+         const list = MEDALS.filter(m => m[4] === group)
+         return `<div class="medal-group"><span>${title}</span><small>${list.filter(m => medals[m[0]]).length} / ${list.length}</small></div>
+         <div class="medals">${list.map(([id, icon, name, hint]) => {
+           const at = medals[id]
+           return `<div class="medal${at ? ' got' : ''}" title="${at ? `Conseguida el ${new Date(at).toLocaleDateString()}` : 'Bloqueada'}"><span class="mi">${at ? icon : '🔒'}</span><b>${at ? esc(name) : '???'}</b><small>${esc(hint)}</small></div>`
+         }).join('')}</div>`
+       }).join('')}`
   }
 
   function renderSkills() {
