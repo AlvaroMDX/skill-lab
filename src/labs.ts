@@ -93,7 +93,48 @@ const regexOf = (source: string | undefined, fallback?: RegExp) => {
 export const folderRule = (folder: string) =>
   '^' + folder.replace(/[\\/]+$/, '').split(/[\\/]+/).map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\\\/]') + '([\\\\/]|$)'
 
-export function applyConfig(cfg: LabConfig) {
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+const stringList = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : undefined)
+// own keys only: a palette called "toString" must not reach Object.prototype
+const paletteOf = (name: unknown) => (typeof name === 'string' && Object.prototype.hasOwnProperty.call(PALETTES, name) ? PALETTES[name] : undefined)
+
+function sanitizeOverride(raw: unknown): LabOverride {
+  if (!isRecord(raw)) return {}
+  const o: LabOverride = {}
+  if (typeof raw.name === 'string') o.name = raw.name
+  if (typeof raw.accent === 'string') o.accent = raw.accent
+  if (typeof raw.match === 'string') o.match = raw.match
+  if (typeof raw.width === 'number' || typeof raw.width === 'string') o.width = Number(raw.width)
+  if (raw.row === 'top' || raw.row === 'bottom') o.row = raw.row
+  if (typeof raw.theme === 'string') o.theme = raw.theme as Theme
+  if (Array.isArray(raw.services)) o.services = raw.services.filter(isRecord) as Service[]
+  return o
+}
+
+// A hand-edited config.json can hold anything: wrong types are dropped (defaults apply) and unknown keys are kept.
+export function sanitizeConfig(raw: unknown): LabConfig {
+  if (!isRecord(raw)) return {}
+  const cfg: LabConfig & Record<string, unknown> = { ...raw }
+  const delay = Number(raw.returnDelaySeconds)
+  if (raw.returnDelaySeconds === undefined || !Number.isFinite(delay)) delete cfg.returnDelaySeconds
+  else cfg.returnDelaySeconds = delay
+  if (typeof raw.projectsRoot !== 'string') delete cfg.projectsRoot
+  if (isRecord(raw.labs)) cfg.labs = Object.fromEntries(Object.entries(raw.labs).map(([id, o]) => [id, sanitizeOverride(o)]))
+  else delete cfg.labs
+  for (const key of ['order', 'removed', 'hidden'] as const) {
+    const list = stringList(raw[key])
+    if (list) cfg[key] = list
+    else delete cfg[key]
+  }
+  if (isRecord(raw.skillLabs)) cfg.skillLabs = Object.fromEntries(Object.entries(raw.skillLabs).filter((e): e is [string, string] => typeof e[1] === 'string'))
+  else delete cfg.skillLabs
+  if (!WORLDS.includes(raw.world as World)) delete cfg.world
+  if (!paletteOf(raw.palette)) delete cfg.palette
+  return cfg
+}
+
+export function applyConfig(raw: LabConfig) {
+  const cfg = sanitizeConfig(raw)
   const removed = new Set((cfg.removed ?? []).filter(id => id !== FALLBACK_LAB))
   const build = (base: Omit<Lab, 'custom'>, o: LabOverride, custom: boolean): Lab => {
     const accent = /^#[0-9a-f]{6}$/i.test(o.accent ?? '') ? o.accent! : base.accent
@@ -116,7 +157,7 @@ export function applyConfig(cfg: LabConfig) {
   const defaults = DEFAULT_LABS.filter(l => !removed.has(l.id)).map(l => build(l, cfg.labs?.[l.id] ?? {}, false))
   const customIds = Object.keys(cfg.labs ?? {}).filter(id => !DEFAULT_LABS.some(l => l.id === id) && !removed.has(id))
   const custom = customIds.map((id, i) => {
-    const colors = PALETTES[cfg.palette ?? ''] ?? CUSTOM_ACCENTS
+    const colors = paletteOf(cfg.palette) ?? CUSTOM_ACCENTS
     const accent = colors[i % colors.length]!
     return build({ id, name: id, accent, floor: floorFor(accent), width: 8, row: i % 2 ? 'top' : 'bottom', theme: 'lab', services: [] }, cfg.labs?.[id] ?? {}, true)
   })
@@ -126,20 +167,22 @@ export function applyConfig(cfg: LabConfig) {
   const ordered = [...new Set([...(cfg.order ?? []).filter(known), ...customIds, ...DEFAULT_ORDER.filter(known)])]
   ROOM_ORDER.splice(0, ROOM_ORDER.length, ...ordered)
   SKILL_LAB = Object.fromEntries(Object.entries({ ...DEFAULT_SKILL_LAB, ...(cfg.skillLabs ?? {}) }).filter(([, lab]) => LABS.some(l => l.id === lab)))
-  RETURN_DELAY_MS = Math.max(3, cfg.returnDelaySeconds ?? 20) * 1000
+  // capped at an hour so a typo can't park a skill in its puesto for good
+  RETURN_DELAY_MS = Math.min(3600, Math.max(3, cfg.returnDelaySeconds ?? 20)) * 1000
   HIDDEN = new Set(cfg.hidden ?? [])
   PROJECTS_ROOT = cfg.projectsRoot ?? ''
   WORLD = WORLDS.includes(cfg.world as World) ? (cfg.world as World) : 'city'
-  PALETTE_NAME = cfg.palette && PALETTES[cfg.palette] ? cfg.palette : ''
+  PALETTE_NAME = cfg.palette ?? ''
 }
 
 // Paints every puesto with the palette, in drawing order.
 export function paintWithPalette(cfg: LabConfig, name: string) {
-  const colors = PALETTES[name]
+  const colors = paletteOf(name)
   if (!colors) return
   cfg.palette = name
-  const ids = [...new Set([...(cfg.order ?? []), ...Object.keys(cfg.labs ?? {})])].filter(id => cfg.labs?.[id])
-  ids.forEach((id, i) => (cfg.labs![id]!.accent = colors[i % colors.length]))
+  const labs = isRecord(cfg.labs) ? cfg.labs : {}
+  const ids = [...new Set([...(stringList(cfg.order) ?? []), ...Object.keys(labs)])].filter(id => isRecord(labs[id]))
+  ids.forEach((id, i) => (labs[id]!.accent = colors[i % colors.length]))
 }
 
 export function defaultConfig(): LabConfig {
