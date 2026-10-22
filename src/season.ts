@@ -201,7 +201,7 @@ function bunting(c: Ctx, colors: string[], from = 0, shape: 'flag' | 'heart' = '
 
 // sky band above the back wall: flyers cross it parallel to the wall, from past the top edge of the view
 // to past the right one, so neither end of the loop is ever on screen; then a pause before the next pass
-function flyer(c: Ctx, body: string, z: number, speed: number, night = false, off = 0) {
+function flyer(c: Ctx, body: string, z: number, speed: number, night = false, off = 0, attrs = '', title = '') {
   const top = iso(0, -2, WALL_H + z)[1]
   const x0 = Math.min(-4, (-50 - top) / (TH / 2))
   const x1 = c.W + 9
@@ -209,7 +209,7 @@ function flyer(c: Ctx, body: string, z: number, speed: number, night = false, of
   const dur = (x1 - x0) / speed / (1 - rest)
   const path = `M${pts([iso(x0, -2, WALL_H + z)])}L${pts([iso(x1, -2, WALL_H + z)])}`
   const bob = `<animateTransform attributeName="transform" type="translate" values="0 0;0 -5;0 0" dur="2.6s" ${begin(2.6, off)}${eased(2)} repeatCount="indefinite"/>`
-  const svg = `<g><g>${body}${bob}</g>${motion(path, dur, off, ` keyPoints="0;1;1" keyTimes="0;${1 - rest};1" calcMode="linear"`)}</g>`
+  const svg = `<g${attrs}>${title ? `<title>${title}</title>` : ''}<g>${body}${bob}</g>${motion(path, dur, off, ` keyPoints="0;1;1" keyTimes="0;${1 - rest};1" calcMode="linear"`)}</g>`
   ;(night ? c.lights : c.decor).push(svg)
 }
 const skyPoint = (c: Ctx, f: number, z: number) => iso(c.W * f, -5, WALL_H + z)
@@ -597,7 +597,9 @@ function christmas(c: Ctx) {
   // presents under the tree, as real isometric boxes
   const gifts: [number, number, string][] = [[-1.1, 0.5, '#C0392B'], [0.7, 0.6, '#3E8ED0'], [-0.2, 0.9, '#F2C14E']]
   for (const [dx, dy, color] of gifts) c.decor.push(box(p.x + dx - 0.25, p.y + dy - 0.25, 0, 0.5, 0.5, 7, color) + box(p.x + dx - 0.04, p.y + dy - 0.26, 0, 0.08, 0.52, 7.4, '#FFF'))
-  flyer(c, santa(), 40, 1.3, true)
+  // an easter egg: Santa can be clicked (main.js awards the medal); the hit area is roomier than the sprite because it moves
+  const hit = '<rect x="-22" y="-34" width="72" height="42" fill="#000" fill-opacity="0"/>'
+  flyer(c, hit + santa(), 40, 1.3, true, 0, ' data-egg="santa" style="cursor:pointer" pointer-events="visiblePainted"', '¡Jo, jo, jo!')
   wreath(c)
 }
 
