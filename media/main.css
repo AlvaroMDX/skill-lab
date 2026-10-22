@@ -35,6 +35,11 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
 .carry.binned .body { animation: swallow .45s ease-in forwards; }
 .carry.popout .body { animation: burst 1.1s cubic-bezier(.2, .8, .3, 1) both; }
 .carry.popout .alert { animation: pop .3s ease-out .5s both; }
+.carry.shakeoff .body { animation: shakeoff .7s ease-in-out; }
+.carry.shakeoff .p-crumbs { animation: crumbs .7s ease-out forwards; transform-box: fill-box; transform-origin: 50% 50%; }
+.carry.shakeoff .alert { display: none; }
+@keyframes shakeoff { 0%, 100% { transform: none; } 15%, 45%, 75% { transform: rotate(-11deg) scaleX(1.06); } 30%, 60%, 90% { transform: rotate(11deg) scaleX(1.06); } }
+@keyframes crumbs { from { opacity: 1; transform: scale(.6); } to { opacity: 0; transform: scale(2.4) translateY(6px); } }
 @keyframes dangle { from { transform: rotate(-9deg) translateY(-2px); } to { transform: rotate(9deg) translateY(1px); } }
 @keyframes pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes land { 0% { transform: scale(1.15, .8); } 50% { transform: scale(.92, 1.12) translateY(-5px); } 100% { transform: none; } }
@@ -81,8 +86,6 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
 @keyframes flip { 0% { transform: none; } 40% { transform: translateY(-22px) rotate(-180deg); } 80% { transform: translateY(-4px) rotate(-360deg); } 100% { transform: none; } }
 #scene .reappear { animation: reappear .45s ease-out; }
 @keyframes reappear { from { opacity: 0; } to { opacity: 1; } }
-.carry.leaving { animation: leave .38s ease-in forwards; }
-@keyframes leave { to { opacity: 0; } }
 
 /* reaction scenes: .body moves the cat, .props > * the accessories, both scaled from their own feet */
 .carry .props > * { transform-box: fill-box; transform-origin: 50% 100%; }
@@ -137,10 +140,15 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
 .carry.r-groom .p-lick { animation: twinkle .5s steps(2) infinite; }
 @keyframes groom { from { transform: none; } to { transform: rotate(-6deg); } }
 
-.carry.r-scared .body { animation: scared .55s ease-out 3; }
-.carry.r-scared .p-car { animation: zoom 1s linear forwards; }
+.carry.r-street .body { animation: groom .6s ease-in-out infinite alternate; }
+.carry.r-street.r-scared .body { animation: scared .55s ease-out 2; }
 @keyframes scared { 0% { transform: none; } 35% { transform: translateY(-24px) scale(1.12, .9); } 70% { transform: translateY(-4px) scale(.96, 1.06); } 100% { transform: none; } }
-@keyframes zoom { from { transform: translateX(-170px); } to { transform: translateX(170px); } }
+/* the car's translate rides the road; braking tips the inner body, the honk pops above it */
+#overlay .car .car-body { transform-box: fill-box; transform-origin: 100% 100%; transition: transform .2s ease-out; }
+#overlay .car.brake .car-body { transform: rotate(4deg); }
+#overlay .car .honk { opacity: 0; font: 900 10px Verdana, sans-serif; fill: #ffd66b; stroke: #2a211c; stroke-width: 3px; paint-order: stroke; }
+#overlay .car.honking .honk { animation: honk 1s ease-out forwards; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes honk { 0% { opacity: 0; transform: scale(.4); } 20% { opacity: 1; transform: scale(1.2); } 70% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-8px); } }
 
 .carry.r-salute .p-helmet { animation: helmet .55s cubic-bezier(.3, 1.6, .6, 1) both; }
 .carry.r-salute .p-paw { opacity: 0; animation: paw .3s ease-out .6s forwards; }
