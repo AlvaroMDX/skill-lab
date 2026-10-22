@@ -196,7 +196,8 @@ export class Tracker {
     const known = this.offsets.get(file)
     // a file that shrank was rewritten: read it again from the start, without sounds or counters
     const replay = known === undefined || size < known
-    if (known === undefined) this.seedCwd(file)
+    // a background agent's transcript shares its parent's sessionId but starts in the agent's own folder
+    if (known === undefined && !subagent) this.seedCwd(file)
     if (size < (known ?? 0)) this.forget(file)
     const start = replay ? Math.max(0, size - REPLAY_BYTES) : known!
     if (replay && start > 0) this.resync.add(file)
@@ -299,7 +300,11 @@ export class Tracker {
       const cwd = /"cwd":"((?:[^"\\]|\\.)*)"/.exec(raw)?.[1]
       if (!id || !cwd) continue
       try {
-        if (!this.seeds.has(id)) this.seeds.set(id, JSON.parse(`"${cwd}"`))
+        // the session's own transcript is the authority, even if a subagent line created the session first
+        const dir = JSON.parse(`"${cwd}"`) as string
+        this.seeds.set(id, dir)
+        const s = this.sessions.get(id)
+        if (s) s.cwd = dir
       } catch {
         // malformed escape: fall back to the cwd of the lines we read
       }
