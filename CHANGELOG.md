@@ -1,5 +1,16 @@
 # Cambios
 
+## 1.0.0 — 2026-10-22
+- Seis temas nuevos de puesto: invernadero, estudio de música, estación espacial, cocina, chiringuito y casino.
+- Cinco mundos alrededor del edificio: ciudad, playa, bosque, nieve y Luna.
+- Temporadas automáticas por fecha (Halloween, Navidad, Nochevieja, Reyes, Carnaval, San Valentín, San Fermín, estaciones, cumpleaños de Skill Lab) o elegidas a mano, con modo fiesta.
+- Disfraces para los muñecos y los robots, y seis paletas de colores para los puestos.
+- Servidores en cada puesto con piloto verde o rojo según respondan sus servicios.
+- Los subagentes, también los de segundo plano, salen como drones junto a su robot (hasta 10 y un contador).
+- Gráficos renovados: suelos con textura por tema, paredes con arrimadero y apliques, ventanas con reflejo, contorno en los personajes y bandera del cuartel arreglada.
+- 45 medallas y reacciones de gato para cada sala nueva; la Operación Bigotes se grita en bocadillos.
+- Arreglos: el gato ya no se teletransporta al salir de la papelera, el coche de la calle circula por la calzada, las sesiones que mueren a medias liberan sus skills y la lectura de transcripciones es más robusta.
+
 ## 0.9.1 — 2026-10-22
 - Al cambiar el reparto de skills (Layout o config.json), los muñecos que ya estaban trabajando se mueven a su puesto nuevo en vez de quedarse en el antiguo hasta el siguiente uso.
 
