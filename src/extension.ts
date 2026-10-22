@@ -3,11 +3,11 @@ import * as os from 'os'
 import * as path from 'path'
 import * as vscode from 'vscode'
 
-import { FALLBACK_LAB, HIDDEN, LABS, PALETTES, PALETTE_NAME, PROJECTS_ROOT, RETURN_DELAY_MS, SKILL_LAB, THEMES, WORLD, WORLDS, applyConfig, defaultConfig, folderRule, paintWithPalette } from './labs'
+import { FALLBACK_LAB, HIDDEN, LABS, PALETTES, PALETTE_NAME, PROJECTS_ROOT, RETURN_DELAY_MS, SKILL_LAB, THEMES, WORLD, WORLDS, applyConfig, defaultConfig, folderRule, paintWithPalette, sanitizeConfig } from './labs'
 import type { LabConfig, Theme } from './labs'
 import { COATS, SKINS, colorOf, darkness, renderScene } from './scene'
 import type { Cat, ClockMode, Skin } from './scene'
-import { SEASONS } from './season'
+import { SEASONS, SEASON_NAMES, SEASON_WHEN } from './season'
 import { ServiceMonitor } from './services'
 import { Tracker, countPastUses } from './tracker'
 
@@ -45,7 +45,7 @@ const setPref = (key: string, value: unknown) => prefs?.update(`pref.${key}`, va
 
 function readConfig(): LabConfig {
   try {
-    return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'))
+    return sanitizeConfig(JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')))
   } catch {
     return {}
   }
@@ -160,7 +160,7 @@ class LabView implements vscode.WebviewViewProvider {
   <button class="primary" data-act="newAgent" title="Lanzar Claude Code en una carpeta"><svg viewBox="0 0 16 16"><path d="M7 2h2v5h5v2H9v5H7V9H2V7h5z"/></svg>Agent</button>
   <button data-act="layout" data-tab="labs" title="Editar labs y skills"><svg viewBox="0 0 16 16"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>Layout</button>
   <button data-act="layout" data-tab="settings" title="Ajustes"><svg viewBox="0 0 16 16"><path d="M7 1h2v2h2v2h2v2h2v2h-2v2h-2v2H9v2H7v-2H5v-2H3V9H1V7h2V5h2V3h2zm0 5v4h2V6z"/></svg>Settings</button>
-  <button data-act="layout" data-tab="medals" title="Medallas: los easter eggs que has encontrado">🏅 <span class="count">0/21</span></button>
+  <button data-act="layout" data-tab="medals" title="Medallas: los easter eggs que has encontrado">🏅 <span class="count">0/45</span></button>
 </div>
 <aside id="drawer" class="panel" aria-hidden="true">
   <header><h2>Layout</h2><button class="icon ghost" data-act="close" title="Cerrar"><svg viewBox="0 0 16 16"><path d="M3 3h2v2h2v2h2V5h2V3h2v2h-2v2h-2v2h2v2h2v2h-2v-2h-2V9H7v2H5v2H3v-2h2V9h2V7H5V5H3z"/></svg></button></header>
@@ -207,6 +207,8 @@ class LabView implements vscode.WebviewViewProvider {
       palettes: PALETTES,
       skins: SKINS,
       seasons: SEASONS,
+      seasonNames: SEASON_NAMES,
+      seasonWhen: SEASON_WHEN,
       projectsRoot: PROJECTS_ROOT,
       medals: this.ctx.globalState.get<Record<string, number>>(MEDALS_KEY, {}),
       needsSetup: freshInstall && !this.ctx.globalState.get(SETUP_KEY),
@@ -472,7 +474,7 @@ class LabView implements vscode.WebviewViewProvider {
         const picked = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { JSON: ['json'] } })
         if (!picked?.[0]) return
         try {
-          const cfg = JSON.parse(fs.readFileSync(picked[0].fsPath, 'utf8')) as LabConfig
+          const cfg = sanitizeConfig(JSON.parse(fs.readFileSync(picked[0].fsPath, 'utf8')))
           writeConfig(current => Object.assign(current, cfg))
           void vscode.window.showInformationMessage('Layout importado.')
         } catch {

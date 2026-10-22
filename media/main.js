@@ -1345,7 +1345,7 @@
   const SKIN_NAMES = { clasico: ['🙂', 'Clásico'], pirata: ['🏴‍☠️', 'Pirata'], alien: ['👽', 'Alien'], astronauta: ['🧑‍🚀', 'Astronauta'], mago: ['🧙', 'Mago'], vaquero: ['🤠', 'Vaquero'], ninja: ['🥷', 'Ninja'], chef: ['👨‍🍳', 'Chef'], vikingo: ['🪓', 'Vikingo'] }
   const SEASON_NAMES = { auto: '📅 Automática (según la fecha)', off: '🚫 Ninguna', halloween: '🎃 Halloween', navidad: '🎄 Navidad', verano: '☀️ Verano', primavera: '🌸 Primavera', otono: '🍂 Otoño', invierno: '⛄ Invierno', carnaval: '🎭 Carnaval', sanvalentin: '💘 San Valentín', pascua: '🐣 Pascua', feria: '💃 Feria' }
   // seasons added later still get a readable name
-  const seasonName = v => SEASON_NAMES[v] || v.charAt(0).toUpperCase() + v.slice(1)
+  const seasonName = v => (v !== 'auto' && v !== 'off' && model && model.seasonNames && model.seasonNames[v]) || SEASON_NAMES[v] || v.charAt(0).toUpperCase() + v.slice(1)
   const PALETTE_NAMES = { calidos: 'Cálidos', pasteles: 'Pasteles', multicolor: 'Multicolor', frios: 'Fríos', neon: 'Neón', tierra: 'Tierra' }
   let pickedPalette = ''
 
@@ -1596,7 +1596,7 @@
         updateMedalButton()
       }
       soundOn = model.settings.sound
-      const typing = document.activeElement && drawer.contains(document.activeElement) && document.activeElement.tagName === 'INPUT' && !['checkbox', 'range', 'color'].includes(document.activeElement.type)
+      const typing = document.activeElement && drawer.contains(document.activeElement) && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) && !['checkbox', 'range', 'color'].includes(document.activeElement.type)
       if (drawer.classList.contains('open') && !typing) renderDrawer()
     } else if (msg.type === 'setupFolders' && setup) {
       setup.root = msg.root

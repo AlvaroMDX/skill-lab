@@ -464,7 +464,8 @@ export class Tracker {
       } else if (s.pending.size > 0 && s.activity !== 'pregunta' && s.activity !== 'esperando' && now - s.lastEvent > WAIT_GUESS_MS) {
         if (this.looksLikePermission(s, now)) {
           s.activity = 'esperando'
-          this.hooks.sound('ask')
+          // a session hidden in the bin waits quietly
+          if (s.hiddenAt === undefined) this.hooks.sound('ask')
         }
       }
       // long silent, even mid-tool (a closed terminal never writes its result): it leaves, and so do its skills

@@ -3,7 +3,7 @@ import type { Lab, Theme } from './labs'
 import { worldGround, worldOverlay, worldProps } from './world'
 import { floorDecor, wallDecor } from './decor'
 import { racks } from './racks'
-import { seasonDecor } from './season'
+import { seasonDecor, seasonLights } from './season'
 import { greenhouse } from './themes/greenhouse'
 import { music } from './themes/music'
 import { space } from './themes/space'
@@ -922,7 +922,8 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     const f = furnish(room, labById(room.id), busy.has(room.id))
     furnished.set(room.id, f)
     out.push(f.svg)
-    out.push(racks(room, labById(room.id), services))
+    // top puestos get their racks after the bunks, which are drawn later and would cover the first one
+    if (!room.top) out.push(racks(room, labById(room.id), services))
   }
 
   // painter's order, back to front: wall signs, top rooms, plants, then the hanging signs and the bottom rooms in front of them
@@ -1039,6 +1040,7 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     out.push(`<use href="#b3" ${at(b.x, b.y)}/>`)
   })
   for (const [i, skill] of sleeperAt) if (i >= BUNKS.length * 2) out.push(sleeper(skill, i))
+  for (const room of rooms.filter(rm => rm.top && rm.kind === 'lab')) out.push(racks(room, labById(room.id), services))
 
   const slotsUsed = new Map<string, number>()
   const layer: { depth: number; svg: string }[] = []
@@ -1130,6 +1132,11 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
       const [qx, qy] = iso(fx + (j % 5) * 0.7, fy + Math.floor(j / 5) * 0.7)
       svg += `<g ${tr([qx, qy])}><title>subagente · ${esc(sub.label)}</title><g>${bob(1.5, 0.45, j * 0.1)}<use href="#sd" color="${labById(a.lab).accent}" transform="scale(.75)"/></g></g>`
     })
+    // more than ten: the rest are summed up next to the formation
+    if (a.subagents.length > subs.length) {
+      const [nx, ny] = iso(fx + cols * 0.7, fy + (rows - 1) * 0.7)
+      svg += `<text x="${r(nx)}" y="${r(ny - 10)}" font-size="9" font-weight="700" fill="#FFF8EE" stroke="#2A211C" stroke-width="2.4" paint-order="stroke">+${a.subagents.length - subs.length}</text>`
+    }
     layer.push({ depth: spot.x + spot.y, svg })
   }
 
@@ -1169,7 +1176,7 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
 
   // night: a shade over everything, then the lights that shine through it
   out.push(`<rect id="shade" x="-40" y="-40" width="${VIEW_W + 80}" height="${VIEW_H + 80}" fill="#0B1030" opacity="0" pointer-events="none"/>`)
-  out.push(`<g pointer-events="none">${glows.join('')}${lamps.join('')}</g>`)
+  out.push(`<g pointer-events="none">${glows.join('')}${lamps.join('')}${seasonLights(rooms, W, now, season)}</g>`)
 
   const asleep = sleeperAt.size
   const working = roster.filter(s => crew[s]?.lab).length
