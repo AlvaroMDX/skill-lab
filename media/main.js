@@ -95,29 +95,121 @@
 
   // ---------- zoom & pan ----------
 
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
+  const calm = () => reducedMotion.matches
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
   const sceneW = () => (geo ? geo.vw : 850)
   const sceneH = () => (geo ? geo.vh : 530)
+  // setState on every animation frame is wasteful: the view is saved once it settles
+  let persistTimer = 0
   const apply = () => {
     world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`
-    $('zoomLevel').textContent = `${Math.round(view.scale * 100)}%`
-    persist()
+    const pct = `${Math.round(view.scale * 100)}%`
+    if ($('zoomLevel').textContent !== pct) $('zoomLevel').textContent = pct
+    clearTimeout(persistTimer)
+    persistTimer = setTimeout(persist, 200)
   }
-  const fit = () => {
+  const fitView = () => {
     const w = viewport.clientWidth - (drawer.classList.contains('open') ? drawer.offsetWidth : 0)
     const scale = Math.min(w / sceneW(), viewport.clientHeight / sceneH()) * 0.97
-    view = { scale, x: (w - sceneW() * scale) / 2, y: (viewport.clientHeight - sceneH() * scale) / 2 }
+    return { scale, x: (w - sceneW() * scale) / 2, y: (viewport.clientHeight - sceneH() * scale) / 2 }
+  }
+  const fit = () => {
+    stopCamera()
+    view = fitView()
     apply()
   }
+
+  // one camera animation at a time: wheel zoom (exponential approach), fit (eased tween) or pan inertia
+  let cam = null
+  let camFrame = 0
+  const stopCamera = () => {
+    cam = null
+    cancelAnimationFrame(camFrame)
+  }
+  function runCamera(next) {
+    cancelAnimationFrame(camFrame)
+    cam = next
+    let last = performance.now()
+    const step = now => {
+      if (cam !== next) return
+      const dt = Math.min(0.05, (now - last) / 1000)
+      last = now
+      if (next.tick(dt, now) === false) cam = null
+      apply()
+      if (cam === next) camFrame = requestAnimationFrame(step)
+    }
+    camFrame = requestAnimationFrame(step)
+  }
+
+  // the scene point under (cx, cy) stays under it on every frame; the scale eases in log space so steps feel even
   const zoomAt = (factor, cx, cy) => {
     autoFit = false
-    const scale = Math.min(MAX, Math.max(MIN, view.scale * factor))
-    const k = scale / view.scale
-    view = { scale, x: cx - (cx - view.x) * k, y: cy - (cy - view.y) * k }
-    world.classList.add('smooth')
-    apply()
-    clearTimeout(zoomAt.t)
-    zoomAt.t = setTimeout(() => world.classList.remove('smooth'), 160)
+    const base = cam && cam.kind === 'zoom' ? cam.target : view.scale
+    const target = clamp(base * factor, MIN, MAX)
+    if (calm()) {
+      stopCamera()
+      const k = target / view.scale
+      view = { scale: target, x: cx - (cx - view.x) * k, y: cy - (cy - view.y) * k }
+      return apply()
+    }
+    const z = cam && cam.kind === 'zoom' ? cam : { kind: 'zoom' }
+    z.target = target
+    z.cx = cx
+    z.cy = cy
+    z.wx = (cx - view.x) / view.scale
+    z.wy = (cy - view.y) / view.scale
+    z.tick = dt => {
+      const ls = Math.log(view.scale)
+      const lt = Math.log(z.target)
+      const scale = Math.abs(lt - ls) < 0.002 ? z.target : Math.exp(ls + (lt - ls) * (1 - Math.exp(-dt / 0.06)))
+      view = { scale, x: z.cx - z.wx * scale, y: z.cy - z.wy * scale }
+      return scale !== z.target
+    }
+    if (cam !== z) runCamera(z)
   }
+
+  const easeInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+  // "encajar": glide to the fitted view, tweening the centre point and the log of the scale
+  function fitAnimated() {
+    autoFit = true
+    const to = fitView()
+    if (calm() || !view) return fit()
+    const from = view
+    const vw = viewport.clientWidth / 2
+    const vh = viewport.clientHeight / 2
+    const c0 = { x: (vw - from.x) / from.scale, y: (vh - from.y) / from.scale }
+    const c1 = { x: (vw - to.x) / to.scale, y: (vh - to.y) / to.scale }
+    const ms = 420
+    const start = performance.now()
+    runCamera({
+      kind: 'fit',
+      tick: (_dt, now) => {
+        const k = easeInOut(Math.min(1, (now - start) / ms))
+        const scale = Math.exp(Math.log(from.scale) + (Math.log(to.scale) - Math.log(from.scale)) * k)
+        const cx = c0.x + (c1.x - c0.x) * k
+        const cy = c0.y + (c1.y - c0.y) * k
+        view = k >= 1 ? to : { scale, x: vw - cx * scale, y: vh - cy * scale }
+        return k < 1
+      },
+    })
+  }
+
+  // a flung map glides on and slows down exponentially, measured in real time
+  function fling(vx, vy) {
+    if (calm() || Math.hypot(vx, vy) < 120) return
+    runCamera({
+      kind: 'inertia',
+      tick: dt => {
+        const decay = Math.exp(-dt / 0.2)
+        view = { ...view, x: view.x + vx * dt, y: view.y + vy * dt }
+        vx *= decay
+        vy *= decay
+        return Math.hypot(vx, vy) > 12
+      },
+    })
+  }
+
   if (view) apply()
 
   const scenePoint = e => {
@@ -127,8 +219,12 @@
 
   viewport.addEventListener('wheel', e => {
     e.preventDefault()
+    if (!view) return
     const rect = viewport.getBoundingClientRect()
-    zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - rect.left, e.clientY - rect.top)
+    // trackpads send many small deltas, wheels ~100 per notch (or lines): scale by the amount, not the event count
+    const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1)
+    const factor = clamp(Math.exp(-delta * (e.ctrlKey ? 0.01 : 0.00113)), 0.5, 2)
+    zoomAt(factor, e.clientX - rect.left, e.clientY - rect.top)
   }, { passive: false })
 
   // ---------- pointer: pan, click, grab ----------
@@ -172,7 +268,10 @@
   viewport.addEventListener('pointerdown', e => {
     window.getSelection()?.removeAllRanges()
     unlockAudio()
-    press = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false, hit: pick(e, DRAGGABLE) }
+    if (cam && cam.kind !== 'zoom') stopCamera()
+    if (!view) return
+    const hit = pick(e, DRAGGABLE)
+    press = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, hit, at: scenePoint(e), feet: hit ? feetOf(hit) : null, samples: [] }
     viewport.setPointerCapture?.(e.pointerId)
   })
 
@@ -183,15 +282,27 @@
     if (!press.moved && Math.hypot(dx, dy) < 5) return
     if (!press.moved) {
       press.moved = true
-      if (press.hit) startGrab(press.hit, e)
+      if (press.hit) startGrab(press.hit, e, press)
       else viewport.classList.add('dragging')
     }
     if (grab) moveGrab(e)
     else {
       autoFit = false
-      view = { ...view, x: press.vx + dx, y: press.vy + dy }
+      const mx = e.clientX - press.lx
+      const my = e.clientY - press.ly
+      view = { ...view, x: view.x + mx, y: view.y + my }
+      // a zoom still easing keeps its anchor under the same scene point
+      if (cam && cam.kind === 'zoom') {
+        cam.cx += mx
+        cam.cy += my
+      }
       apply()
+      const now = performance.now()
+      press.samples.push({ t: now, x: e.clientX, y: e.clientY })
+      while (press.samples.length > 2 && now - press.samples[0].t > 90) press.samples.shift()
     }
+    press.lx = e.clientX
+    press.ly = e.clientY
   })
 
   const endPress = e => {
@@ -200,6 +311,13 @@
     press = null
     viewport.classList.remove('dragging')
     if (grab) return releaseGrab(e)
+    if (p.moved && e.type === 'pointerup') {
+      const s = p.samples
+      const a = s[0]
+      const b = s[s.length - 1]
+      // a pause before letting go means no fling
+      if (a && b && b.t > a.t && performance.now() - b.t < 60) fling(((b.x - a.x) / (b.t - a.t)) * 1000, ((b.y - a.y) / (b.t - a.t)) * 1000)
+    }
     if (!p.moved && e.type === 'pointerup') click(e)
   }
   viewport.addEventListener('pointerup', endPress)
@@ -254,18 +372,32 @@
     const near = result[0] === '7' && result[1] === '7'
     const stops = [650, 1050, near ? 2300 : 1450]
     const started = performance.now()
-    const tick = setInterval(() => {
-      const t = performance.now() - started
-      reels.forEach((_r, k) => t < stops[k] && show(k, k === 2 && near && t > 1450 && Math.random() < 0.5 ? '7' : roll()))
-    }, 70)
-    stops.forEach((ms, k) =>
-      setTimeout(() => {
-        show(k, result[k])
-        beep([660 + k * 110], 0.04)
-      }, ms),
-    )
+    // each reel flicks symbols on real time and slows down over its last 400 ms, then clicks into place
+    const next = [0, 0, 0]
+    const stopped = [false, false, false]
+    reels.forEach(r => r.classList.add('spin'))
+    const tick = now => {
+      if (!g.isConnected) return
+      const t = now - started
+      reels.forEach((reel, k) => {
+        if (stopped[k]) return
+        if (t >= stops[k]) {
+          stopped[k] = true
+          show(k, result[k])
+          reel.classList.remove('spin')
+          reel.classList.add('stop')
+          beep([660 + k * 110], 0.04)
+          return
+        }
+        if (t < next[k]) return
+        const slow = clamp((t - (stops[k] - 400)) / 400, 0, 1)
+        next[k] = t + 60 + slow * slow * 160
+        show(k, k === 2 && near && t > 1450 && Math.random() < 0.5 ? '7' : roll())
+      })
+      if (stopped.some(s => !s)) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
     setTimeout(() => {
-      clearInterval(tick)
       const spins = tally('spins')
       if (spins >= 50) unlock('slot50')
       const jackpot = result.every(s => s === '7')
@@ -282,13 +414,17 @@
         floatText({ x, y: y - 52 }, result.filter(s => s === '7').length === 2 ? '¡Casi! Dos sietes…' : 'Otra vez…')
       }
       setTimeout(() => {
-        g.remove()
-        spinning.delete(id)
+        g.classList.add('out')
+        setTimeout(() => {
+          g.remove()
+          spinning.delete(id)
+        }, 220)
       }, jackpot ? 4000 : 1600)
     }, stops[2] + 120)
   }
 
   function coinRain(x, y) {
+    if (calm()) return
     for (let k = 0; k < 18; k++) {
       const c = document.createElementNS(SVG_NS, 'circle')
       c.setAttribute('class', 'coin')
@@ -300,7 +436,8 @@
       c.style.setProperty('--dx', `${((Math.random() - 0.5) * 70).toFixed(1)}px`)
       c.style.animationDelay = `${(k * 0.07).toFixed(2)}s`
       overlay.appendChild(c)
-      setTimeout(() => c.remove(), 2600)
+      c.addEventListener('animationend', () => c.remove())
+      setTimeout(() => c.remove(), 3200)
     }
   }
 
@@ -333,27 +470,62 @@
     if (!el) return
     el.style.removeProperty('visibility')
     if (seamless) return
+    el.classList.remove('reappear')
+    void el.getBoundingClientRect()
     el.classList.add('reappear')
-    setTimeout(() => el.classList.remove('reappear'), 500)
+    setTimeout(() => el.classList.remove('reappear'), 400)
   }
 
-  const bagShape = '<ellipse rx="8" ry="3" fill="#000" opacity=".2"/><path d="M-7 0 q-2 -10 7 -12 q9 2 7 12 z" fill="#2B2B2E"/><path d="M-2.5 -11.5 l2.5 -4 l2.5 4" stroke="#2B2B2E" stroke-width="2.2" fill="none"/><path d="M-3.5 -6 q3.5 2 7 0" stroke="#5A5A60" stroke-width="1" fill="none"/>'
+  const BAG_BODY = '<path d="M-7 0 q-2 -10 7 -12 q9 2 7 12 z" fill="#2B2B2E"/><path d="M-2.5 -11.5 l2.5 -4 l2.5 4" stroke="#2B2B2E" stroke-width="2.2" fill="none"/><path d="M-3.5 -6 q3.5 2 7 0" stroke="#5A5A60" stroke-width="1" fill="none"/>'
+  const bagShape = `<ellipse rx="8" ry="3" fill="#000" opacity=".2"/>${BAG_BODY}`
 
-  // a carried character: .face holds the facing (an attribute), .body the CSS animations, .props the scene's
-  // accessories; keeping them on separate elements stops one transform from overriding another
-  function makeGhost(kind, el) {
+  // the sprite without its own floor shadow, so the carried one can leave its shadow on the ground
+  function spriteOf(kind, el) {
+    if (kind === 'bag') return BAG_BODY
+    const id = kind === 'pet' ? `pt-${el.dataset.coat || 'gris'}` : kind === 'session' ? 'ag' : 'ca'
+    const color = kind === 'pet' ? '' : el.dataset.color || '#D97757'
+    const def = scene.querySelector(`#${id}`)
+    if (!def) return `<use href="#${id}"${color ? ` color="${color}"` : ''}></use>`
+    const copy = def.cloneNode(true)
+    copy.removeAttribute('id')
+    const first = copy.firstElementChild
+    if (first && first.tagName === 'ellipse' && first.getAttribute('fill') === '#000') first.remove()
+    if (color) copy.setAttribute('color', color)
+    return copy.outerHTML
+  }
+
+  // a carried character: .shadow stays on the ground, .lift/.tilt/.grow are driven from JS (attributes), .face holds
+  // the facing, .body the CSS animations, .props the scene's accessories; one transform per element, none overridden
+  const ghostInner = (sprite, alert = '!', alertY = -30) =>
+    `<ellipse class="shadow" rx="10" ry="3.5"/><g class="lift"><g class="tilt"><g class="grow"><g class="face"><g class="body">${sprite}</g><g class="props"></g></g></g></g>` +
+    `<text class="alert" y="${alertY}" text-anchor="middle">${alert}</text></g>`
+  function makeGhost(kind, el, sprite) {
     const g = document.createElementNS(SVG_NS, 'g')
     g.setAttribute('class', `carry ${kind}`)
-    let body
-    if (kind === 'bag') body = bagShape
-    else if (kind === 'pet') body = `<use href="#pt-${el.dataset.coat || 'gris'}"></use>`
-    else body = `<use href="#${kind === 'session' ? 'ag' : 'ca'}" color="${el.dataset.color || '#D97757'}"></use>`
-    g.innerHTML = `<g class="face"><g class="body">${body}</g><g class="props"></g></g><text class="alert" y="-30" text-anchor="middle">!</text>`
+    g.innerHTML = ghostInner(sprite)
     overlay.appendChild(g)
     if (kind === 'pet') setFace(g, facingOf(el))
     return g
   }
-  const place = (g, p) => g.setAttribute('transform', `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`)
+  const place = (g, p) => g.setAttribute('transform', `translate(${p.x.toFixed(2)},${p.y.toFixed(2)})`)
+  const LIFT = 9
+  // height over the floor: the body rises, the shadow shrinks and fades
+  function setLift(ghost, h) {
+    ghost.querySelector('.lift')?.setAttribute('transform', `translate(0,${(-h).toFixed(2)})`)
+    const sh = ghost.querySelector('.shadow')
+    if (!sh) return
+    const k = clamp(h / (LIFT * 2), 0, 1)
+    sh.setAttribute('rx', (10 * (1 - 0.4 * k)).toFixed(2))
+    sh.setAttribute('ry', (3.5 * (1 - 0.4 * k)).toFixed(2))
+    sh.style.opacity = (0.24 - 0.12 * k).toFixed(3)
+  }
+  // where a scene sprite's feet are, in scene units, and how big it is drawn
+  function feetOf(el) {
+    const anchor = el.dataset.bag ? el : el.querySelector('use') || el
+    const m = anchor.getScreenCTM?.()
+    if (!m) return null
+    return { ...scenePoint({ clientX: m.e, clientY: m.f }), s: Math.hypot(m.a, m.b) / view.scale || 1 }
+  }
   const setFace = (g, dir) => {
     g.dataset.dir = dir < 0 ? '-1' : '1'
     g.querySelector('.face')?.setAttribute('transform', dir < 0 ? 'scale(-1,1)' : 'scale(1,1)')
@@ -364,24 +536,98 @@
     return m && m.a < 0 ? -1 : 1
   }
 
-  function startGrab(el, e) {
+  // picked up where it was grabbed: the feet keep their offset from the pointer, so nothing jumps on the first move
+  function startGrab(el, e, p) {
     const kind = el.dataset.bag ? 'bag' : el.dataset.pet !== undefined ? 'pet' : el.dataset.skill ? 'skill' : 'session'
     const key = keyOf(el)
+    const feet = p.feet || { ...p.at, s: 1 }
+    const off = { x: feet.x - p.at.x, y: feet.y - p.at.y }
+    const sprite = spriteOf(kind, el)
+    const ptr = scenePoint(e)
     grab = {
       key,
       kind,
       id: el.dataset.bag || el.dataset.skill || el.dataset.session || el.dataset.pet,
       home: el.dataset.home ? el.dataset.home.split(',').map(Number) : null,
       asleep: el.dataset.asleep === '1',
-      ghost: makeGhost(kind, el),
+      ghost: makeGhost(kind, el, sprite),
+      sprite,
       name: el.dataset.name || '',
+      held: true,
+      off,
+      // the body swings from the grabbed point
+      pivot: { x: -off.x, y: -off.y },
+      ptr,
+      prev: ptr,
+      lift: 0,
+      liftV: 0,
+      ang: 0,
+      angV: 0,
+      vx: 0,
+      grow: feet.s,
     }
     grab.ghost.classList.add('held')
     held.add(key)
     hideHeld()
-    moveGrab(e)
+    pose(grab)
+    physics(grab)
     beep(kind === 'bag' ? [220, 180] : [660, 990], 0.05)
     if (kind === 'skill' && grab.asleep) unlock('wake')
+  }
+
+  function pose(g) {
+    if (g.held) place(g.ghost, { x: g.ptr.x + g.off.x, y: g.ptr.y + g.off.y + g.lift })
+    setLift(g.ghost, g.lift)
+    g.ghost.querySelector('.tilt')?.setAttribute('transform', `rotate(${g.ang.toFixed(2)} ${g.pivot.x.toFixed(1)} ${g.pivot.y.toFixed(1)})`)
+    g.ghost.querySelector('.grow')?.setAttribute('transform', `scale(${g.grow.toFixed(3)})`)
+  }
+
+  // lift, pendulum swing from the pointer's speed, then the fall with a small bounce; all on real time (dt)
+  function physics(g) {
+    let last = performance.now()
+    let landed = false
+    const step = now => {
+      if (!g.ghost.isConnected || g.frozen) return
+      const dt = Math.min(0.04, (now - last) / 1000)
+      last = now
+      if (dt <= 0) return requestAnimationFrame(step)
+      const ease = 1 - Math.exp(-dt * 16)
+      g.grow += (1 - g.grow) * ease
+      if (g.held) {
+        g.lift += (LIFT - g.lift) * ease
+        g.vx += ((g.ptr.x - g.prev.x) / dt - g.vx) * (1 - Math.exp(-dt * 14))
+        g.prev = g.ptr
+      } else {
+        g.vx *= Math.exp(-dt * 10)
+        if (!landed) {
+          g.liftV -= 2400 * dt
+          g.lift += g.liftV * dt
+          if (g.lift <= 0) {
+            g.lift = 0
+            g.liftV = -g.liftV * 0.3
+            if (g.liftV < 40 || calm()) {
+              g.liftV = 0
+              landed = true
+              g.onLand?.()
+            }
+          }
+        }
+      }
+      const target = g.held && !calm() ? clamp(g.vx * 0.06, -28, 28) : 0
+      for (let k = 0; k < 2; k++) {
+        const h = dt / 2
+        g.angV += (140 * (target - g.ang) - 9 * g.angV) * h
+        g.ang += g.angV * h
+      }
+      if (calm()) g.ang = g.angV = 0
+      pose(g)
+      if (landed && Math.abs(g.ang) < 0.2 && Math.abs(g.angV) < 4) {
+        g.ang = 0
+        return pose(g)
+      }
+      requestAnimationFrame(step)
+    }
+    requestAnimationFrame(step)
   }
 
   function binUnder(e) {
@@ -394,8 +640,8 @@
   }
 
   function moveGrab(e) {
-    const p = scenePoint(e)
-    place(grab.ghost, { x: p.x, y: p.y + 14 })
+    grab.ptr = scenePoint(e)
+    pose(grab)
     const bin = binUnder(e)
     scene.querySelectorAll('[data-bin]').forEach(b => b.classList.toggle('hot', b === bin))
   }
@@ -405,12 +651,22 @@
     grab = null
     scene.querySelectorAll('[data-bin].hot').forEach(b => b.classList.remove('hot'))
     g.ghost.classList.remove('held')
-    const p = scenePoint(e)
+    g.ptr = scenePoint(e)
+    pose(g)
+    g.held = false
     const bin = binUnder(e)
-    if (bin) return binIt(g, p, bin)
-    const drop = { x: p.x, y: p.y + 14 }
-    place(g.ghost, drop)
-    g.ghost.classList.add('landed')
+    if (bin) return binIt(g, bin)
+    // it lands right on its shadow
+    const drop = posOf(g.ghost)
+    g.onLand = () => {
+      beep([g.kind === 'bag' ? 160 : 520], 0.04)
+      g.ghost.classList.add('landed')
+      setTimeout(() => afterLanding(g, drop), calm() ? 0 : 300)
+    }
+  }
+
+  function afterLanding(g, drop) {
+    if (!g.ghost.isConnected) return
     if (g.kind === 'bag') {
       const tile = tileOf(drop)
       bags = bags.map(b => (b.id === g.id ? { ...b, x: tile.x, y: tile.y } : b))
@@ -420,14 +676,19 @@
       return renderBags()
     }
     if (g.kind === 'pet') return catReaction(g, drop)
-    if (!g.home) return setTimeout(() => finish(g), 450)
+    if (!g.home) return finish(g)
     const path = route(tileOf(drop), { x: g.home[0], y: g.home[1] })
-    setTimeout(() => walk(g, path, () => finish(g)), 420)
+    // tileOf clamps to the map: start from where it really stands
+    path[0] = drop
+    walk(g, path, () => finish(g))
   }
 
+  // the ghost fades out while the scene's own character fades back in
   function finish(g, seamless = false) {
-    g.ghost.remove()
     release(g.key, seamless)
+    if (seamless || calm()) return g.ghost.remove()
+    g.ghost.classList.add('leaving')
+    setTimeout(() => g.ghost.remove(), 260)
   }
 
   const posOf = el => {
@@ -465,7 +726,7 @@
       const dx = to.x - p.x
       const dy = to.y - p.y
       const d = Math.hypot(dx, dy)
-      const max = (WALK_SPEED * (now - last)) / 1000
+      const max = WALK_SPEED * Math.min(0.05, (now - last) / 1000)
       last = now
       if (d <= Math.max(max, 1)) {
         place(g.ghost, to)
@@ -516,12 +777,18 @@
   }
 
   // into a bin: skills and sessions stop, bags are gone, cats make a scene of it
-  function binIt(g, p, bin) {
+  function binIt(g, bin) {
     const r = bin.getBoundingClientRect()
     const target = scenePoint({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })
-    g.ghost.style.setProperty('--tx', `${(target.x - p.x).toFixed(1)}px`)
-    g.ghost.style.setProperty('--ty', `${(target.y - p.y - 14).toFixed(1)}px`)
-    place(g.ghost, { x: p.x, y: p.y + 14 })
+    // the swing stops where it is; the bin's mouth is mapped into the body's own (tilted, maybe flipped) frame
+    g.frozen = true
+    const face = g.ghost.querySelector('.face')
+    const body = g.ghost.querySelector('.body')
+    const m = face?.getCTM?.()
+    const to = m ? new DOMPoint(target.x, target.y).matrixTransform(m.inverse()) : { x: 0, y: 0 }
+    const bb = body?.getBBox?.() || { x: 0, y: 0, width: 0, height: 0 }
+    g.ghost.style.setProperty('--tx', `${(to.x - (bb.x + bb.width / 2)).toFixed(1)}px`)
+    g.ghost.style.setProperty('--ty', `${(to.y - (bb.y + bb.height)).toFixed(1)}px`)
     g.ghost.classList.add('binned')
     bin.classList.add('gulp')
     setTimeout(() => bin.classList.remove('gulp'), 700)
@@ -557,8 +824,7 @@
     setTimeout(() => {
       bin.classList.remove('rattle')
       g.ghost.classList.remove('binned')
-      const sprite = g.ghost.querySelector('use')?.outerHTML || ''
-      g.ghost.innerHTML = `<g class="face"><g class="body">${sprite}</g><g class="props"></g></g><text class="alert" y="-26" text-anchor="middle">¡miau!</text>`
+      g.ghost.innerHTML = ghostInner(g.sprite, '¡miau!', -26)
       setFace(g.ghost, 1)
       const out = bin.dataset.bin === 'out'
       const land = iso(out ? Math.round(geo.W * 0.55) + 2.5 : 3, out ? geo.H + 1.2 : corridorY())
@@ -686,14 +952,17 @@
     const height = Math.min(34, 10 + dist * 0.25)
     const start = performance.now()
     g.ghost.classList.remove('landed')
+    // the shadow glides along the floor while the cat arcs over it
     const step = now => {
       if (!g.ghost.isConnected) return
       const k = Math.min(1, (now - start) / ms)
-      place(g.ghost, { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k - Math.sin(Math.PI * k) * height })
+      const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2
+      place(g.ghost, { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e })
+      setLift(g.ghost, Math.sin(Math.PI * k) * height)
       if (k < 1) return requestAnimationFrame(step)
       g.ghost.classList.add('landed')
       beep([700], 0.05)
-      setTimeout(done, 220)
+      setTimeout(done, calm() ? 0 : 300)
     }
     requestAnimationFrame(step)
   }
@@ -727,45 +996,234 @@
     setTimeout(() => walk(g, [drop, { x: drop.x + dir * r.move, y: drop.y }], leave, 60), 350)
   }
 
-  // the street scare: a car comes down the kerb lane, brakes and swerves with a honk, the cat jumps, the car drives off
-  const CAR_LANE = 2.6
-  const CAR_SWERVE = 3.6
-  // atan(9 / 18): the road's slope on screen, so a side-view car sits along it
-  const CAR_SKEW = 26.57
-  const CAR_SHAPE =
-    '<rect x="-18" y="-1.5" width="36" height="4" rx="2" fill="#000" opacity=".22"/>' +
-    '<path d="M-9 -10 L-6 -16 H5 L9 -10 Z" fill="#E2685C"/><path d="M-7.5 -10.5 L-5.3 -15 H-1 V-10.5 Z" fill="#CFE8F5"/><path d="M.5 -10.5 V-15 H4.4 L7.3 -10.5 Z" fill="#CFE8F5"/>' +
-    '<rect x="-17" y="-10.5" width="34" height="7.5" rx="2" fill="#C8423A"/><rect x="-.4" y="-10" width=".8" height="6" fill="#A9352E"/><rect x="-17" y="-4.6" width="34" height="1.5" fill="#8E2F29"/>' +
-    '<rect x="15" y="-9" width="2.2" height="2" fill="#FFE34F"/><rect x="-17.2" y="-9" width="1.6" height="2" fill="#FF6B5E"/>' +
-    '<circle cx="-10" cy="-3" r="3" fill="#222"/><circle cx="10" cy="-3" r="3" fill="#222"/><circle cx="-10" cy="-3" r="1.1" fill="#8C8C8C"/><circle cx="10" cy="-3" r="1.1" fill="#8C8C8C"/>'
+  // the street scare: a vehicle that fits the world comes down its lane, brakes and swerves with its horn, the cat
+  // jumps, it drives off. Vehicles are drawn in true isometric (length along x, width along y, height in px)
   const smooth = t => {
     const k = Math.min(1, Math.max(0, t))
     return k * k * (3 - 2 * k)
   }
+  const TILE_PX = Math.hypot(18, 9)
+  const vp = (x, y, z = 0) => `${((x - y) * 18).toFixed(1)},${((x + y) * 9 - z).toFixed(1)}`
+  const vpoly = (pts, fill, extra = '') => `<polygon points="${pts.map(p => vp(...p)).join(' ')}" fill="${fill}"${extra}/>`
+  // an axis-aligned block: only the faces this view sees (near side, front end, top)
+  const vbox = (x0, x1, y0, y1, z0, z1, top, side, end, extra = '') =>
+    vpoly([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], side, extra) +
+    vpoly([[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]], end, extra) +
+    vpoly([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], top, extra)
+  const vshadow = (x0, x1, y0, y1) => vpoly([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], '#000', ' opacity=".24"')
+  const ring = (x, y, r, zc, k = 1) => Array.from({ length: 16 }, (_v, i) => [x + ((r * k) / TILE_PX) * Math.cos((i / 16) * Math.PI * 2), y, zc + r * k * Math.sin((i / 16) * Math.PI * 2)])
+  // a wheel standing along the road; its spokes are redrawn every frame from the distance driven
+  const vwheel = (x, y, r, tire = '#232323', rim = '#9A9A9A') =>
+    vpoly(ring(x, y, r, r), tire) + vpoly(ring(x, y, r, r, 0.55), rim) +
+    `<path class="spokes" data-w="${x},${y},${r}" stroke="${tire}" stroke-width="${Math.max(0.8, r * 0.22).toFixed(1)}" fill="none"/>`
+  function spinWheels(car, turn) {
+    car.querySelectorAll('.spokes').forEach(s => {
+      const [x, y, r] = s.dataset.w.split(',').map(Number)
+      let d = ''
+      for (let k = 0; k < 3; k++) {
+        const a = turn + (k * Math.PI) / 3
+        const dx = ((r * 0.52) / TILE_PX) * Math.cos(a)
+        const dz = r * 0.52 * Math.sin(a)
+        d += `M${vp(x + dx, y, r + dz)}L${vp(x - dx, y, r - dz)}`
+      }
+      s.setAttribute('d', d)
+    })
+  }
+  const person = (x, y, z, jacket, head = '#F2C29B', hat = '') =>
+    vbox(x - 0.1, x + 0.1, y - 0.12, y + 0.12, z, z + 6, jacket, jacket, jacket, ' stroke="#00000033" stroke-width=".4"') +
+    vbox(x - 0.07, x + 0.07, y - 0.08, y + 0.08, z + 6, z + 10, head, head, head) + (hat ? vbox(x - 0.09, x + 0.09, y - 0.1, y + 0.1, z + 9.4, z + 11.4, hat, hat, hat) : '')
+
+  function carShape() {
+    const y0 = -0.5
+    const y1 = 0.5
+    let s = vshadow(-1.3, 1.3, -0.62, 0.66)
+    s += vwheel(-0.72, y0, 3.4) + vwheel(0.72, y0, 3.4)
+    s += vbox(-1.15, 1.15, y0, y1, 2.6, 8, '#E2685C', '#C8423A', '#A9352E')
+    // trim: dark sill, light shoulder line, door seams and handles
+    s += vpoly([[-1.15, y1, 2.6], [1.15, y1, 2.6], [1.15, y1, 3.8], [-1.15, y1, 3.8]], '#8E2F29')
+    s += vpoly([[-1.15, y1, 7.3], [1.15, y1, 7.3], [1.15, y1, 8], [-1.15, y1, 8]], '#E9806F')
+    s += `<path d="M${vp(-0.12, y1, 3.8)}L${vp(-0.12, y1, 7.3)}M${vp(0.62, y1, 3.8)}L${vp(0.62, y1, 7.3)}" stroke="#8E2F29" stroke-width=".7"/>`
+    s += vpoly([[0.18, y1, 6.2], [0.36, y1, 6.2], [0.36, y1, 6.8], [0.18, y1, 6.8]], '#F4F1EA') + vpoly([[-0.62, y1, 6.2], [-0.44, y1, 6.2], [-0.44, y1, 6.8], [-0.62, y1, 6.8]], '#F4F1EA')
+    // front: bumper, grille, headlights; rear light on the side
+    s += vpoly([[1.15, y0, 2.6], [1.15, y1, 2.6], [1.15, y1, 3.8], [1.15, y0, 3.8]], '#5E211D')
+    s += vpoly([[1.15, -0.18, 4.4], [1.15, 0.18, 4.4], [1.15, 0.18, 6], [1.15, -0.18, 6]], '#3A1A17')
+    s += vpoly([[1.15, -0.44, 5], [1.15, -0.24, 5], [1.15, -0.24, 6.6], [1.15, -0.44, 6.6]], '#FFF3B0') + vpoly([[1.15, 0.24, 5], [1.15, 0.44, 5], [1.15, 0.44, 6.6], [1.15, 0.24, 6.6]], '#FFF3B0')
+    s += vpoly([[-1.15, y1, 5.4], [-1.02, y1, 5.4], [-1.02, y1, 7], [-1.15, y1, 7]], '#FF5B4E')
+    // cabin with a raked windscreen, glass inset in the side
+    const cy0 = -0.42
+    const cy1 = 0.42
+    s += vpoly([[-0.7, cy1, 8], [0.45, cy1, 8], [0.18, cy1, 13.6], [-0.56, cy1, 13.6]], '#C8423A')
+    s += vpoly([[-0.6, cy1, 8.6], [-0.12, cy1, 8.6], [-0.12, cy1, 12.9], [-0.5, cy1, 12.9]], '#7FB2D1') + vpoly([[-0.02, cy1, 8.6], [0.36, cy1, 8.6], [0.14, cy1, 12.9], [-0.02, cy1, 12.9]], '#7FB2D1')
+    s += vpoly([[0.45, cy0, 8], [0.45, cy1, 8], [0.18, cy1, 13.6], [0.18, cy0, 13.6]], '#BFE0F2')
+    s += vpoly([[0.42, cy0 + 0.05, 8.6], [0.42, cy0 + 0.2, 8.6], [0.22, cy0 + 0.2, 12.8], [0.22, cy0 + 0.05, 12.8]], '#FFFFFF', ' opacity=".55"')
+    s += vpoly([[-0.56, cy0, 13.6], [0.18, cy0, 13.6], [0.18, cy1, 13.6], [-0.56, cy1, 13.6]], '#E2685C')
+    s += vwheel(-0.72, y1 + 0.01, 3.4) + vwheel(0.72, y1 + 0.01, 3.4)
+    return s
+  }
+
+  function boatShape() {
+    // deck outline (pointed bow at +x) and a narrower waterline below it
+    const deck = [[-1.25, -0.46], [0.55, -0.46], [1.35, 0], [0.55, 0.46], [-1.25, 0.46]]
+    const water = [[-1.15, -0.38], [0.5, -0.38], [1.1, 0], [0.5, 0.38], [-1.15, 0.38]]
+    const D = 6
+    let s = vpoly(water.map(([x, y]) => [x * 1.12, y * 1.3, 0]), '#F4FBFF', ' opacity=".75"')
+    s += vpoly([[water[4][0], water[4][1], 0], [water[3][0], water[3][1], 0], [deck[3][0], deck[3][1], D], [deck[4][0], deck[4][1], D]], '#F4F1EA')
+    s += vpoly([[water[3][0], water[3][1], 0], [water[2][0], water[2][1], 0], [deck[2][0], deck[2][1], D], [deck[3][0], deck[3][1], D]], '#DCD6CB')
+    // a coloured stripe under the gunwale
+    const at = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, k * D]
+    const w4 = [...water[4], 0]
+    const w3 = [...water[3], 0]
+    const w2 = [...water[2], 0]
+    const d4 = [...deck[4], D]
+    const d3 = [...deck[3], D]
+    const d2 = [...deck[2], D]
+    s += vpoly([at(w4, d4, 0.62), at(w3, d3, 0.62), at(w3, d3, 0.82), at(w4, d4, 0.82)], '#2F6FB0') + vpoly([at(w3, d3, 0.62), at(w2, d2, 0.62), at(w2, d2, 0.82), at(w3, d3, 0.82)], '#245A92')
+    s += vpoly(deck.map(([x, y]) => [x, y, D]), '#C8A06A') + vpoly(deck.map(([x, y]) => [x * 0.86, y * 0.78, D]), '#B58C58')
+    // outboard motor, console with its screen, the skipper in a life jacket
+    s += vbox(-1.5, -1.25, -0.13, 0.13, 3, 10, '#4A4642', '#2E2B2A', '#3A3634')
+    s += vbox(-0.15, 0.2, -0.24, 0.24, D, D + 5, '#F4F1EA', '#E2DDD4', '#CFC9BF')
+    s += vpoly([[0.2, -0.22, D + 5], [0.2, 0.22, D + 5], [0.05, 0.22, D + 9], [0.05, -0.22, D + 9]], '#BFE0F2', ' opacity=".8"')
+    s += person(-0.4, 0, D, '#FF8A3D', '#F2C29B', '#F4F1EA')
+    return s
+  }
+
+  function roverShape() {
+    const y0 = -0.55
+    const y1 = 0.55
+    let s = vshadow(-1.05, 1.05, -0.65, 0.7)
+    for (const x of [-0.72, 0, 0.72]) s += vwheel(x, y0, 3, '#4A4A50', '#B8B8C0')
+    s += vbox(-0.95, 0.95, -0.45, 0.45, 5, 9.5, '#F0F0F2', '#C9C9D0', '#B3B3BC')
+    s += vpoly([[-0.95, 0.45, 5.6], [0.95, 0.45, 5.6], [0.95, 0.45, 7], [-0.95, 0.45, 7]], '#D9A93A')
+    // rocker arms down to the near wheels
+    s += `<path d="M${vp(-0.72, y1, 3)}L${vp(0, 0.45, 6)}L${vp(0.72, y1, 3)}M${vp(0, 0.45, 6)}L${vp(0, y1, 3)}" stroke="#6E6E78" stroke-width="1.2" fill="none"/>`
+    // solar deck, mast and a camera head with two lenses: half rover, half robot
+    s += vbox(-0.92, 0.3, -0.62, 0.62, 10, 11, '#2F4F9E', '#22396F', '#22396F')
+    s += `<path d="M${vp(-0.6, -0.62, 11)}L${vp(-0.6, 0.62, 11)}M${vp(-0.3, -0.62, 11)}L${vp(-0.3, 0.62, 11)}M${vp(0, -0.62, 11)}L${vp(0, 0.62, 11)}M${vp(-0.92, 0, 11)}L${vp(0.3, 0, 11)}" stroke="#7FA0E0" stroke-width=".5"/>`
+    s += vbox(0.55, 0.65, -0.05, 0.05, 9.5, 19, '#9A9AA2', '#7C7C84', '#8A8A92')
+    s += vbox(0.42, 0.82, -0.24, 0.24, 19, 24, '#F0F0F2', '#C9C9D0', '#B3B3BC')
+    s += vpoly(ring(0.82, -0.1, 1.3, 21.5).map(([x, y, z]) => [0.82, -0.1 + (x - 0.82), z]), '#1C1E22') + vpoly(ring(0.82, 0.12, 1.3, 21.5).map(([x, y, z]) => [0.82, 0.12 + (x - 0.82), z]), '#1C1E22')
+    s += `<circle class="eye" cx="${vp(0.82, -0.1, 21.5).split(',')[0]}" cy="${vp(0.82, -0.1, 21.5).split(',')[1]}" r=".8" fill="#7FE3FF"/><circle class="eye" cx="${vp(0.82, 0.12, 21.5).split(',')[0]}" cy="${vp(0.82, 0.12, 21.5).split(',')[1]}" r=".8" fill="#7FE3FF"/>`
+    s += `<path d="M${vp(-0.7, 0, 11)}L${vp(-0.7, 0, 17)}" stroke="#9A9AA2" stroke-width=".8"/><circle cx="${vp(-0.7, 0, 17.5).split(',')[0]}" cy="${vp(-0.7, 0, 17.5).split(',')[1]}" r="1.2" fill="#FF3B30"/>`
+    for (const x of [-0.72, 0, 0.72]) s += vwheel(x, y1, 3, '#4A4A50', '#B8B8C0')
+    return s
+  }
+
+  function tractorShape() {
+    const y0 = -0.5
+    const y1 = 0.5
+    let s = vshadow(-1.2, 1.25, -0.6, 0.66)
+    s += vwheel(-0.5, y0, 7, '#2A2A2A', '#E0B04A') + vwheel(0.78, y0, 3.8, '#2A2A2A', '#E0B04A')
+    // chassis and hood, grille and lamps in front
+    s += vbox(-0.95, 0.2, -0.36, 0.36, 4, 9, '#5DB24A', '#4E9A3E', '#3F7F32')
+    s += vbox(0.2, 1.15, -0.3, 0.3, 4.5, 11, '#5DB24A', '#4E9A3E', '#3F7F32')
+    s += vpoly([[1.15, -0.2, 5.5], [1.15, 0.2, 5.5], [1.15, 0.2, 10], [1.15, -0.2, 10]], '#2E3A27')
+    s += vpoly([[1.15, -0.3, 9], [1.15, -0.2, 9], [1.15, -0.2, 10.5], [1.15, -0.3, 10.5]], '#FFF3B0') + vpoly([[1.15, 0.2, 9], [1.15, 0.3, 9], [1.15, 0.3, 10.5], [1.15, 0.2, 10.5]], '#FFF3B0')
+    s += vbox(0.75, 0.83, -0.18, -0.1, 11, 19, '#444', '#2A2A2A', '#333')
+    // cab: farmer behind glass, posts and a roof
+    s += person(-0.45, 0, 9, '#3F6FB0', '#F2C29B', '#E8C547')
+    s += vpoly([[-0.95, 0.4, 9], [0.15, 0.4, 9], [0.15, 0.4, 19.5], [-0.95, 0.4, 19.5]], '#CFE8F5', ' opacity=".35"')
+    s += vpoly([[0.15, -0.4, 9], [0.15, 0.4, 9], [0.15, 0.4, 19.5], [0.15, -0.4, 19.5]], '#CFE8F5', ' opacity=".45"')
+    s += `<path d="M${vp(-0.95, 0.4, 9)}L${vp(-0.95, 0.4, 19.5)}M${vp(0.15, 0.4, 9)}L${vp(0.15, 0.4, 19.5)}M${vp(0.15, -0.4, 9)}L${vp(0.15, -0.4, 19.5)}" stroke="#3F7F32" stroke-width="1.2"/>`
+    s += vbox(-1.02, 0.22, -0.46, 0.46, 19.5, 21, '#F4F1EA', '#D8D2C6', '#C9C2B4')
+    s += vwheel(-0.5, y1 + 0.02, 7, '#2A2A2A', '#E0B04A') + vwheel(0.78, y1 + 0.02, 3.8, '#2A2A2A', '#E0B04A')
+    return s
+  }
+
+  function sledShape() {
+    const ski = y => vbox(0.35, 1.2, y - 0.05, y + 0.05, 0, 0.8, '#3A3634', '#2E2B2A', '#2E2B2A') + vpoly([[1.2, y - 0.05, 0.8], [1.2, y + 0.05, 0.8], [1.32, y + 0.05, 2.6], [1.32, y - 0.05, 2.6]], '#2E2B2A')
+    let s = vshadow(-1.05, 1.3, -0.45, 0.5)
+    s += ski(-0.3)
+    // the track at the back, on two bogie wheels that turn
+    s += vbox(-1, 0.05, -0.28, 0.28, 0, 3.4, '#3A3634', '#2A2725', '#2A2725')
+    s += vwheel(-0.75, 0.29, 1.7, '#1C1A19', '#6E6A66') + vwheel(-0.2, 0.29, 1.7, '#1C1A19', '#6E6A66')
+    s += vbox(-0.85, 0.75, -0.32, 0.32, 3.4, 7.5, '#4F8FCB', '#2F6FB0', '#245A92')
+    s += vpoly([[0.75, -0.32, 3.4], [0.75, 0.32, 3.4], [1.05, 0.2, 5], [1.05, -0.2, 5]], '#245A92') + vpoly([[0.75, 0.32, 3.4], [1.05, 0.2, 5], [0.75, 0.32, 7.5]], '#2F6FB0')
+    s += vpoly([[0.75, -0.32, 7.5], [0.75, 0.32, 7.5], [1.05, 0.2, 5], [1.05, -0.2, 5]], '#4F8FCB')
+    s += vpoly([[0.5, -0.25, 7.5], [0.5, 0.25, 7.5], [0.35, 0.25, 11], [0.35, -0.25, 11]], '#CFE8F5', ' opacity=".7"')
+    s += vbox(-0.8, 0.05, -0.2, 0.2, 7.5, 9, '#2A2725', '#1C1A19', '#1C1A19')
+    s += vpoly([[1.05, -0.08, 5.2], [1.05, 0.08, 5.2], [1.05, 0.08, 6.4], [1.05, -0.08, 6.4]], '#FFF3B0')
+    s += person(-0.35, 0, 9, '#C8423A', '#F2C29B', '#FFE34F')
+    s += ski(0.3)
+    return s
+  }
+
+  // lane and swerve lane (tiles from the building's front), horn, how far up the shout goes, and what it leaves behind
+  const VEHICLES = {
+    city: { draw: carShape, lane: 2.65, swerve: 3.6, horn: '¡PIIII!', sound: [880, 440, 880, 440], top: 16, trail: null },
+    beach: { draw: boatShape, lane: 2.95, swerve: 3.55, horn: '¡PUUUH!', sound: [196, 196, 147], top: 20, trail: 'foam', rock: true, speed: 0.8 },
+    moon: { draw: roverShape, lane: 2.7, swerve: 3.55, horn: '¡BIP-BIP-BIP!', sound: [1319, 988, 1319, 988, 1319], top: 27, trail: 'dust', speed: 0.7 },
+    forest: { draw: tractorShape, lane: 2.7, swerve: 3.55, horn: '¡MEEEC!', sound: [330, 262, 330, 262], top: 24, trail: 'smoke', speed: 0.6 },
+    snow: { draw: sledShape, lane: 2.7, swerve: 3.55, horn: '¡RIIIN-RIIIN!', sound: [784, 659, 784, 659], top: 23, trail: 'snow', speed: 0.9 },
+  }
+  // particles per trail: where they come from (local tiles/px), how they drift, grow and fade
+  const TRAILS = {
+    foam: { every: 0.06, at: [[-1.3, 0.25, 0], [-1.3, -0.25, 0], [0.9, 0.42, 0]], color: '#FFFFFF', r: [1.4, 4.5], life: 0.8, o: 0.7, drift: [0, 1.5] },
+    dust: { every: 0.05, at: [[-0.95, 0.55, 0.5], [-0.25, 0.55, 0.5]], color: '#B6B6BD', r: [1.5, 5], life: 0.8, o: 0.7, drift: [-4, -6] },
+    smoke: { every: 0.14, at: [[0.79, -0.14, 19.5]], color: '#5E5A55', r: [1.6, 6], life: 1.4, o: 0.65, drift: [-8, -16] },
+    snow: { every: 0.03, at: [[-1.05, 0.15, 1], [-1.05, -0.15, 1]], color: '#FFFFFF', r: [1.2, 4], life: 0.7, o: 0.9, drift: [-14, -10] },
+  }
+
   function passCar(g, at, done) {
     const catX = tileOf(at).x
+    const kind = VEHICLES[model && model.world] ? model.world : 'city'
+    const veh = VEHICLES[kind]
     const car = document.createElementNS(SVG_NS, 'g')
-    car.setAttribute('class', 'car')
-    car.innerHTML = `<g transform="skewY(${CAR_SKEW})"><g class="car-body">${CAR_SHAPE}</g></g><g class="honk"><text y="-24" text-anchor="middle">¡PIIII!</text></g>`
+    car.setAttribute('class', `car car-${kind}`)
+    car.innerHTML = `<g class="rock"><g class="car-body">${veh.draw()}</g></g><g class="honk"><text y="${-veh.top - 8}" text-anchor="middle">${veh.horn}</text></g>`
+    const trail = document.createElementNS(SVG_NS, 'g')
+    trail.setAttribute('class', 'trail')
+    trail.setAttribute('pointer-events', 'none')
+    overlay.appendChild(trail)
     overlay.appendChild(car)
+    const rock = car.querySelector('.rock')
+    const spec = calm() ? null : TRAILS[veh.trail]
+    const bits = []
     setFace(g.ghost, -1)
-    let x = -6
-    let v = 15
+    const speed = veh.speed || 1
+    let x = -7
+    let v = 15 * speed
     let last = performance.now()
+    let t = 0
+    let turn = 0
+    let emit = 0
     let honked = false
     let left = false
+    spinWheels(car, 0)
     const step = now => {
-      if (!car.isConnected) return
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
+      t += dt
+      // the trail outlives the vehicle a moment and then goes too
+      for (let i = bits.length - 1; i >= 0; i--) {
+        const b = bits[i]
+        b.age += dt
+        const k = b.age / spec.life
+        if (k >= 1) {
+          b.el.remove()
+          bits.splice(i, 1)
+          continue
+        }
+        b.x += spec.drift[0] * dt * b.s
+        b.y += spec.drift[1] * dt
+        b.el.setAttribute('cx', b.x.toFixed(1))
+        b.el.setAttribute('cy', b.y.toFixed(1))
+        b.el.setAttribute('r', (spec.r[0] + (spec.r[1] - spec.r[0]) * Math.sqrt(k)).toFixed(2))
+        b.el.setAttribute('opacity', (spec.o * (1 - k)).toFixed(3))
+      }
+      if (!car.isConnected) {
+        if (bits.length) return requestAnimationFrame(step)
+        return trail.remove()
+      }
       const gap = catX - x
-      v += ((gap > 6 ? 15 : gap > -2 ? 4 : 20) - v) * Math.min(1, dt * 5)
+      v += ((gap > 6 ? 15 : gap > -2 ? 4 : 20) * speed - v) * Math.min(1, dt * 5)
       x += v * dt
+      turn -= (v * dt * TILE_PX) / 3.4
+      spinWheels(car, turn)
       car.classList.toggle('brake', gap < 6 && gap > -1)
       if (!honked && gap < 4.5) {
         honked = true
         car.classList.add('honking')
-        beep([880, 440, 880, 440], 0.09)
+        beep(veh.sound, 0.09)
         setTimeout(() => {
           if (!g.ghost.isConnected) return
           const alert = g.ghost.querySelector('.alert')
@@ -777,14 +1235,29 @@
           beep([1047, 1319], 0.06)
         }, 120)
       }
-      // the car eases into the far lane round the cat and back into its own
+      // it eases into the far lane round the cat and back into its own
       const swerve = smooth((x - catX + 5) / 4) * (1 - smooth((x - catX - 3) / 4))
-      place(car, iso(x, geo.H + CAR_LANE + (CAR_SWERVE - CAR_LANE) * swerve))
+      const pos = iso(x, geo.H + veh.lane + (veh.swerve - veh.lane) * swerve)
+      place(car, pos)
+      if (veh.rock && !calm()) rock.setAttribute('transform', `translate(0,${(Math.sin(t * 4.2) * 0.9).toFixed(2)}) rotate(${(Math.sin(t * 2.7) * 1.6).toFixed(2)})`)
+      if (spec) {
+        emit += dt
+        while (emit >= spec.every) {
+          emit -= spec.every
+          for (const [lx, ly, lz] of spec.at) {
+            const [px, py] = vp(lx, ly, lz).split(',').map(Number)
+            const el = document.createElementNS(SVG_NS, 'circle')
+            el.setAttribute('fill', spec.color)
+            trail.appendChild(el)
+            bits.push({ el, age: 0, x: pos.x + px + (Math.random() - 0.5) * 3, y: pos.y + py + (Math.random() - 0.5) * 2, s: 0.5 + Math.random() })
+          }
+        }
+      }
       if (!left && gap < -4) {
         left = true
         setTimeout(done, 500)
       }
-      if (x > geo.W + 6) return car.remove()
+      if (x > geo.W + 7) car.remove()
       requestAnimationFrame(step)
     }
     requestAnimationFrame(step)
@@ -841,7 +1314,9 @@
     t.setAttribute('text-anchor', 'middle')
     t.textContent = text
     overlay.appendChild(t)
-    setTimeout(() => t.remove(), 1400)
+    // the big jackpot text lasts longer than the default: go when the animation does
+    t.addEventListener('animationend', () => t.remove())
+    setTimeout(() => t.remove(), 4000)
   }
 
   // Operación Bigotes: helmeted cats roll tanks along the street, firing tracers that burst into explosions
@@ -852,7 +1327,7 @@
     unlock('military')
     beep([392, 392, 392, 523, 659, 523, 784], 0.13)
     const lanes = [geo.H + 2.6, geo.H + 3.7]
-    const fires = []
+    let gone = 0
     for (let i = 0; i < 6; i++) {
       setTimeout(() => {
         const g = document.createElementNS(SVG_NS, 'g')
@@ -867,12 +1342,13 @@
           shout(TANK_SHOUTS[i % TANK_SHOUTS.length], -32, i * 0.7)
         overlay.appendChild(g)
         const lane = lanes[i % 2]
-        walk({ ghost: g }, [iso(-4, lane), iso(geo.W + 4, lane)], () => g.remove(), 55)
-        const timer = setInterval(() => {
-          if (!g.isConnected) return clearInterval(timer)
-          shoot(g)
-        }, 650 + Math.random() * 600)
-        fires.push(timer)
+        // each tank stops firing as it leaves; the operation ends with the last one
+        const timer = setInterval(() => g.isConnected && shoot(g), 650 + Math.random() * 600)
+        walk({ ghost: g }, [iso(-4, lane), iso(geo.W + 4, lane)], () => {
+          clearInterval(timer)
+          g.remove()
+          if (++gone === 6) deploying = false
+        }, 55)
       }, i * 900)
     }
     // infantry cats running ahead of the tanks
@@ -885,10 +1361,6 @@
         walk({ ghost: g }, [iso(-3, geo.H + 1.2), iso(geo.W + 3, geo.H + 1.2)], () => g.remove(), 95)
       }, 400 + i * 650)
     }
-    setTimeout(() => {
-      fires.forEach(clearInterval)
-      deploying = false
-    }, 22_000)
   }
 
   const CAT_SHOUTS = ['¡OPERACIÓN BIGOTES!', '¡Miau-rcha!', '¡Bigotes al frente!', '¡Por el atún!', '¡Sin cuartel!', '¡Zarpas arriba!']
@@ -1026,8 +1498,7 @@
     if (e.key === '+' || e.key === '=') zoomAt(1.25, cx, cy)
     else if (e.key === '-') zoomAt(0.8, cx, cy)
     else if (e.key === '0') {
-      autoFit = true
-      fit()
+      fitAnimated()
     }
     else if (e.key === 'Escape') closeDrawer()
     else if (e.key.toLowerCase() === 'l') drawer.classList.contains('open') ? closeDrawer() : openDrawer(tab)
@@ -1045,8 +1516,7 @@
       if (act === 'zoomIn') zoomAt(1.25, cx, cy)
       else if (act === 'zoomOut') zoomAt(0.8, cx, cy)
       else if (act === 'fit') {
-        autoFit = true
-        fit()
+        fitAnimated()
       }
       else if (act === 'layout') drawer.classList.contains('open') && tab === btn.dataset.tab ? closeDrawer() : openDrawer(btn.dataset.tab)
       else if (act === 'close') closeDrawer()
@@ -1058,6 +1528,12 @@
   // ---------- drawer ----------
 
   function openDrawer(which, target) {
+    // a short slide-in when the content really changes, never on the model's re-renders
+    if (which !== tab || !drawer.classList.contains('open')) {
+      drawerBody.classList.remove('swap')
+      void drawerBody.offsetWidth
+      drawerBody.classList.add('swap')
+    }
     tab = which
     focus = target || null
     if (target && which === 'skills') filter = ''
@@ -1686,7 +2162,24 @@
       renderSetup()
     } else if (msg.type === 'sound') beep(msg.kind === 'done' ? [523, 659, 784] : [988, 740, 988])
   })
-  window.addEventListener('resize', () => autoFit && geo && fit())
+  // a resized panel refits while the view is automatic; a hand-placed view keeps its centre where it was
+  let box = { w: viewport.clientWidth, h: viewport.clientHeight }
+  new ResizeObserver(() => {
+    const w = viewport.clientWidth
+    const h = viewport.clientHeight
+    if (w === box.w && h === box.h) return
+    const dw = w - box.w
+    const dh = h - box.h
+    box = { w, h }
+    if (!view || !geo) return
+    if (autoFit) return fit()
+    if (cam && cam.kind === 'zoom') {
+      cam.cx += dw / 2
+      cam.cy += dh / 2
+    }
+    view = { ...view, x: view.x + dw / 2, y: view.y + dh / 2 }
+    apply()
+  }).observe(viewport)
   updateMedalButton()
   vscode.postMessage({ type: 'ready' })
 })()
