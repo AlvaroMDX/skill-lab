@@ -216,12 +216,92 @@
   })
 
   function click(e) {
-    const hit = pick(e, '[data-skill],[data-session],[data-lab],[data-pet],[data-bag]')
+    const hit = pick(e, '[data-skill],[data-session],[data-lab],[data-pet],[data-bag],[data-slot]')
     if (!hit) return
+    if (hit.dataset.slot) return playSlot(hit)
     if (hit.dataset.lab) return openDrawer('labs', hit.dataset.lab)
     if (hit.dataset.bag) return floatText(scenePoint(e), '🪰 ¡a la papelera!')
     if (hit.dataset.pet !== undefined) catClicks(hit, e)
     flashTag(keyOf(hit))
+  }
+
+  // casino slot machines: a click spins three reels over the machine; 777 is the jackpot (1 in 27)
+  const REEL = ['🍒', '★', 'BAR', '🍋', '🔔']
+  const spinning = new Set()
+  function playSlot(machine) {
+    const id = machine.dataset.slot
+    if (spinning.has(id)) return
+    spinning.add(id)
+    const x = Number(machine.dataset.x)
+    const y = Number(machine.dataset.y)
+    const roll = () => (Math.random() < 1 / 3 ? '7' : REEL[Math.floor(Math.random() * REEL.length)])
+    const result = [roll(), roll(), roll()]
+    const g = document.createElementNS(SVG_NS, 'g')
+    g.setAttribute('class', 'slotpop')
+    g.setAttribute('pointer-events', 'none')
+    g.setAttribute('transform', `translate(${x},${y - 30})`)
+    g.innerHTML =
+      '<g class="slot-in"><rect x="-33" y="-17" width="66" height="27" rx="4" fill="#2A211C" stroke="#E0B04A" stroke-width="2"/>' +
+      [-21, 0, 21].map(cx => `<rect x="${cx - 9}" y="-13" width="18" height="19" rx="2" fill="#FFF8EE"/><text class="reel" x="${cx}" y="1" text-anchor="middle" font-size="11" font-weight="900" fill="#C8423A">7</text>`).join('') +
+      '<path d="M-33 -4 h66" stroke="#C8423A" stroke-opacity=".25"/></g>'
+    overlay.appendChild(g)
+    const reels = [...g.querySelectorAll('.reel')]
+    const show = (k, sym) => {
+      reels[k].textContent = sym
+      reels[k].setAttribute('font-size', sym === 'BAR' ? '7' : '11')
+    }
+    // two sevens on the first reels: the last one takes its time
+    const near = result[0] === '7' && result[1] === '7'
+    const stops = [650, 1050, near ? 2300 : 1450]
+    const started = performance.now()
+    const tick = setInterval(() => {
+      const t = performance.now() - started
+      reels.forEach((_r, k) => t < stops[k] && show(k, k === 2 && near && t > 1450 && Math.random() < 0.5 ? '7' : roll()))
+    }, 70)
+    stops.forEach((ms, k) =>
+      setTimeout(() => {
+        show(k, result[k])
+        beep([660 + k * 110], 0.04)
+      }, ms),
+    )
+    setTimeout(() => {
+      clearInterval(tick)
+      const spins = tally('spins')
+      if (spins >= 50) unlock('slot50')
+      const jackpot = result.every(s => s === '7')
+      if (jackpot) {
+        g.classList.add('jackpot')
+        floatText({ x, y: y - 52 }, '🎰 ¡¡777 · JACKPOT!!', 'big')
+        coinRain(x, y)
+        beep([523, 659, 784, 1047, 784, 1047, 1319], 0.1)
+        unlock('slot777')
+      } else if (result[0] === result[1] && result[1] === result[2]) {
+        floatText({ x, y: y - 52 }, '¡Premio!')
+        beep([784, 988], 0.08)
+      } else {
+        floatText({ x, y: y - 52 }, result.filter(s => s === '7').length === 2 ? '¡Casi! Dos sietes…' : 'Otra vez…')
+      }
+      setTimeout(() => {
+        g.remove()
+        spinning.delete(id)
+      }, jackpot ? 4000 : 1600)
+    }, stops[2] + 120)
+  }
+
+  function coinRain(x, y) {
+    for (let k = 0; k < 18; k++) {
+      const c = document.createElementNS(SVG_NS, 'circle')
+      c.setAttribute('class', 'coin')
+      c.setAttribute('cx', (x + (Math.random() - 0.5) * 20).toFixed(1))
+      c.setAttribute('cy', (y - 30).toFixed(1))
+      c.setAttribute('r', '2.6')
+      c.setAttribute('fill', '#FFD34F')
+      c.setAttribute('stroke', '#B8860B')
+      c.style.setProperty('--dx', `${((Math.random() - 0.5) * 70).toFixed(1)}px`)
+      c.style.animationDelay = `${(k * 0.07).toFixed(2)}s`
+      overlay.appendChild(c)
+      setTimeout(() => c.remove(), 2600)
+    }
   }
 
   // names stay hidden; a click shows one for a moment and the CSS transition fades it out
@@ -1205,6 +1285,8 @@
     ['season', '🎃', 'Fiestero', 'Cambia de temporada', 'world'],
     ['sysadmin', '🖥️', 'Sysadmin', 'Pasa el ratón por un servidor', 'world'],
     ['down', '🚨', 'Alerta roja', 'Pilla un servidor caído', 'world'],
+    ['slot777', '🎰', 'Triple siete', 'Saca 777 en una tragaperras del casino', 'eggs'],
+    ['slot50', '🪙', 'Ludópata', 'Juega 50 tiradas en la tragaperras', 'eggs'],
     ['all', '🏆', 'Coleccionista', 'Consigue todas las demás medallas', 'eggs'],
   ]
 

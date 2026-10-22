@@ -48,7 +48,9 @@ function slots(room: RoomGeom, active: boolean) {
       const [lx, ly] = iso(x + 0.42, y + d * 0.5, h - 12)
       s += `<rect x="${r(lx)}" y="${r(ly - 8)}" width="1.4" height="9" fill="#B8B2A7"/><circle cx="${r(lx + 0.7)}" cy="${r(ly - 9)}" r="2" fill="#C8423A"/>`
     }
-    out.push({ x, t: 0.45, s })
+    // clickable: the webview spins it (easter egg: three sevens)
+    const [cx, cy] = iso(x, fy, h - 10)
+    out.push({ x, t: 0.45, s: `<g data-slot="${room.id}-${k}" data-x="${r(cx)}" data-y="${r(cy)}" style="cursor:pointer"><title>Tragaperras · clic para jugar</title>${s}</g>` })
   })
   return out
 }

@@ -1,5 +1,8 @@
 # Cambios
 
+## 1.0.2 — 2026-10-22
+- Easter egg: las tragaperras del casino se pueden jugar con un clic. Saca 777 para el jackpot (medallas Triple siete y Ludópata).
+
 ## 1.0.1 — 2026-10-22
 - Los servidores se pintan contra la pared, detrás de los muebles de su puesto: ya no tapan la diana y la bandera del cuartel, y las literas tampoco los tapan a ellos.
 
