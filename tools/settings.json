@@ -1,0 +1,16 @@
+{
+ "settings": {
+  "returnDelay": 20,
+  "sound": true,
+  "showPet": true,
+  "watchAllSessions": true,
+  "skipPermissions": false,
+  "cats": [
+   {
+    "name": "Michi",
+    "coat": "gris"
+   }
+  ],
+  "clockMode": "day"
+ }
+}

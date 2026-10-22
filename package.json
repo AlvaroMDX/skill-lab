@@ -1,0 +1,170 @@
+{
+  "name": "skill-lab",
+  "displayName": "Skill Lab",
+  "description": "Un laboratorio isométrico donde ves trabajar a Claude Code: cada skill es un muñeco que va al puesto de tu proyecto cuando se usa.",
+  "publisher": "skill-lab",
+  "version": "0.9.0",
+  "author": {
+    "name": "Alvaro Martos Diez"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlvaroMDX/skill-lab.git"
+  },
+  "homepage": "https://github.com/AlvaroMDX/skill-lab#readme",
+  "bugs": {
+    "url": "https://github.com/AlvaroMDX/skill-lab/issues"
+  },
+  "license": "SEE LICENSE IN LICENSE.md",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#2a2420",
+    "theme": "dark"
+  },
+  "pricing": "Free",
+  "keywords": [
+    "claude",
+    "claude code",
+    "skills",
+    "ai",
+    "agents",
+    "pixel art",
+    "isometric"
+  ],
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "skillLab",
+          "title": "Skill Lab",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "skillLab": [
+        {
+          "type": "webview",
+          "id": "skillLab.view",
+          "name": "Skill Lab"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "skillLab.refresh",
+        "title": "Skill Lab: Redibujar"
+      },
+      {
+        "command": "skillLab.newAgent",
+        "title": "Skill Lab: Lanzar Claude Code (+ Agent)"
+      },
+      {
+        "command": "skillLab.layout",
+        "title": "Skill Lab: Editar layout (labs y skills)"
+      }
+    ],
+    "configuration": {
+      "title": "Skill Lab",
+      "properties": {
+        "skillLab.sound": {
+          "type": "boolean",
+          "default": true,
+          "description": "Sonido al terminar un turno y cuando Claude espera respuesta o permiso."
+        },
+        "skillLab.watchAllSessions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mostrar sesiones de Claude Code de cualquier carpeta (no solo del workspace abierto)."
+        },
+        "skillLab.showPet": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mostrar al gato del laboratorio."
+        },
+        "skillLab.petName": {
+          "type": "string",
+          "default": "Michi",
+          "description": "Nombre del gato del laboratorio (sale al hacerle clic)."
+        },
+        "skillLab.cats": {
+          "type": "array",
+          "default": [],
+          "description": "Gatos del laboratorio: nombre y pelaje (gris, naranja, negro, blanco, siames, tricolor). Vacío: uno con el nombre de petName.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "coat": {
+                "type": "string",
+                "enum": [
+                  "gris",
+                  "naranja",
+                  "negro",
+                  "blanco",
+                  "siames",
+                  "tricolor",
+                  "militar"
+                ]
+              }
+            }
+          }
+        },
+        "skillLab.clockMode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "day",
+            "night"
+          ],
+          "default": "auto",
+          "description": "Ciclo de día y noche: según la hora real, siempre de día o siempre de noche."
+        },
+        "skillLab.skipPermissions": {
+          "type": "boolean",
+          "default": false,
+          "description": "Lanzar los agentes de + Agent con --dangerously-skip-permissions. Úsalo solo si aceptas el riesgo."
+        },
+        "skillLab.claudeCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Ejecutable de Claude Code para + Agent. Vacío: el claude.exe de la extensión de Claude Code."
+        },
+        "skillLab.directories": {
+          "type": "array",
+          "default": [],
+          "description": "Carpetas guardadas para + Agent.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.6",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.6.3"
+  }
+}

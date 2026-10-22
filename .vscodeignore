@@ -1,0 +1,5 @@
+src/**
+*.vsix
+node_modules/**
+package-lock.json
+tools/**
