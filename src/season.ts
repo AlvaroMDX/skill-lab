@@ -84,6 +84,7 @@ function build(rooms: RoomGeom[], W: number, now: number, season: string): Ctx |
   const vw = Math.ceil((W + Y_MAX) * (TW / 2) + 80)
   const vh = Math.ceil((W + Y_MAX) * (TH / 2) + 180)
   const c: Ctx = { id, rooms, W, date: new Date(now), vw, vh, decor: [], lights: [] }
+  CLOCK = now / 1000
   DRESS[id](c)
   return c
 }
@@ -110,8 +111,24 @@ const rnd = (i: number, k = 0) => {
 }
 const pick = <V,>(list: readonly V[], i: number) => list[i % list.length]!
 const at = (p: [number, number], body: string, scale = 1) => `<g transform="translate(${r(p[0])},${r(p[1])})${scale !== 1 ? ` scale(${scale})` : ''}">${body}</g>`
-const loop = (attr: string, values: string, dur: number, begin = 0) =>
-  `<animate attributeName="${attr}" values="${values}" dur="${r(dur)}s" begin="${r(-begin)}s" repeatCount="indefinite"/>`
+// The svg is replaced on every redraw, which restarts SMIL at 0: begins follow the wall clock so a crossing carries on
+// where it was instead of starting over (the Reyes and the bull never got past the first stretch of the street).
+let CLOCK = 0
+const begin = (dur: number, off = 0) => `begin="${-Math.round(((((CLOCK + off) % dur) + dur) % dur) * 1000) / 1000}s"`
+const loop = (attr: string, values: string, dur: number, off = 0, extra = '') =>
+  `<animate attributeName="${attr}" values="${values}" dur="${r(dur)}s" ${begin(r(dur), off)}${extra} repeatCount="indefinite"/>`
+const motion = (path: string, dur: number, off = 0, extra = '') =>
+  `<animateMotion path="${path}" dur="${r(dur)}s" ${begin(r(dur), off)}${extra} repeatCount="indefinite"/>`
+const EASE = '.45 0 .55 1'
+const eased = (n: number) => ` calcMode="spline" keySplines="${Array(n).fill(EASE).join(';')}"`
+
+// Walkers crossing the whole island along the road at depth y, in +x: they come in and leave past the island's ends,
+// clipped to the terrain, then wait out of sight for `rest` of the loop. `lead` puts one ahead of the others.
+function parade(c: Ctx, body: string, y: number, speed: number, rest: number, lead = 0) {
+  const dur = r((c.W + 16) / speed / (1 - rest))
+  const path = `M${pts([iso(-8, y)])}L${pts([iso(c.W + 8, y)])}`
+  c.decor.push(`<g clip-path="url(#world-clip)"><g>${body}${motion(path, dur, lead, ` keyPoints="0;1;1" keyTimes="0;${r(1 - rest)};1" calcMode="linear"`)}</g></g>`)
+}
 const glow = (color: string, rad: number) => `<circle r="${rad}" fill="${color}" fill-opacity=".18"/><circle r="${r(rad * 0.55)}" fill="${color}" fill-opacity=".28"/>`
 const HEART = 'M0 2 L-3 -1 L-3 -2 L-2 -3 L-1 -3 L0 -2 L1 -3 L2 -3 L3 -2 L3 -1 Z'
 const heart = (fill: string, s = 1) => `<path d="${HEART}" fill="${fill}"${s !== 1 ? ` transform="scale(${s})"` : ''}/>`
@@ -159,13 +176,14 @@ function swags(c: Ctx, z: number, step: number, sag: number, color: string, us: 
   return `<path d="${rope}" stroke="${color}" stroke-width="1" fill="none"/>${items}`
 }
 
-// coloured bulbs on a wire; at night each one glows and blinks
+// coloured bulbs on a wire; at night they chase along it in threes, like a marquee
 function garland(c: Ctx, colors: string[], from = 0, z = WALL_H - 2) {
   c.decor.push(
     swags(c, z, 1.6, 2.5, '#3B352F', [0.5], (q, i) => {
       const color = pick(colors, i)
       const [x, y] = q(0, -1.5)
-      c.lights.push(at([x, y], `${glow(color, 6)}<circle r="1.8" fill="${color}">${loop('fill-opacity', '1;.35;1', 1.4 + (i % 3) * 0.5, i * 0.37)}</circle>`))
+      const chase = loop('opacity', '1;1;.3;.3;1', 1.8, -(i % 3) * 0.6, ' keyTimes="0;.3;.38;.92;1"')
+      c.lights.push(at([x, y], `<g>${glow(color, 6)}<circle r="1.8" fill="${color}"/>${chase}</g>`))
       return `<circle cx="${r(x)}" cy="${r(y)}" r="1.8" fill="${color}"/>`
     }, from),
   )
@@ -181,10 +199,17 @@ function bunting(c: Ctx, colors: string[], from = 0, shape: 'flag' | 'heart' = '
   )
 }
 
-// sky band above the back wall: flyers cross it parallel to the wall
-const skyPath = (c: Ctx, z: number) => `M${pts([iso(-2, -2, WALL_H + z)])}L${pts([iso(c.W + 8, -2, WALL_H + z)])}`
-function flyer(c: Ctx, body: string, z: number, dur: number, night = false, begin = 0) {
-  const svg = `<g>${body}<animateMotion path="${skyPath(c, z)}" dur="${dur}s" begin="${-begin}s" repeatCount="indefinite"/></g>`
+// sky band above the back wall: flyers cross it parallel to the wall, from past the top edge of the view
+// to past the right one, so neither end of the loop is ever on screen; then a pause before the next pass
+function flyer(c: Ctx, body: string, z: number, speed: number, night = false, off = 0) {
+  const top = iso(0, -2, WALL_H + z)[1]
+  const x0 = Math.min(-4, (-50 - top) / (TH / 2))
+  const x1 = c.W + 9
+  const rest = 0.3
+  const dur = (x1 - x0) / speed / (1 - rest)
+  const path = `M${pts([iso(x0, -2, WALL_H + z)])}L${pts([iso(x1, -2, WALL_H + z)])}`
+  const bob = `<animateTransform attributeName="transform" type="translate" values="0 0;0 -5;0 0" dur="2.6s" ${begin(2.6, off)}${eased(2)} repeatCount="indefinite"/>`
+  const svg = `<g><g>${body}${bob}</g>${motion(path, dur, off, ` keyPoints="0;1;1" keyTimes="0;${1 - rest};1" calcMode="linear"`)}</g>`
   ;(night ? c.lights : c.decor).push(svg)
 }
 const skyPoint = (c: Ctx, f: number, z: number) => iso(c.W * f, -5, WALL_H + z)
@@ -203,9 +228,10 @@ function fall(c: Ctx, colors: string[], n: number, o: { w?: number; h?: number; 
     const color = pick(colors, i)
     const shape = o.hearts
       ? heart(color, 0.8)
-      : `<rect width="${w}" height="${h}" fill="${color}">${o.flip ? loop('width', `${w};${r(w * 0.2)};${w}`, 0.7 + rnd(i, 4)) : ''}</rect>`
+      : `<rect x="${-w / 2}" width="${w}" height="${h}" fill="${color}">${o.flip ? loop('width', `${w};${r(w * 0.15)};${w}`, 0.6 + rnd(i, 4) * 0.8, i) + loop('x', `${-w / 2};${r(-w * 0.075)};${-w / 2}`, 0.6 + rnd(i, 4) * 0.8, i) : ''}</rect>`
     const path = `M${x} ${y0}C${r(+x + +drift)} ${r(y0 + span / 3)} ${r(+x - +drift)} ${r(y0 + (2 * span) / 3)} ${r(+x + +drift / 2)} ${y1}`
-    s += `<g opacity=".9">${shape}<animateMotion path="${path}" dur="${r(dur)}s" begin="${r(-rnd(i, 5) * dur)}s" repeatCount="indefinite"/></g>`
+    // confetti spins about its own middle as it flutters down, rather than collapsing onto one edge
+    s += `<g opacity=".9">${shape}${motion(path, dur, rnd(i, 5) * dur)}</g>`
   }
   c.decor.push(s)
 }
@@ -254,9 +280,10 @@ const pumpkin = () =>
 const face = (fill: string) => px(-3, -4.5, 1.5, 1.5, fill) + px(1.5, -4.5, 1.5, 1.5, fill) + px(-2.5, -2.5, 5, 1, fill) + px(-1, -2, 1, 0.8, fill)
 
 const bat = (i: number) => {
+  // a quick downstroke and a slower recovery, both wings in step
   const flap = (side: 1 | -1) => {
-    const w = (y: number) => `${-7 * side},${y} ${-2 * side},-2 ${-2 * side},1`
-    return `<polygon points="${w(-4)}" fill="#5E4A7A">${loop('points', `${w(-4)};${w(3)};${w(-4)}`, 0.32, i * 0.1)}</polygon>`
+    const w = (y: number, tip: number) => `${-tip * side},${y} ${-4.5 * side},${r(y / 2 - 1)} ${-2 * side},-2 ${-2 * side},1`
+    return `<polygon points="${w(-5, 7)}" fill="#5E4A7A">${loop('points', `${w(-5, 7)};${w(4, 6)};${w(-5, 7)}`, 0.36, i * 0.13, ' keyTimes="0;.35;1"')}</polygon>`
   }
   return flap(1) + flap(-1) + `<ellipse rx="2.2" ry="2.6" fill="#5E4A7A"/><rect x="-1.2" y="-1" width="1" height="1" fill="#FFD34D"/><rect x=".2" y="-1" width="1" height="1" fill="#FFD34D"/><rect x="-1.5" y="-4" width="1" height="2" fill="#5E4A7A"/><rect x=".5" y="-4" width="1" height="2" fill="#5E4A7A"/>`
 }
@@ -314,14 +341,22 @@ const runner = () =>
 
 const balloon = (color: string, i: number, h = 22) =>
   `<g><path d="M0 0 Q2 ${-h / 2} 0 ${-h}" stroke="#7A6E62" stroke-width=".6" fill="none"/><ellipse cy="${-h - 5}" rx="4" ry="5" fill="${color}"/><rect x="-1" y="${-h - 8}" width="1.4" height="2" fill="#FFF" fill-opacity=".6"/>` +
-  `<animateMotion path="M0 0 Q1.5 -2 0 -3 Q-1.5 -2 0 0" dur="${r(2.5 + (i % 3) * 0.6)}s" begin="${r(-i * 0.7)}s" repeatCount="indefinite"/></g>`
+  float(i) + `</g>`
+
+// balloons tug at their strings: a slow lift and a sideways drift on unrelated periods
+const float = (i: number) => {
+  const up = r(2.6 + (i % 3) * 0.5)
+  const side = r(3.4 + (i % 4) * 0.45)
+  return `<animateTransform attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="${up}s" ${begin(up, i * 0.7)}${eased(2)} repeatCount="indefinite"/>` +
+    `<animateTransform attributeName="transform" type="rotate" values="-3;3;-3" dur="${side}s" ${begin(side, i * 1.1)}${eased(2)} additive="sum" repeatCount="indefinite"/>`
+}
 
 const butterfly = (c: Ctx, color: string, i: number) => {
   const [cx, cy] = iso(c.W * (0.15 + 0.7 * rnd(i, 11)), H + 0.4, 18 + rnd(i, 12) * 30)
   const a = 22 + rnd(i, 13) * 20
   const path = `M${r(cx)} ${r(cy)}c${r(a)} -18 ${r(a * 1.6)} 8 ${r(a)} 14c${r(-a / 2)} 8 ${r(-a * 1.3)} 4 ${r(-a)} -14z`
   const wing = (side: number) => `<ellipse cx="${side * 2.2}" rx="2.4" ry="3" fill="${color}">${loop('rx', '2.4;.4;2.4', 0.35, i * 0.11)}${loop('cx', `${side * 2.2};${side * 0.6};${side * 2.2}`, 0.35, i * 0.11)}</ellipse>`
-  c.decor.push(`<g><g transform="scale(1.6)">${wing(-1)}${wing(1)}<rect x="-.5" y="-2.5" width="1" height="5" fill="#2A211C"/></g><animateMotion path="${path}" dur="${r(7 + rnd(i, 14) * 5)}s" begin="${r(-i * 1.3)}s" repeatCount="indefinite"/></g>`)
+  c.decor.push(`<g><g transform="scale(1.6)">${wing(-1)}${wing(1)}<rect x="-.5" y="-2.5" width="1" height="5" fill="#2A211C"/></g>${motion(path, 7 + rnd(i, 14) * 5, i * 1.3)}</g>`)
 }
 
 const planter = (p: Pt, i: number) => {
@@ -334,20 +369,29 @@ const planter = (p: Pt, i: number) => {
   return s
 }
 
-// fireworks: a ring of sparks flying out and fading, night only
+// fireworks, night only: a rocket climbs and slows, bursts with a flash into two rings of sparks
+// that fly out fast, slow down, droop under gravity and fade; every shell on its own period
 function fireworks(c: Ctx, n: number) {
+  const B = 0.3 // share of the loop spent climbing
   for (let k = 0; k < n; k++) {
-    const p = skyPoint(c, 0.15 + (0.75 * k) / Math.max(1, n - 1), 55 + rnd(k, 20) * 40)
+    const p = skyPoint(c, 0.15 + (0.75 * k) / Math.max(1, n - 1), 60 + rnd(k, 20) * 35)
     const color = pick(['#FFD34D', '#FF6B6B', '#7FE0FF', '#B5FF7A', '#FF9DE2'], k)
-    const dur = 2.4
-    const begin = rnd(k, 21) * dur
-    let sparks = ''
+    const dur = r(2.8 + rnd(k, 22) * 1.2)
+    const off = rnd(k, 21) * dur
+    const rise = 40
+    let s = `<g>${'<path d="M0 0v7" stroke="#FFE9B0" stroke-width="1.4" stroke-linecap="round"/>'}` +
+      motion(`M0 ${rise}V0`, dur, off, ` keyPoints="0;1;1" keyTimes="0;${B};1" calcMode="spline" keySplines=".2 .7 .4 1;0 0 1 1"`) +
+      loop('opacity', '1;1;0;0', dur, off, ` keyTimes="0;${B - 0.01};${B};1"`) + `</g>`
+    s += `<circle r="12" fill="${color}" opacity="0">${loop('opacity', `0;0;.45;0;0`, dur, off, ` keyTimes="0;${B};${B + 0.03};${B + 0.15};1"`)}</circle>`
     for (let j = 0; j < 10; j++) {
-      const ang = (j / 10) * Math.PI * 2
-      sparks += `<circle r="1.6" fill="${color}"><animateMotion path="M0 0L${r(Math.cos(ang) * 22)} ${r(Math.sin(ang) * 22 + 4)}" dur="${dur}s" begin="${r(-begin)}s" repeatCount="indefinite"/>` +
-        `<animate attributeName="fill-opacity" values="0;1;1;0;0" keyTimes="0;.05;.45;.75;1" dur="${dur}s" begin="${r(-begin)}s" repeatCount="indefinite"/></circle>`
+      const ang = (j / 10) * Math.PI * 2 + (j % 2) * 0.3
+      const reach = j % 2 ? 15 : 25
+      const [ex, ey] = [Math.cos(ang) * reach, Math.sin(ang) * reach]
+      s += `<circle r="${j % 2 ? 1.2 : 1.6}" fill="${j % 2 ? '#FFF6D8' : color}" opacity="0">` +
+        motion(`M0 0Q${r(ex * 0.95)} ${r(ey * 0.95 - 3)} ${r(ex)} ${r(ey + 10)}`, dur, off, ` keyPoints="0;0;1;1" keyTimes="0;${B};.92;1" calcMode="spline" keySplines="0 0 1 1;.1 .8 .3 1;0 0 1 1"`) +
+        loop('opacity', '0;0;1;1;0;0', dur, off, ` keyTimes="0;${B};${B + 0.01};.6;.9;1"`) + `</circle>`
     }
-    c.lights.push(at(p, sparks))
+    c.lights.push(at(p, s))
   }
 }
 
@@ -368,14 +412,14 @@ const DRESS: Record<SeasonId, (c: Ctx) => void> = {
     // a ghost hovering by the right corner of the sidewalk
     const g = iso(corner(c, true).x, corner(c, true).y, 10)
     c.decor.push(at(g, `<g opacity=".88"><path d="M-7 0 V-12 Q-7 -20 0 -20 Q7 -20 7 -12 V0 L4.5 -3 L2.3 0 L0 -3 L-2.3 0 L-4.5 -3 Z" fill="#F4F2FA"/><rect x="-3.5" y="-14" width="2" height="3" fill="#2A211C"/><rect x="1.5" y="-14" width="2" height="3" fill="#2A211C"/>` +
-      `<animateMotion path="M0 0 Q4 -6 0 -10 Q-4 -6 0 0" dur="4s" repeatCount="indefinite"/></g>`))
+      motion('M0 0 Q4 -6 0 -10 Q-4 -6 0 0', 4, 0, eased(2).replace('calcMode="spline"', 'calcMode="spline" keyPoints="0;.5;1" keyTimes="0;.5;1"')) + `</g>`))
     for (let i = 0; i < 5; i++) {
       const [cx, cy] = skyPoint(c, 0.2 + i * 0.16, 30 + rnd(i, 30) * 30)
       const path = `M${r(cx)} ${r(cy)}c30 -20 60 10 30 25c-25 12 -60 -5 -30 -25z`
-      c.decor.push(`<g><g transform="scale(1.4)">${bat(i)}</g><animateMotion path="${path}" dur="${r(4 + rnd(i, 31) * 3)}s" begin="${r(-i)}s" repeatCount="indefinite"/></g>`)
+      c.decor.push(`<g><g transform="scale(1.4)">${bat(i)}</g>${motion(path, 4 + rnd(i, 31) * 3, i)}</g>`)
     }
     moon(c, '#FFE2A8')
-    flyer(c, witch(), 75, 34, true)
+    flyer(c, witch(), 75, 1.6, true)
   },
   navidad(c) {
     christmas(c)
@@ -384,10 +428,7 @@ const DRESS: Record<SeasonId, (c: Ctx) => void> = {
     christmas(c)
     // the three kings ride along the road, following the star
     const kings: [string, string][] = [['#7B3FA0', '#F2C9A0'], ['#2E7D5B', '#E8B98F'], ['#B8862B', '#8A5A3B']]
-    const road = `M${pts([iso(-6, H + 3)])}L${pts([iso(c.W + 8, H + 3)])}`
-    kings.forEach(([robe, skin], k) =>
-      c.decor.push(`<g>${at([0, 0], camel(robe, skin), 0.9)}<animateMotion path="${road}" dur="70s" begin="${r(-k * 2.4)}s" repeatCount="indefinite"/></g>`),
-    )
+    kings.forEach(([robe, skin], k) => parade(c, at([0, 0], camel(robe, skin), 0.9), H + 3, 0.6, 0.2, (2 - k) * 2.6))
     const sp = skyPoint(c, 0.6, 95)
     c.decor.push(at(sp, `${star('#F2C14E')}<path d="M-4 1 L-40 18" stroke="#F2C14E" stroke-opacity=".5" stroke-width="2"/>`))
     c.lights.push(at(sp, `${glow('#FFE38A', 20)}${star('#FFF1B0')}`))
@@ -411,7 +452,7 @@ const DRESS: Record<SeasonId, (c: Ctx) => void> = {
       c.decor.push(at(s, [-3, 0, 3].map((dx, k) => `<g transform="translate(${dx},0)">${heartBalloon(pick(['#E25563', '#F07AAE', '#C2185B'], i + k), i * 3 + k)}</g>`).join(''), 1.4))
     }
     fall(c, ['#F07AAE', '#E25563', '#FFC1D9'], 14, { up: true, hearts: true, dur: 16 })
-    flyer(c, cupid(), 45, 28)
+    flyer(c, cupid(), 45, 1.1)
     garland(c, ['#FF7AA8'], 0, WALL_H - 9)
   },
   carnaval(c) {
@@ -442,16 +483,16 @@ const DRESS: Record<SeasonId, (c: Ctx) => void> = {
     const sun = skyPoint(c, 0.72, 70)
     let rays = ''
     for (let k = 0; k < 12; k++) rays += `<rect x="-1.5" y="-26" width="3" height="7" fill="#FFC93C" transform="rotate(${k * 30})"/>`
-    c.decor.push(at(sun, `<g>${rays}<animateTransform attributeName="transform" type="rotate" from="0" to="30" dur="6s" repeatCount="indefinite"/></g><circle r="15" fill="#FFD84F"/>` +
+    c.decor.push(at(sun, `<g>${rays}<animateTransform attributeName="transform" type="rotate" from="0" to="30" dur="6s" ${begin(6)} repeatCount="indefinite"/></g><circle r="15" fill="#FFD84F"/>` +
       px(-5, -2, 4, 2, '#2A211C') + px(1, -2, 4, 2, '#2A211C') + px(-1, -1.5, 2, 0.6, '#2A211C') + `<path d="M-5 5 Q0 9 5 5" stroke="#C8641A" stroke-width="1.4" fill="none"/>`))
     moon(c) // covers the sun at night
     // an inflatable pool with a duck and a bouncing beach ball
     const p = iso(center(c).x, center(c).y)
     c.decor.push(at(p, `<ellipse rx="30" ry="15" fill="#2F6FB0"/><ellipse cy="-5" rx="30" ry="15" fill="#4FA3E0"/><ellipse cy="-5" rx="22" ry="10.5" fill="#7FD3F0"/>` +
       `<path d="M-12 -6 q4 -2 8 0 M4 -2 q4 -2 8 0" stroke="#FFF" stroke-opacity=".7" fill="none">${loop('stroke-opacity', '.7;.2;.7', 2.5)}</path>` +
-      `<g><path d="M-3 -10 h7 v3 h-7 z M2 -13 h3 v3 h-3 z" fill="#F2D03D"/><rect x="5" y="-12" width="2" height="1" fill="#E67E22"/><animateMotion path="M-6 0 L6 2 L-6 0" dur="7s" repeatCount="indefinite"/></g>` +
+      `<g><path d="M-3 -10 h7 v3 h-7 z M2 -13 h3 v3 h-3 z" fill="#F2D03D"/><rect x="5" y="-12" width="2" height="1" fill="#E67E22"/>` + motion('M-6 0 L6 2 L-6 0', 7, 0, ' keyPoints="0;.5;1" keyTimes="0;.5;1"' + eased(2)) + `</g>` +
       `<g transform="translate(40,-2)"><ellipse rx="6" ry="2" fill="#000" fill-opacity=".15"/><g><circle cy="-6" r="6" fill="#FFF"/><path d="M-6 -6 A6 6 0 0 1 0 -12 V-6 Z" fill="#E8574B"/><path d="M0 -6 V0 A6 6 0 0 1 -6 -6 Z" fill="#3E8ED0"/><path d="M0 -12 A6 6 0 0 1 6 -6 H0 Z" fill="#F2D03D"/>` +
-      `<animateMotion path="M0 0 Q0 -24 0 -16 Q0 -24 0 0" dur="1.4s" repeatCount="indefinite"/></g></g>`))
+      `<animateTransform attributeName="transform" type="translate" values="0 0;0 -18;0 0" keyTimes="0;.5;1" calcMode="spline" keySplines=".2 .6 .4 1;.6 0 .8 .4" dur="1.2s" ${begin(1.2)} repeatCount="indefinite"/></g></g>`))
     for (const [i, s] of slots(c).entries()) {
       if (i % 2) continue
       c.decor.push(box(s.x - 0.45, s.y - 0.2, 0, 0.9, 0.4, 9, '#F4F1EA') + box(s.x - 0.45, s.y - 0.2, 9, 0.9, 0.4, 1.5, '#7FC8F8'))
@@ -463,10 +504,10 @@ const DRESS: Record<SeasonId, (c: Ctx) => void> = {
   },
   sanfermin(c) {
     bunting(c, ['#D22B2B', '#FFFFFF'])
-    const road = `M${pts([iso(-8, H + 2.8)])}L${pts([iso(c.W + 10, H + 2.8)])}`
-    c.decor.push(`<g>${runner()}<animateMotion path="${road}" dur="16s" begin="-1.2s" repeatCount="indefinite"/></g>`)
-    c.decor.push(`<g>${runner()}<animateMotion path="${road}" dur="16s" begin="-0.6s" repeatCount="indefinite"/></g>`)
-    c.decor.push(`<g>${bull()}<animateMotion path="${road}" dur="16s" repeatCount="indefinite"/></g>`)
+    // the runners a few strides ahead of the bull, all at the same pace so the gap holds along the whole street
+    parade(c, runner(), H + 2.6, 3.2, 0.3, 0.9)
+    parade(c, runner(), H + 3.1, 3.2, 0.3, 0.55)
+    parade(c, bull(), H + 2.85, 3.2, 0.3)
     // red scarves knotted on the street lamps' arms
     for (let x = 2; x < c.W; x += 6) {
       const [lx, ly] = iso(x, H + 0.55)
@@ -487,7 +528,7 @@ const DRESS: Record<SeasonId, (c: Ctx) => void> = {
     const [bx, by] = iso(p.x - 0.1, p.y, 20)
     let smoke = ''
     for (let k = 0; k < 4; k++) {
-      smoke += `<circle r="3" fill="#D8D2C8"><animateMotion path="M0 0 q-4 -10 2 -22 q4 -8 -2 -16" dur="3.2s" begin="${-k * 0.8}s" repeatCount="indefinite"/>${loop('fill-opacity', '.7;.4;0', 3.2, k * 0.8)}${loop('r', '2;4;6', 3.2, k * 0.8)}</circle>`
+      smoke += `<circle r="3" fill="#D8D2C8">${motion('M0 0 q-4 -10 2 -22 q4 -8 -2 -16', 3.2, k * 0.8)}${loop('fill-opacity', '.7;.4;0', 3.2, k * 0.8)}${loop('r', '2;4;6', 3.2, k * 0.8)}</circle>`
     }
     c.decor.push(at([bx, by], smoke + px(-2, -1, 4, 1, '#E8574B')))
     c.decor.push(at(iso(p.x + 0.4, p.y + 0.4, 12), `<rect x="-22" y="-8" width="24" height="8" fill="#F4ECDC"/><text x="-10" y="-2" font-size="6" font-weight="700" fill="#6B4A2F" text-anchor="middle">CASTAÑAS</text>`))
@@ -556,7 +597,7 @@ function christmas(c: Ctx) {
   // presents under the tree, as real isometric boxes
   const gifts: [number, number, string][] = [[-1.1, 0.5, '#C0392B'], [0.7, 0.6, '#3E8ED0'], [-0.2, 0.9, '#F2C14E']]
   for (const [dx, dy, color] of gifts) c.decor.push(box(p.x + dx - 0.25, p.y + dy - 0.25, 0, 0.5, 0.5, 7, color) + box(p.x + dx - 0.04, p.y + dy - 0.26, 0, 0.08, 0.52, 7.4, '#FFF'))
-  flyer(c, santa(), 40, 40, true)
+  flyer(c, santa(), 40, 1.3, true)
   wreath(c)
 }
 
@@ -584,14 +625,14 @@ function cobwebs(c: Ctx) {
   c.decor.push(web(iso(c.W, 0, Z), [iso(c.W - 2.4, 0, Z), iso(c.W - 1.6, 0, Z - 14), iso(c.W, 0, Z - 20)]))
   // a spider going up and down its thread
   const [sx, sy] = iso(1.2, 0, Z - 6)
-  c.decor.push(`<line x1="${r(sx)}" y1="${r(sy)}" x2="${r(sx)}" y2="${r(sy + 14)}" stroke="#FFF" stroke-opacity=".6" stroke-width=".6">${loop('y2', `${r(sy + 8)};${r(sy + 22)};${r(sy + 8)}`, 5)}</line>` +
+  c.decor.push(`<line x1="${r(sx)}" y1="${r(sy)}" x2="${r(sx)}" y2="${r(sy + 14)}" stroke="#FFF" stroke-opacity=".6" stroke-width=".6">${loop('y2', `${r(sy + 8)};${r(sy + 22)};${r(sy + 8)}`, 5, 0, ' keyTimes="0;.5;1"' + eased(2))}</line>` +
     `<g><ellipse rx="2.5" ry="2" fill="#2A211C"/><path d="M-5 -2 L5 2 M-5 2 L5 -2 M-5 0 L5 0" stroke="#2A211C" stroke-width=".8"/>` +
-    `<animateMotion path="M${r(sx)} ${r(sy + 8)} V${r(sy + 22)} V${r(sy + 8)}" dur="5s" repeatCount="indefinite"/></g>`)
+    motion(`M${r(sx)} ${r(sy + 8)} V${r(sy + 22)}`, 5, 0, ' keyPoints="0;1;0" keyTimes="0;.5;1"' + eased(2)) + `</g>`)
 }
 
 function heartBalloon(color: string, i: number) {
   return `<g><path d="M0 0 Q2 -10 0 -20" stroke="#7A6E62" stroke-width=".6" fill="none"/><g transform="translate(0,-25)">${heart(color, 1.8)}</g>` +
-    `<animateMotion path="M0 0 Q1.5 -2 0 -3 Q-1.5 -2 0 0" dur="${r(2.5 + (i % 3) * 0.6)}s" begin="${r(-i * 0.7)}s" repeatCount="indefinite"/></g>`
+    float(i) + `</g>`
 }
 
 function flowersAt(c: Ctx, p: Pt) {
