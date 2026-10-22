@@ -304,6 +304,28 @@ function spriteDef(id: string, kind: 'awake' | 'asleep', cycle = 0) {
   return `<g id="${id}" shape-rendering="crispEdges">${s}</g>`
 }
 
+// Easter egg: a strolling skill dressed as Wally. Its own colours, not currentColor: the stripes are the costume.
+function wallyDef(cycle: number) {
+  const RED = '#D8352A'
+  const W = '#FFFFFF'
+  const leg = (x: number): Rect => [x, -4, 1, 4, '#3F5FA8']
+  let over = ''
+  // red and white jumper stripes
+  for (const y of [-8.2, -6.2, -4.2]) over += px(-6, y, 12, 1, RED)
+  over += px(-7, -6.2, 1, 1, RED) + px(6, -6.2, 1, 1, RED) + dim(5, -8.4, 1, 5.4, 0.1) + dim(-6, -4, 12, 1, 0.15)
+  // round glasses over eyes that look ahead, as on every walker
+  over += px(-1.4, -7.4, 0.8, 1.4, INK) + px(3.6, -7.4, 0.8, 1.4, INK)
+  over += `<g fill="none" stroke="${INK}" stroke-width="1.1"><circle cx="${-1 * U}" cy="${-6.7 * U}" r="${1.7 * U}"/><circle cx="${4 * U}" cy="${-6.7 * U}" r="${1.7 * U}"/>` +
+    `<path d="M${0.7 * U} ${-6.9 * U}H${2.3 * U}"/></g>`
+  // bobble hat: striped band, red crown, white pompom
+  over += inked([[-4.5, -11.6, 9, 2.4, RED], [-3, -12.8, 6, 1.4, RED], [-1, -14.4, 2, 1.6, W]]) + px(-4.5, -10.6, 9, 0.6, W) + lit(-0.8, -14.2, 0.8, 0.6, 0.6)
+  // the walking stick, held on the side it walks towards
+  over += inked([[7.4, -8, 0.7, 8, '#8A5A3B'], [6.4, -8.4, 1.6, 0.7, '#8A5A3B']])
+  const s = `<ellipse rx="13" ry="4" fill="#000" opacity=".2"/>` +
+    gait([leg(-5), leg(2)], [leg(-3), leg(4)], [[-6, -9, 12, 6, W], [-7, -6.5, 1, 2, W], [6, -6.5, 1, 2, W]], () => '', over, cycle)
+  return `<g id="wl" shape-rendering="crispEdges">${s}</g>`
+}
+
 // Claude sessions: a small dome robot, skill-sized but a different silhouette (two feet, visor, antenna).
 // Drones (sub-agents) have their own costume, drawn small: the body spans x -4..4 and y -12..-5, the rotor turns at -14.6.
 // `top` is where the mast starts (the top of the headgear); the band under the visor stays currentColor.
@@ -1310,13 +1332,19 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     // the steps are in the strolling sprites (cp, ap); here only the motion and the turns at each end
     return { motion: `<animateMotion path="${sp.d}" ${timing}/>`, sprite: (inner: string) => turning(path, timing, inner) }
   }
+  // Where's Wally? About one daytime hour in three, one of the strollers goes out in his costume
+  const hour = Math.floor(now / 3_600_000)
+  const wally = strollers.length && hash(`wally${dayIndex}:${hour}`) % 3 === 0 ? strollers[hash(`${hour}`) % strollers.length] : undefined
+  if (wally) out.push(`<defs>${wallyDef(STROLL_STEP)}</defs>`)
   strollers.forEach((skill, i) => {
     const p = stroll(skill, STREET_NEAR, i)
+    const egg = skill === wally
     layer.push({
       depth: 2e6,
-      svg:
-        `<g data-skill="${esc(skill)}" data-stroll="1" style="cursor:pointer"><title>${esc(skill)} · de paseo</title>${p.motion}` +
-        `${p.sprite(useSprite('cp', colorOf(skill), 0, 0, 1))}${label(skill)}</g>`,
+      svg: egg
+        ? `<g data-skill="${esc(skill)}" data-stroll="1" data-egg="wally" style="cursor:pointer"><title>…</title>${p.motion}${p.sprite('<use href="#wl"/>')}${label('…')}</g>`
+        : `<g data-skill="${esc(skill)}" data-stroll="1" style="cursor:pointer"><title>${esc(skill)} · de paseo</title>${p.motion}` +
+          `${p.sprite(useSprite('cp', colorOf(skill), 0, 0, 1))}${label(skill)}</g>`,
     })
   })
   strollingAgents.forEach((a, i) => {
