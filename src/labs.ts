@@ -1,5 +1,22 @@
-export type Theme = 'lab' | 'gym' | 'cafe' | 'library' | 'arcade' | 'military' | 'smoking'
-export const THEMES: Theme[] = ['lab', 'gym', 'cafe', 'library', 'arcade', 'military', 'smoking']
+export type Theme = 'lab' | 'gym' | 'cafe' | 'library' | 'arcade' | 'military' | 'smoking' | 'greenhouse' | 'music' | 'space' | 'kitchen' | 'beach' | 'casino'
+export const THEMES: Theme[] = ['lab', 'gym', 'cafe', 'library', 'arcade', 'military', 'smoking', 'greenhouse', 'music', 'space', 'kitchen', 'beach', 'casino']
+
+// What surrounds the building.
+export type World = 'city' | 'beach' | 'forest' | 'snow' | 'moon'
+export const WORLDS: World[] = ['city', 'beach', 'forest', 'snow', 'moon']
+
+// Ready-made sets of puesto colours.
+export const PALETTES: Record<string, string[]> = {
+  calidos: ['#D9653B', '#E0A43B', '#C8423A', '#E5833A', '#B85C38', '#D4A24C', '#C9583E', '#E7B04F'],
+  pasteles: ['#F4A7B9', '#A7C7E7', '#B5E2B5', '#FDD9A0', '#C9B6E4', '#A8DCD9', '#F7C8A0', '#D7E8A6'],
+  multicolor: ['#E63946', '#F4A261', '#E9C46A', '#2A9D8F', '#457B9D', '#8E5BD6', '#43AA8B', '#F15BB5'],
+  frios: ['#3D85C6', '#2A9D8F', '#5E60CE', '#4EA8DE', '#56CFE1', '#6D9DC5', '#4361EE', '#48BFE3'],
+  neon: ['#FF4FD8', '#4FE3FF', '#B6FF4F', '#FFE34F', '#FF8A4F', '#A06BFF', '#4FFFB0', '#FF4F6E'],
+  tierra: ['#8B6B4A', '#A0522D', '#6B8E4E', '#B5895B', '#7A6A53', '#9C7A3C', '#5F7A61', '#B07A5A'],
+}
+
+// A deployed service shown as a server rack in its puesto: green light while the URL answers, red when it doesn't.
+export type Service = { name: string; url: string }
 
 export type Lab = {
   id: string
@@ -11,9 +28,10 @@ export type Lab = {
   row: 'top' | 'bottom'
   theme: Theme
   custom: boolean
+  services: Service[]
 }
 
-type LabOverride = { name?: string; accent?: string; match?: string; width?: number; row?: 'top' | 'bottom'; theme?: Theme }
+type LabOverride = { name?: string; accent?: string; match?: string; width?: number; row?: 'top' | 'bottom'; theme?: Theme; services?: Service[] }
 
 export type LabConfig = {
   returnDelaySeconds?: number
@@ -26,6 +44,9 @@ export type LabConfig = {
   removed?: string[]
   skillLabs?: Record<string, string>
   hidden?: string[]
+  world?: World
+  // name of the PALETTES entry the person picked; new puestos take their colour from it
+  palette?: string
 }
 
 export const MIN_WIDTH = 4
@@ -34,7 +55,7 @@ export const FALLBACK_LAB = 'general'
 
 // A fresh install has only the fallback puesto; the setup (or Layout → Labs) creates the rest from the person's folders.
 const DEFAULT_LABS: Omit<Lab, 'custom'>[] = [
-  { id: FALLBACK_LAB, name: 'General', accent: '#8C8C84', floor: '#E8E6DF', width: 8, row: 'bottom', theme: 'lab' },
+  { id: FALLBACK_LAB, name: 'General', accent: '#8C8C84', floor: '#E8E6DF', width: 8, row: 'bottom', theme: 'lab', services: [] },
 ]
 const DEFAULT_ORDER = [FALLBACK_LAB]
 
@@ -50,6 +71,8 @@ export let SKILL_LAB: Record<string, string> = { ...DEFAULT_SKILL_LAB }
 export let RETURN_DELAY_MS = 20_000
 export let HIDDEN = new Set<string>()
 export let PROJECTS_ROOT = ''
+export let WORLD: World = 'city'
+export let PALETTE_NAME = ''
 
 const floorFor = (accent: string) => {
   const n = parseInt(accent.slice(1), 16)
@@ -83,14 +106,19 @@ export function applyConfig(cfg: LabConfig) {
       width: Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Number(o.width) || base.width))),
       row: o.row === 'top' || o.row === 'bottom' ? o.row : base.row,
       theme: THEMES.includes(o.theme as Theme) ? (o.theme as Theme) : base.theme,
+      services: (Array.isArray(o.services) ? o.services : base.services)
+        .filter(sv => sv && typeof sv.url === 'string' && /^https?:\/\//i.test(sv.url))
+        .slice(0, 6)
+        .map(sv => ({ name: String(sv.name || sv.url).slice(0, 40), url: sv.url })),
       custom,
     }
   }
   const defaults = DEFAULT_LABS.filter(l => !removed.has(l.id)).map(l => build(l, cfg.labs?.[l.id] ?? {}, false))
   const customIds = Object.keys(cfg.labs ?? {}).filter(id => !DEFAULT_LABS.some(l => l.id === id) && !removed.has(id))
   const custom = customIds.map((id, i) => {
-    const accent = CUSTOM_ACCENTS[i % CUSTOM_ACCENTS.length]!
-    return build({ id, name: id, accent, floor: floorFor(accent), width: 8, row: i % 2 ? 'top' : 'bottom', theme: 'lab' }, cfg.labs?.[id] ?? {}, true)
+    const colors = PALETTES[cfg.palette ?? ''] ?? CUSTOM_ACCENTS
+    const accent = colors[i % colors.length]!
+    return build({ id, name: id, accent, floor: floorFor(accent), width: 8, row: i % 2 ? 'top' : 'bottom', theme: 'lab', services: [] }, cfg.labs?.[id] ?? {}, true)
   })
   // puestos made from a concrete folder are more specific than the generic default rules: they are tried first
   LABS.splice(0, LABS.length, ...custom, ...defaults)
@@ -101,6 +129,17 @@ export function applyConfig(cfg: LabConfig) {
   RETURN_DELAY_MS = Math.max(3, cfg.returnDelaySeconds ?? 20) * 1000
   HIDDEN = new Set(cfg.hidden ?? [])
   PROJECTS_ROOT = cfg.projectsRoot ?? ''
+  WORLD = WORLDS.includes(cfg.world as World) ? (cfg.world as World) : 'city'
+  PALETTE_NAME = cfg.palette && PALETTES[cfg.palette] ? cfg.palette : ''
+}
+
+// Paints every puesto with the palette, in drawing order.
+export function paintWithPalette(cfg: LabConfig, name: string) {
+  const colors = PALETTES[name]
+  if (!colors) return
+  cfg.palette = name
+  const ids = [...new Set([...(cfg.order ?? []), ...Object.keys(cfg.labs ?? {})])].filter(id => cfg.labs?.[id])
+  ids.forEach((id, i) => (cfg.labs![id]!.accent = colors[i % colors.length]))
 }
 
 export function defaultConfig(): LabConfig {

@@ -20,7 +20,17 @@
     ['arcade', '🕹️ Arcade'],
     ['military', '🎖️ Cuartel'],
     ['smoking', '🚬 Fumadores'],
+    ['greenhouse', '🌱 Invernadero'],
+    ['music', '🎸 Estudio de música'],
+    ['space', '🚀 Estación espacial'],
+    ['kitchen', '🍳 Cocina'],
+    ['beach', '🏖️ Chiringuito'],
+    ['casino', '🎰 Casino'],
   ]
+
+  // tiny event bus: features announce what the person did (emit), achievements listen (on)
+  const emit = (name, detail) => window.dispatchEvent(new CustomEvent(`sl:${name}`, { detail }))
+  const on = (name, fn) => window.addEventListener(`sl:${name}`, e => fn(e.detail))
 
   const saved = vscode.getState() || {}
   let view = saved.view || null
@@ -610,14 +620,6 @@
     if (!geo || deploying) return
     deploying = true
     unlock('military')
-    const banner = document.createElementNS(SVG_NS, 'text')
-    banner.setAttribute('class', 'banner')
-    banner.setAttribute('text-anchor', 'middle')
-    const mid = iso(geo.W / 2, geo.H + 3)
-    banner.setAttribute('x', mid.x.toFixed(1))
-    banner.setAttribute('y', (mid.y - 70).toFixed(1))
-    banner.textContent = '🎖️ ¡OPERACIÓN BIGOTES! 🎖️'
-    overlay.appendChild(banner)
     beep([392, 392, 392, 523, 659, 523, 784], 0.13)
     const lanes = [geo.H + 2.6, geo.H + 3.7]
     const fires = []
@@ -631,7 +633,8 @@
           '<circle cx="-15" cy="-1.5" r="2.4" fill="#55594A"/><circle cx="-5" cy="-1.5" r="2.4" fill="#55594A"/><circle cx="5" cy="-1.5" r="2.4" fill="#55594A"/><circle cx="15" cy="-1.5" r="2.4" fill="#55594A"/>' +
           '<rect x="-18" y="-13" width="36" height="9" fill="#5B6B3A"/><rect x="-18" y="-13" width="36" height="2" fill="#6E7F48"/>' +
           '<rect x="-9" y="-20" width="17" height="8" fill="#4E5C31"/><rect x="7" y="-18" width="19" height="2.6" fill="#2F3324"/>' +
-          '<use href="#pt-militar" transform="translate(-4,-19) scale(.85)"></use><text x="-14" y="-6" font-size="6" fill="#F2D16B">★</text></g>'
+          '<use href="#pt-militar" transform="translate(-4,-19) scale(.85)"></use><text x="-14" y="-6" font-size="6" fill="#F2D16B">★</text></g>' +
+          shout(TANK_SHOUTS[i % TANK_SHOUTS.length], -32, i * 0.7)
         overlay.appendChild(g)
         const lane = lanes[i % 2]
         walk({ ghost: g }, [iso(-4, lane), iso(geo.W + 4, lane)], () => g.remove(), 55)
@@ -647,16 +650,27 @@
       setTimeout(() => {
         const g = document.createElementNS(SVG_NS, 'g')
         g.setAttribute('class', 'carry walking')
-        g.innerHTML = '<g class="face"><g class="body"><use href="#pt-militar"></use></g><g class="props"></g></g>'
+        g.innerHTML = '<g class="face"><g class="body"><use href="#pt-militar"></use></g><g class="props"></g></g>' + shout(CAT_SHOUTS[i % CAT_SHOUTS.length], -18, 0.3 + i * 0.5)
         overlay.appendChild(g)
         walk({ ghost: g }, [iso(-3, geo.H + 1.2), iso(geo.W + 3, geo.H + 1.2)], () => g.remove(), 95)
       }, 400 + i * 650)
     }
     setTimeout(() => {
       fires.forEach(clearInterval)
-      banner.remove()
       deploying = false
     }, 22_000)
+  }
+
+  const CAT_SHOUTS = ['¡OPERACIÓN BIGOTES!', '¡Miau-rcha!', '¡Bigotes al frente!', '¡Por el atún!', '¡Sin cuartel!', '¡Zarpas arriba!']
+  const TANK_SHOUTS = ['¡Fuego!', '¡OPERACIÓN BIGOTES!', '¡Cargad la lata!', '¡Rrrrrr!', '¡A por ellos!', '¡Miau!']
+
+  // a speech bubble that pops in and out over the cat while it marches
+  function shout(text, y, delay) {
+    const w = Math.round(text.length * 5.2 + 14)
+    return `<g class="shout" transform="translate(0,${y})"><g style="animation-delay:${delay.toFixed(2)}s">` +
+      `<rect x="${-w / 2}" y="-16" width="${w}" height="14" rx="5" fill="#FFF8EE" stroke="#3F4A2A" stroke-width="1.2"/>` +
+      `<path d="M-3 -2.4 L0 3 L3 -2.4 Z" fill="#FFF8EE" stroke="#3F4A2A" stroke-width="1.2" stroke-linejoin="round"/><rect x="-3.6" y="-3.4" width="7.2" height="2" fill="#FFF8EE"/>` +
+      `<text y="-6" font-size="8" font-weight="900" text-anchor="middle" fill="#3F4A2A">${esc(text)}</text></g></g>`
   }
 
   function shoot(tank) {
@@ -761,9 +775,13 @@
 
   function updateStats() {
     if (!stats) return
+    const item = (icon, n, tip) => `<span data-tip="${esc(tip)}">${icon} ${n}</span>`
     $('stats').innerHTML =
-      `<span title="Durmiendo">💤 ${stats.asleep}</span><span title="En su puesto">⚗️ ${stats.working}</span>` +
-      `<span title="De paseo">🚶 ${stats.strolling}</span><span title="Sesiones de Claude">🧑‍🔬 ${stats.sessions}</span><span title="Bolsas tiradas">🗑 ${thrown}</span>`
+      item('💤', stats.asleep, 'Skills durmiendo en las literas: nadie las está usando ahora') +
+      item('⚗️', stats.working, 'Skills trabajando en el puesto de su proyecto') +
+      item('🚶', stats.strolling, 'Skills libres que han salido a pasear (solo de día)') +
+      item('🧑‍🔬', stats.sessions, 'Sesiones de Claude Code abiertas: los robots') +
+      item('🗑', thrown, 'Bolsas de basura que has tirado a la papelera o al contenedor')
   }
 
   window.addEventListener('keydown', e => {

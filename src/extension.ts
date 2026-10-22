@@ -3,10 +3,11 @@ import * as os from 'os'
 import * as path from 'path'
 import * as vscode from 'vscode'
 
-import { FALLBACK_LAB, HIDDEN, LABS, PROJECTS_ROOT, RETURN_DELAY_MS, SKILL_LAB, THEMES, applyConfig, defaultConfig, folderRule } from './labs'
+import { FALLBACK_LAB, HIDDEN, LABS, PALETTES, PALETTE_NAME, PROJECTS_ROOT, RETURN_DELAY_MS, SKILL_LAB, THEMES, WORLD, WORLDS, applyConfig, defaultConfig, folderRule } from './labs'
 import type { LabConfig, Theme } from './labs'
-import { COATS, colorOf, darkness, renderScene } from './scene'
-import type { Cat, ClockMode } from './scene'
+import { COATS, SKINS, colorOf, darkness, renderScene } from './scene'
+import type { Cat, ClockMode, Skin } from './scene'
+import { ServiceMonitor } from './services'
 import { Tracker, countPastUses } from './tracker'
 
 const HOME = os.homedir()
@@ -24,7 +25,15 @@ let freshInstall = false
 // Preferences edited from the panel live in globalState: writing VS Code settings can fail silently
 // (a settings.json the editor refuses to touch), and then nothing the panel changed would stick.
 let prefs: vscode.Memento | undefined
-const PANEL_PREFS = ['sound', 'showPet', 'watchAllSessions', 'skipPermissions', 'cats', 'clockMode']
+const PANEL_PREFS = ['sound', 'showPet', 'watchAllSessions', 'skipPermissions', 'cats', 'clockMode', 'skillSkin', 'agentSkin', 'season']
+
+const skin = (key: 'skillSkin' | 'agentSkin'): Skin => {
+  const v = setting<string>(key, 'clasico')
+  return SKINS.includes(v as Skin) ? (v as Skin) : 'clasico'
+}
+
+// set in activate: health of the puestos' deployed services, by URL
+let monitor: ServiceMonitor | undefined
 
 function setting<T>(key: string, fallback: T): T {
   const own = PANEL_PREFS.includes(key) ? prefs?.get<T>(`pref.${key}`) : undefined
@@ -173,10 +182,12 @@ class LabView implements vscode.WebviewViewProvider {
     const crew = this.tracker.crew
     const night = darkness(new Date(now), clockMode()) >= 0.5
     const cats = catList()
-    const signature = JSON.stringify([roster, crew, agents, LABS.map(l => [l.name, l.accent, l.width, l.row, l.theme]), setting('showPet', true), cats, night])
+    const services = monitor?.status ?? {}
+    const skins = { skillSkin: skin('skillSkin'), agentSkin: skin('agentSkin'), season: setting<string>('season', 'auto') }
+    const signature = JSON.stringify([roster, crew, agents, LABS.map(l => [l.name, l.accent, l.width, l.row, l.theme, l.services]), setting('showPet', true), cats, night, WORLD, services, skins])
     if (!force && signature === this.lastSignature) return
     this.lastSignature = signature
-    const { svg, asleep, working, strolling, sessions, geo } = renderScene({ roster, crew, agents, now, pet: setting('showPet', true), cats, night })
+    const { svg, asleep, working, strolling, sessions, geo } = renderScene({ roster, crew, agents, now, pet: setting('showPet', true), cats, night, services, ...skins })
     void this.view.webview.postMessage({ type: 'scene', svg, geo, clockMode: clockMode(), stats: { asleep, working, strolling, sessions } })
   }
 
@@ -187,7 +198,13 @@ class LabView implements vscode.WebviewViewProvider {
   pushModel() {
     if (!this.view) return
     const model = {
-      labs: LABS.map(l => ({ id: l.id, name: l.name, accent: l.accent, match: l.match?.source ?? '', width: l.width, row: l.row, theme: l.theme, custom: l.custom, removable: l.id !== FALLBACK_LAB })),
+      labs: LABS.map(l => ({ id: l.id, name: l.name, accent: l.accent, match: l.match?.source ?? '', width: l.width, row: l.row, theme: l.theme, services: l.services, custom: l.custom, removable: l.id !== FALLBACK_LAB })),
+      services: monitor?.status ?? {},
+      world: WORLD,
+      worlds: WORLDS,
+      palette: PALETTE_NAME,
+      palettes: PALETTES,
+      skins: SKINS,
       projectsRoot: PROJECTS_ROOT,
       medals: this.ctx.globalState.get<Record<string, number>>(MEDALS_KEY, {}),
       needsSetup: freshInstall && !this.ctx.globalState.get(SETUP_KEY),
@@ -208,6 +225,9 @@ class LabView implements vscode.WebviewViewProvider {
         clockMode: clockMode(),
         watchAllSessions: setting('watchAllSessions', true),
         skipPermissions: setting('skipPermissions', false),
+        skillSkin: skin('skillSkin'),
+        agentSkin: skin('agentSkin'),
+        season: setting<string>('season', 'auto'),
       },
     }
     void this.view.webview.postMessage({ type: 'model', model })
@@ -537,6 +557,9 @@ export function activate(ctx: vscode.ExtensionContext) {
   })
   let roster = installedSkills(projectRepos())
   view = new LabView(ctx, tracker)
+  monitor = new ServiceMonitor(() => view?.push(true))
+  monitor.start()
+  ctx.subscriptions.push({ dispose: () => monitor?.dispose() })
   view.setRoster(roster)
   rescanSkills = () => {
     const next = installedSkills([...projectRepos(), ...tracker.sessionCwds()])

@@ -1,5 +1,26 @@
 import { LABS, ROOM_ORDER } from './labs'
 import type { Lab, Theme } from './labs'
+import { worldGround, worldOverlay, worldProps } from './world'
+import { floorDecor, wallDecor } from './decor'
+import { racks } from './racks'
+import { seasonDecor } from './season'
+import { greenhouse } from './themes/greenhouse'
+import { music } from './themes/music'
+import { space } from './themes/space'
+import { kitchen } from './themes/kitchen'
+import { beach } from './themes/beach'
+import { casino } from './themes/casino'
+
+export type ServiceStatus = { up: boolean; code?: number; ms?: number }
+
+// A puesto theme living in its own file: floor colour, furniture with stations, and how a skill works at them.
+// Its stations use the theme name as kind, so workAnim sends them back to `work`.
+export type ThemeModule = {
+  floor: string
+  furnish: (room: RoomGeom, lab: Lab, active: boolean) => Furnished
+  work: (seed: number, accent: string) => { move: string; extra: string }
+}
+const THEME_MODULES: Partial<Record<Theme, ThemeModule>> = { greenhouse, music, space, kitchen, beach, casino }
 
 export type CrewMember = {
   lab: string | null
@@ -37,10 +58,10 @@ const WALL_H = 70
 const WALK_SPEED = 75
 const STROLL_SPEED = 26
 
-type Pt = { x: number; y: number }
+export type Pt = { x: number; y: number }
 export type RoomGeom = { id: string; kind: 'dorm' | 'lab' | 'patio'; theme?: Theme; x0: number; x1: number; y0: number; y1: number; top: boolean }
-type Station = Pt & { kind: StationKind; z?: number }
-type StationKind = 'lab' | 'bike' | 'tread' | 'bench' | 'cafe' | 'read' | 'arcade' | 'drill' | 'smoke'
+export type Station = Pt & { kind: StationKind; z?: number }
+export type StationKind = 'lab' | 'bike' | 'tread' | 'bench' | 'cafe' | 'read' | 'arcade' | 'drill' | 'smoke' | Theme
 
 const PALETTE = ['#D97757', '#E08B6D', '#C8644A', '#E9A07E', '#D4835F', '#BF5B3F', '#E6B191', '#CF7050', '#DB9068', '#B9684E', '#E39A73', '#C97C5D']
 const CLAUDE = '#D97757'
@@ -85,7 +106,11 @@ function faces(x: number, y: number, z: number, w: number, d: number, h: number)
 
 function box(x: number, y: number, z: number, w: number, d: number, h: number, color: string) {
   const f = faces(x, y, z, w, d, h)
-  return poly(f.right, shade(color, 0.72)) + poly(f.left, shade(color, 0.86)) + poly(f.top, color)
+  const solid = w > 0.25 && d > 0.25
+  // a soft contact shadow under furniture standing on the floor, and a lit edge along the top
+  const shadow = solid && z === 0 && h > 2 ? poly([iso(x + 0.06, y + 0.06), iso(x + w + 0.16, y + 0.06), iso(x + w + 0.16, y + d + 0.16), iso(x + 0.06, y + d + 0.16)], '#000', ' fill-opacity=".1"') : ''
+  const edge = solid ? `<path d="M${pts([iso(x, y + d, z + h), iso(x + w, y + d, z + h), iso(x + w, y, z + h)])}" stroke="#FFF" stroke-opacity=".3" fill="none"/>` : ''
+  return shadow + poly(f.right, shade(color, 0.72)) + poly(f.left, shade(color, 0.86)) + poly(f.top, color) + edge
 }
 
 // A box tinted by the `color` of the <use> that draws it.
@@ -153,6 +178,54 @@ const U = 2
 const px = (x: number, y: number, w: number, h: number, fill: string, extra = '') =>
   `<rect x="${x * U}" y="${y * U}" width="${w * U}" height="${h * U}" fill="${fill}"${extra}/>`
 
+// Costumes: accessories drawn over the sprite. The body stays currentColor, so it still takes each puesto's colour.
+export type Skin = 'clasico' | 'pirata' | 'alien' | 'astronauta' | 'mago' | 'vaquero' | 'ninja' | 'chef' | 'vikingo'
+export const SKINS: Skin[] = ['clasico', 'pirata', 'alien', 'astronauta', 'mago', 'vaquero', 'ninja', 'chef', 'vikingo']
+let SKILL_SKIN: Skin = 'clasico'
+let AGENT_SKIN: Skin = 'clasico'
+
+function skillCostume(skin: Skin, kind: 'awake' | 'asleep') {
+  const open = kind === 'awake'
+  switch (skin) {
+    case 'pirata':
+      return px(-6, -10.6, 12, 1.8, '#C8423A') + px(-4, -10.6, 1, 1.8, '#FFFFFF', ' opacity=".7"') + px(1, -10.6, 1, 1.8, '#FFFFFF', ' opacity=".7"') + px(6, -10.2, 2, 0.8, '#C8423A') + px(6.4, -9.4, 1.2, 1.6, '#A8322C') +
+        (open ? px(1.4, -8, 2.4, 2.4, '#111') + px(-6, -8.4, 12, 0.5, '#111') : '')
+    case 'alien':
+      return px(-4.3, -13, 0.6, 3.4, '#5FCB4F') + px(3.7, -13, 0.6, 3.4, '#5FCB4F') + px(-4.8, -14, 1.6, 1.6, '#9BFF6B') + px(3.2, -14, 1.6, 1.6, '#9BFF6B') +
+        (open ? px(-0.6, -9.6, 1.2, 1.2, '#2A211C') + px(-0.3, -9.4, 0.5, 0.5, '#9BFF6B') : '')
+    case 'astronauta':
+      return `<rect x="${-8 * U}" y="${-12 * U}" width="${16 * U}" height="${10 * U}" rx="${4 * U}" fill="#CFE8F5" fill-opacity=".28" stroke="#FFFFFF" stroke-width="1.2"/>` +
+        px(-5, -11.2, 3, 1, '#FFFFFF', ' opacity=".7"') + px(-2, -2.6, 4, 1, '#B8B2A7')
+    case 'mago':
+      return `<path d="M${-6 * U} ${-9 * U} L${6 * U} ${-9 * U} L${1.5 * U} ${-17 * U} Z" fill="#5E3FA3"/>` + px(-7, -9.8, 14, 1, '#4A2F85') +
+        `<text x="${-1 * U}" y="${-11.2 * U}" font-size="5" fill="#FFE34F">★</text>`
+    case 'vaquero':
+      return px(-8.5, -10, 17, 1, '#7A4E2D') + px(-4, -12.6, 8, 2.8, '#8A5A3B') + px(-4, -10.8, 8, 0.6, '#3B2A1C')
+    case 'ninja':
+      return px(-6, -8.6, 12, 2.6, '#232326') + px(6, -8.2, 2.4, 0.8, '#232326') + px(6.4, -7.4, 1.6, 0.8, '#232326') +
+        (open ? px(-3, -7.7, 1, 1, '#FFFFFF') + px(2, -7.7, 1, 1, '#FFFFFF') : '')
+    case 'chef':
+      return px(-4, -12.6, 8, 3.6, '#FFFFFF') + px(-5, -14.4, 10, 2.2, '#FFFFFF') + px(-4, -9.6, 8, 0.6, '#D8D4CC')
+    case 'vikingo':
+      return px(-5, -11, 10, 2.2, '#8C8F94') + px(-5, -9.2, 10, 0.6, '#6E7177') + px(-7.4, -12.6, 1.4, 2.6, '#F4EBDD') + px(6, -12.6, 1.4, 2.6, '#F4EBDD') + px(-7.8, -13.6, 1, 1.2, '#F4EBDD') + px(6.8, -13.6, 1, 1.2, '#F4EBDD')
+    default:
+      return ''
+  }
+}
+
+// Robots: the shell changes with the costume; the chest light and the antenna tip stay currentColor (the puesto's colour).
+const AGENT_LOOK: Record<Skin, { shell: string; visor: string; eyes: string; hat: string }> = {
+  clasico: { shell: '#EFE6D6', visor: '#262B33', eyes: '#7FE3FF', hat: '' },
+  pirata: { shell: '#E2D2B0', visor: '#262B33', eyes: '#FFD36B', hat: px(-7, -12.4, 14, 1.4, '#1C1A19') + px(-5, -14.6, 10, 2.4, '#1C1A19') + px(-1, -14.2, 2, 1.4, '#F4EBDD') },
+  alien: { shell: '#A8E890', visor: '#1E2B1A', eyes: '#9BFF6B', hat: px(-5, -13.6, 0.6, 3, '#5FCB4F') + px(4.4, -13.6, 0.6, 3, '#5FCB4F') + px(-5.4, -14.6, 1.4, 1.4, '#9BFF6B') + px(4, -14.6, 1.4, 1.4, '#9BFF6B') },
+  astronauta: { shell: '#F7F7F2', visor: '#C9A23A', eyes: '#FFF3C2', hat: `<rect x="${-8 * U}" y="${-13 * U}" width="${16 * U}" height="${11 * U}" rx="${5 * U}" fill="#CFE8F5" fill-opacity=".22" stroke="#FFFFFF" stroke-width="1.2"/>` },
+  mago: { shell: '#D9CCF0', visor: '#262B33', eyes: '#FFE34F', hat: `<path d="M${-6 * U} ${-10.6 * U} L${6 * U} ${-10.6 * U} L${1 * U} ${-19 * U} Z" fill="#5E3FA3"/>` },
+  vaquero: { shell: '#E8D3B0', visor: '#3B2A1C', eyes: '#FFD36B', hat: px(-8.5, -11.4, 17, 1, '#7A4E2D') + px(-4, -14, 8, 2.8, '#8A5A3B') },
+  ninja: { shell: '#2E2B2A', visor: '#111111', eyes: '#FF4F4F', hat: px(-6, -9.8, 12, 1, '#C8423A') + px(6, -9.6, 2.4, 0.8, '#C8423A') },
+  chef: { shell: '#F4F1EA', visor: '#262B33', eyes: '#7FE3FF', hat: px(-4, -14.2, 8, 3.4, '#FFFFFF') + px(-5, -15.8, 10, 2, '#FFFFFF') },
+  vikingo: { shell: '#D8CBB3', visor: '#262B33', eyes: '#7FE3FF', hat: px(-5.4, -12.6, 10.8, 2, '#8C8F94') + px(-7.6, -14, 1.4, 2.6, '#F4EBDD') + px(6.2, -14, 1.4, 2.6, '#F4EBDD') },
+}
+
 function spriteDef(id: string, kind: 'awake' | 'asleep') {
   let s = `<ellipse rx="13" ry="4" fill="#000" opacity=".18"/>`
   for (const lx of [-5, -3, 2, 4]) s += px(lx, -3, 1, 3, 'currentColor') + px(lx, -3, 1, 3, '#000', ' opacity=".22"')
@@ -163,23 +236,31 @@ function spriteDef(id: string, kind: 'awake' | 'asleep') {
   } else {
     s += px(-3, -7.5, 1, 2, '#2A211C') + px(2, -7.5, 1, 2, '#2A211C') + px(-6, -8.6, 12, 0.8, 'var(--g, transparent)')
   }
+  // a lit pixel on the shoulder gives the body some volume
+  s += px(-5, -8, 1.4, 1, '#FFFFFF', ' opacity=".28"')
+  s += skillCostume(SKILL_SKIN, kind)
   return `<g id="${id}" shape-rendering="crispEdges">${s}</g>`
 }
 
 // Claude sessions: a small dome robot, skill-sized but a different silhouette (two feet, visor, antenna).
 function agentDef(id: string) {
-  const shell = '#EFE6D6'
-  const visor = '#262B33'
+  const look = AGENT_LOOK[AGENT_SKIN]
+  const shell = look.shell
+  const visor = look.visor
   let s = `<ellipse rx="12" ry="4" fill="#000" opacity=".18"/>`
   s += px(-4.5, -2, 2.5, 2, '#5B5650') + px(2, -2, 2.5, 2, '#5B5650')
   s += px(-4, -11, 8, 1, shell) + px(-5, -10, 10, 1, shell) + px(-6, -9, 12, 7, shell) + px(-6, -3, 12, 1, '#000', ' opacity=".16"')
+  s += px(-4, -11, 3, 1, '#FFFFFF', ' opacity=".35"') + px(-5.4, -9.4, 1, 3, '#FFFFFF', ' opacity=".2"')
   s += px(-7, -6, 1, 2.5, shell) + px(6, -6, 1, 2.5, shell)
   s += px(-4.5, -8.5, 9, 3.5, visor) + px(-4.5, -8.5, 9, 0.6, '#FFFFFF', ' opacity=".12"')
-  s += `<g fill="#7FE3FF">${px(-2.8, -7.5, 1.4, 1.4, '#7FE3FF')}${px(1.4, -7.5, 1.4, 1.4, '#7FE3FF')}` +
+  s += `<g fill="${look.eyes}">${px(-2.8, -7.5, 1.4, 1.4, look.eyes)}${px(1.4, -7.5, 1.4, 1.4, look.eyes)}` +
     `<animate attributeName="opacity" values="1;1;0;1" keyTimes="0;.92;.96;1" dur="4s" repeatCount="indefinite"/></g>`
-  s += px(-0.3, -4.2, 0.6, 1.8, 'currentColor') + px(-0.9, -3.6, 1.8, 0.6, 'currentColor')
+  if (AGENT_SKIN === 'pirata') s += px(1, -8.2, 2.4, 2.2, '#111')
+  // the chest panel takes the colour of the puesto the robot works in
+  s += px(-2, -4.6, 4, 2.2, 'currentColor') + px(-2, -4.6, 4, 0.5, '#FFFFFF', ' opacity=".35"')
   s += px(-0.3, -14, 0.6, 3, '#8C857C')
   s += `<rect x="${-1.2 * U}" y="${-16.2 * U}" width="${2.4 * U}" height="${2.4 * U}" fill="currentColor"><animate attributeName="opacity" values="1;.45;1" dur="1.6s" repeatCount="indefinite"/></rect>`
+  s += look.hat
   return `<g id="${id}" shape-rendering="crispEdges">${s}</g>`
 }
 
@@ -287,15 +368,22 @@ const bob = (dy: number, dur: number, begin = 0) =>
 
 // ---------- themes ----------
 
-type Furnished = { svg: string; stations: Station[]; agentSpots: Pt[] }
+export type Furnished = { svg: string; stations: Station[]; agentSpots: Pt[] }
+
+// where the robots of a puesto stand: a row at distance t from the far wall
+export const agentSpotsAt = (room: RoomGeom, t: number) => [0, 1, 2].map(k => ({ x: room.x0 + 1.6 + k * 1.4, y: T(room, t) })).filter(p => p.x < room.x1 - 1)
+// spare places in the front aisle for when the furniture is full
+export const withSpares = (room: RoomGeom, list: Station[], kind: StationKind) => {
+  for (let k = 0; k < 8; k++) list.push({ x: room.x0 + 0.9 + k * 0.6, y: T(room, D - 1.3), kind })
+  return list
+}
 
 function furnish(room: RoomGeom, lab: Lab, active: boolean): Furnished {
   const theme = room.theme ?? 'lab'
-  const agentSpots = (t: number) => [0, 1, 2].map(k => ({ x: room.x0 + 1.6 + k * 1.4, y: T(room, t) })).filter(p => p.x < room.x1 - 1)
-  const spare = (list: Station[], kind: StationKind) => {
-    for (let k = 0; k < 8; k++) list.push({ x: room.x0 + 0.9 + k * 0.6, y: T(room, D - 1.3), kind })
-    return list
-  }
+  const mod = THEME_MODULES[theme]
+  if (mod) return mod.furnish(room, lab, active)
+  const agentSpots = (t: number) => agentSpotsAt(room, t)
+  const spare = (list: Station[], kind: StationKind) => withSpares(room, list, kind)
   let s = ''
 
   if (theme === 'gym') {
@@ -423,10 +511,15 @@ function furnish(room: RoomGeom, lab: Lab, active: boolean): Furnished {
     for (const x of columns(room, 0.9, 1.6, 0.8)) s += boxT(room, x - 0.4, 0.1, 0.55, 0, 0.8, 26, '#5B6B3A')
     {
       // the flag stands in the front corner: on the back wall it would cover the sign
+      // the cloth waves by morphing its outline around the pole: a transform animation would pivot on the map's origin
       const [fx, fy] = iso(room.x0 + 0.5, T(room, 6.0), 0)
-      s += `<rect x="${r(fx - 1)}" y="${r(fy - 58)}" width="2" height="58" fill="#8C857C"/>` +
-        `<path d="M${r(fx + 1)} ${r(fy - 57)} h20 l-3 6 l3 6 h-20 z" fill="#C8423A"><animateTransform attributeName="transform" type="skewY" values="0;4;0;-3;0" dur="2.6s" repeatCount="indefinite"/></path>` +
-        `<path d="M${r(fx + 1)} ${r(fy - 53)} h18" stroke="#F2D16B" stroke-width="2.4"/>`
+      const cloth = (a: number) => `M0 0 C7 ${-2 * a} 13 ${2 * a} 20 0 L20 13 C13 ${13 + 2 * a} 7 ${13 - 2 * a} 0 13 Z`
+      const stripe = (a: number) => `M0 5 C7 ${5 - 2 * a} 13 ${5 + 2 * a} 20 5 L20 8 C13 ${8 + 2 * a} 7 ${8 - 2 * a} 0 8 Z`
+      const wave = (f: (a: number) => string) => `<animate attributeName="d" values="${f(1)};${f(-1)};${f(1)}" dur="1.6s" repeatCount="indefinite"/>`
+      s += `<ellipse cx="${r(fx)}" cy="${r(fy)}" rx="5" ry="2.5" fill="#000" opacity=".18"/><rect x="${r(fx - 1.2)}" y="${r(fy - 60)}" width="2.4" height="60" fill="#8C857C"/><rect x="${r(fx - 1.2)}" y="${r(fy - 60)}" width="1" height="60" fill="#B8B2A7"/>` +
+        `<circle cx="${r(fx)}" cy="${r(fy - 61)}" r="2.2" fill="#D4B24C"/>` +
+        `<g ${tr([fx + 1.2, fy - 58])}><path d="${cloth(1)}" fill="#3F5A2A">${wave(cloth)}</path><path d="${stripe(1)}" fill="#F2D16B">${wave(stripe)}</path>` +
+        `<text x="5" y="11.5" font-size="5" fill="#F2D16B">★</text></g>`
     }
     const stations: Station[] = []
     for (const t of [2.4, 4.8]) {
@@ -467,6 +560,8 @@ function furnish(room: RoomGeom, lab: Lab, active: boolean): Furnished {
 
 // how a skill works at each kind of station
 function workAnim(kind: StationKind, seed: number, accent: string) {
+  const mod = THEME_MODULES[kind as Theme]
+  if (mod) return mod.work(seed, accent)
   const b = r((seed % 14) / 10)
   switch (kind) {
     case 'bike':
@@ -618,12 +713,20 @@ export type SceneInput = {
   pet?: boolean
   cats?: Cat[]
   night?: boolean
+  // health of each deployed service, by URL (see racks.ts)
+  services?: Record<string, ServiceStatus>
+  skillSkin?: Skin
+  agentSkin?: Skin
+  // 'auto', 'off' or a season id from season.ts
+  season?: string
 }
 
-export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ name: 'Michi', coat: 'gris' }], night = false }: SceneInput) {
+export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ name: 'Michi', coat: 'gris' }], night = false, services = {}, skillSkin = 'clasico', agentSkin = 'clasico', season = 'auto' }: SceneInput) {
   const { rooms, W } = layout()
   OX = Y_MAX * (TW / 2) + 40
   OY = 150
+  SKILL_SKIN = SKINS.includes(skillSkin) ? skillSkin : 'clasico'
+  AGENT_SKIN = SKINS.includes(agentSkin) ? agentSkin : 'clasico'
   const VIEW_W = Math.ceil((W + Y_MAX) * (TW / 2) + 80)
   const VIEW_H = Math.ceil((W + Y_MAX) * (TH / 2) + OY + 30)
   const roomById = (id: string) => rooms.find(rm => rm.id === id) ?? rooms.find(rm => rm.kind === 'lab')!
@@ -638,16 +741,8 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
   }
   for (const a of agents) busy.set(a.lab, busy.get(a.lab) ?? 0)
 
-  // street: far sidewalk, road with dashes, near sidewalk
-  const sx0 = -4
-  const sx1 = W + 4
-  out.push(floorQuad(sx0, H + 0.2, sx1, H + 1.9, '#B9B2A6'), floorQuad(sx0, H + 1.9, sx1, H + 4.4, '#4A4743'), floorQuad(sx0, H + 4.4, sx1, H + 5.8, '#B9B2A6'))
-  let dashes = ''
-  for (let x = sx0; x < sx1; x += 2) dashes += `M${pts([iso(x, H + 3.15)])}L${pts([iso(x + 1, H + 3.15)])}`
-  out.push(`<path d="${dashes}" stroke="#E8DFA8" stroke-width="2" pointer-events="none"/>`)
-  let curb = ''
-  for (let x = sx0; x < sx1; x += 1) curb += `M${pts([iso(x, H + 0.2)])}L${pts([iso(x, H + 1.9)])}M${pts([iso(x, H + 4.4)])}L${pts([iso(x, H + 5.8)])}`
-  out.push(`<path d="${curb}" stroke="#000" stroke-opacity=".08" pointer-events="none"/>`)
+  // the world around the building (street, beach, forest…): ground behind everything
+  out.push(worldGround(W, VIEW_W, VIEW_H))
 
   // building slab and back walls
   out.push(poly([iso(W, 0), iso(W, H), iso(W, H, -10), iso(W, 0, -10)], '#5A5047'))
@@ -660,6 +755,7 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
   out.push(poly([iso(0, 0, 6), iso(0, H, 6), iso(0, H), iso(0, 0)], '#C2B39D'))
   out.push(poly([iso(0, 0, WALL_H), iso(W, 0, WALL_H), iso(W, -0.25, WALL_H), iso(0, -0.25, WALL_H)], '#B9AC98'))
   out.push(poly([iso(0, 0, WALL_H), iso(0, H, WALL_H), iso(-0.25, H, WALL_H), iso(-0.25, 0, WALL_H)], '#AEA08B'))
+  out.push(wallDecor(W))
 
   const glows: string[] = []
   const windowBack = (xa: number, xb: number) => {
@@ -688,7 +784,10 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
   out.push(sideText('laboratorio de skills', H / 2, WALL_H + 3, 9, '#A99C8B', 1.5))
 
   // floors
-  const THEME_FLOOR: Partial<Record<Theme, string>> = { gym: '#C9CDD2', cafe: '#E3CBA8', arcade: '#34304A', military: '#9AA27A', smoking: '#B9AFA2' }
+  const THEME_FLOOR: Partial<Record<Theme, string>> = {
+    gym: '#C9CDD2', cafe: '#E3CBA8', arcade: '#34304A', military: '#9AA27A', smoking: '#B9AFA2',
+    ...Object.fromEntries(Object.entries(THEME_MODULES).map(([id, m]) => [id, m!.floor])),
+  }
   let grid = ''
   let checker = ''
   const corridor = { x0: 0, x1: W, y0: D, y1: D + 1 }
@@ -701,6 +800,12 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
       const a = T(room, D - 0.35)
       const b = T(room, D)
       out.push(floorQuad(room.x0, Math.min(a, b), room.x1, Math.max(a, b), labById(room.id).accent, ' opacity=".7"'))
+    }
+    // a room with its own floor pattern (planks, tiles, carpet…) skips the generic grid and checker
+    const decor = floorDecor(room, fill)
+    if (decor !== null) {
+      out.push(decor)
+      continue
     }
     for (let x = room.x0 + 1; x < room.x1; x++) grid += `M${pts([iso(x, room.y0)])}L${pts([iso(x, room.y1)])}`
     for (let y = room.y0 + 1; y < room.y1; y++) grid += `M${pts([iso(room.x0, y)])}L${pts([iso(room.x1, y)])}`
@@ -769,6 +874,7 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     const f = furnish(room, labById(room.id), busy.has(room.id))
     furnished.set(room.id, f)
     out.push(f.svg)
+    out.push(racks(room, labById(room.id), services))
   }
 
   // painter's order, back to front: wall signs, top rooms, plants, then the hanging signs and the bottom rooms in front of them
@@ -790,16 +896,10 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
   rooms.filter(rm => !rm.top).forEach(drawSign)
   rooms.filter(rm => !rm.top).forEach(drawRoom)
 
-  // street furniture: lamps and the container
-  const lamps: string[] = []
-  for (let x = 2; x < W; x += 6) {
-    const [lx, ly] = iso(x, H + 0.55)
-    out.push(`<rect x="${r(lx - 1.2)}" y="${r(ly - 62)}" width="2.4" height="62" fill="#3B3F46"/><rect x="${r(lx - 1.2)}" y="${r(ly - 64)}" width="12" height="2.4" fill="#3B3F46"/><rect x="${r(lx + 7)}" y="${r(ly - 63)}" width="7" height="5" fill="#57534E"/>`)
-    lamps.push(
-      `<g class="lamp-light" pointer-events="none"><circle cx="${r(lx + 10.5)}" cy="${r(ly - 57)}" r="22" fill="url(#lamp)"/><rect x="${r(lx + 7.5)}" y="${r(ly - 58.5)}" width="6" height="2" fill="#FFF1C2"/>` +
-      `<ellipse cx="${r(lx + 10)}" cy="${r(ly + 4)}" rx="34" ry="14" fill="url(#lamp)"/></g>`,
-    )
-  }
+  // the world's props in front of the building (lamps, trees, umbrellas…) and the lights they cast at night
+  const props = worldProps(W)
+  out.push(props.svg)
+  const lamps = props.lamps
   {
     const cx = Math.round(W * 0.55)
     const [bx, by] = iso(cx, H + 0.6)
@@ -810,6 +910,8 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
       `<g class="lid"><path d="M-20 -30 h40 v4 h-40 z" fill="#2B5532"/></g></g></g>`,
     )
   }
+
+  out.push(seasonDecor(rooms, W, now, season))
 
   // the cats patrol: even ones the corridor, odd ones the sidewalk
   const corridorLoop = (): Pt[] => [
@@ -991,6 +1093,9 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
   out.push(...catLayer)
   out.push(...layer.filter(l => l.depth >= 2e6).map(l => l.svg))
 
+  // weather and sky effects of the world (snowfall…), above the characters
+  out.push(worldOverlay(W, VIEW_W, VIEW_H))
+
   // night: a shade over everything, then the lights that shine through it
   out.push(`<rect id="shade" x="-40" y="-40" width="${VIEW_W + 80}" height="${VIEW_H + 80}" fill="#0B1030" opacity="0" pointer-events="none"/>`)
   out.push(`<g pointer-events="none">${glows.join('')}${lamps.join('')}</g>`)
@@ -1033,3 +1138,7 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
   }
   return { svg, asleep, working, strolling: strollers.length + strollingAgents.length, sessions: agents.length, geo }
 }
+
+// Shared drawing helpers for the files that draw part of the scene (themes/, world.ts, decor.ts, racks.ts).
+export { r, iso, pts, poly, esc, at, tr, shade, hash, box, tintBox, floorQuad, boxT, T, spanY, columns, entryY, doorX, px, U, bob, sweat, label }
+export { TW, TH, D, H, WALL_H, CORRIDOR_Y, STREET_NEAR, STREET_FAR, Y_MAX }
