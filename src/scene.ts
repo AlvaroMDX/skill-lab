@@ -420,137 +420,234 @@ export const withSpares = (room: RoomGeom, list: Station[], kind: StationKind) =
   return list
 }
 
-function furnish(room: RoomGeom, lab: Lab, active: boolean): Furnished {
-  const theme = room.theme ?? 'lab'
-  const mod = THEME_MODULES[theme]
-  if (mod) return mod.furnish(room, lab, active)
+// Classic stations put the skill behind its furniture (smaller y, whatever the row), so workAnim can redraw the
+// piece in front of it and the skill looks seated at the table, on the bike or behind the sandbags.
+type O = [number, number]
+// screen offset of the point (dx, dy, z) tiles away from a station
+const rel = (dx: number, dy: number, z = 0): O => [(dx - dy) * (TW / 2), (dx + dy) * (TH / 2) - z]
+const add = (o: O, p: O): O => [o[0] + p[0], o[1] + p[1]]
+// a box placed from origin o; `slice` leaves out the right face, for a piece cut out of a longer one
+function piece(o: O, dx: number, dy: number, z: number, w: number, d: number, h: number, color: string, slice = false) {
+  const p = (a: number, b: number, c: number) => add(o, rel(dx + a, dy + b, z + c))
+  const edge = slice ? [p(0, d, h), p(w, d, h)] : [p(0, d, h), p(w, d, h), p(w, 0, h)]
+  return (
+    (slice ? '' : poly([p(w, 0, 0), p(w, d, 0), p(w, d, h), p(w, 0, h)], shade(color, 0.72))) +
+    poly([p(0, d, 0), p(w, d, 0), p(w, d, h), p(0, d, h)], shade(color, 0.86)) +
+    poly([p(0, 0, h), p(w, 0, h), p(w, d, h), p(0, d, h)], color) +
+    `<path d="M${pts(edge)}" stroke="#FFF" stroke-opacity=".3" fill="none"/>`
+  )
+}
+const ORIGIN: O = [0, 0]
+const loop = (attr: string, values: string, dur: number, begin: number, extra = '') =>
+  `<animate attributeName="${attr}" values="${values}" dur="${r(dur)}s" begin="${r(begin)}s" repeatCount="indefinite"${extra}/>`
+const spin = (type: string, values: string, dur: number, begin: number, extra = '') =>
+  `<animateTransform attributeName="transform" type="${type}" values="${values}" dur="${r(dur)}s" begin="${r(begin)}s" repeatCount="indefinite" additive="sum"${extra}/>`
+// a limb or hand in the skill's colour, outlined like the sprite
+const limb = (x: number, y: number, w: number, h: number, color: string, inner = '') =>
+  `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${color}" stroke="${INK}" stroke-width="1">${inner}</rect>`
+
+// furniture shared by furnish (empty seat) and workAnim (redrawn in front of the skill)
+const LAB_BENCH = { dy: 0.35, d: 0.8, h: 15, color: '#F4F1EA' }
+const DESK = { dy: 0.35, d: 0.8, h: 13, color: '#9A6B47' }
+const flask = (o: O, accent: string, inner = '') => {
+  const [x, y] = add(o, rel(-0.3, 0.75, LAB_BENCH.h))
+  return `<g ${tr([x, y])}><g>${inner}<rect x="-1.5" y="-12" width="3" height="6" fill="#DDE7EA"/><circle cy="-4" r="4.5" fill="${accent}" opacity=".85" stroke="#FFF" stroke-opacity=".6"/><rect x="-2.6" y="-6.4" width="1.4" height="1.4" fill="#FFF" opacity=".7"/></g></g>`
+}
+const book = (o: O, accent: string, inner = '') => {
+  const [x, y] = add(o, rel(0.25, 0.8, DESK.h))
+  return `<g ${tr([x, y])}><rect x="-7" y="-3.4" width="14" height="4.4" fill="${accent}"/><rect x="-6.4" y="-4" width="6" height="4.2" fill="#FFFDF6"/><rect x=".4" y="-4" width="6" height="4.2" fill="#F1EADB"/><rect x="-.3" y="-4" width=".6" height="4.4" fill="${shade(accent, 0.7)}"/>${inner}</g>`
+}
+// a reading lamp standing behind the chair, its shade arching over the reader's head
+const readingLamp = (o: O) => {
+  const [x, y] = add(o, rel(0.2, -0.5))
+  return `<rect x="${r(x - 0.8)}" y="${r(y - 34)}" width="1.6" height="34" fill="#3B3F46"/><rect x="${r(x - 3)}" y="${r(y - 1)}" width="6" height="1.6" fill="#3B3F46"/><rect x="${r(x - 9)}" y="${r(y - 34)}" width="9" height="1.4" fill="#3B3F46"/>` +
+    `<path d="M${r(x - 14)} ${r(y - 28)} h10 l-2 -5 h-6 z" fill="#2F7D4A"/><ellipse cx="${r(x - 9)}" cy="${r(y - 22)}" rx="12" ry="9" fill="#FFE6A0" opacity=".45" class="lamp-light"/>`
+}
+const cafeTable = (o: O, z: number) => {
+  const [x, y] = add(o, rel(0.55, 0.55, 13 - z))
+  const [fx, fy] = add(o, rel(0.55, 0.55, -z))
+  return `<rect x="${r(fx - 1.2)}" y="${r(y)}" width="2.4" height="${r(fy - y)}" fill="#5E3B25"/><ellipse cx="${r(x)}" cy="${r(y + 1.6)}" rx="13" ry="6.5" fill="#A27552"/><ellipse cx="${r(x)}" cy="${r(y)}" rx="13" ry="6.5" fill="#F4EBDD"/><ellipse cx="${r(x - 3)}" cy="${r(y - 1.6)}" rx="6" ry="2" fill="#FFF" opacity=".45"/>`
+}
+const cup = (x: number, y: number) => `<ellipse cx="${r(x)}" cy="${r(y)}" rx="4" ry="1.6" fill="#E2D6C2"/><rect x="${r(x - 2)}" y="${r(y - 4)}" width="4" height="4" fill="#FFF" stroke="#A27552" stroke-width=".6"/><rect x="${r(x + 2)}" y="${r(y - 3)}" width="1.4" height="1.6" fill="none" stroke="#FFF" stroke-width=".8"/>`
+const bikeFront = (o: O, z: number, crank = '') => {
+  const [wx, wy] = add(o, rel(0, 0.32, 6 - z))
+  return `<g transform="matrix(-1,.5,0,1,${r(wx)},${r(wy)})"><circle r="5.5" fill="#55595F" stroke="#2B2F35" stroke-width="1.6"/><circle r="1.4" fill="#B8B2A7"/>${crank}</g>` +
+    piece(o, -0.06, 0.5, 2.5 - z, 0.12, 0.12, 15, '#C8423A') + piece(o, -0.32, 0.47, 17.5 - z, 0.64, 0.12, 1.4, '#222')
+}
+const treadFront = (o: O, z: number, display = '#4FE3FF') => {
+  const [cx, cy] = add(o, rel(0, 0.55, 18.6 - z))
+  return piece(o, -0.4, 0.5, 4 - z, 0.07, 0.07, 12, '#8C8F94') + piece(o, 0.33, 0.5, 4 - z, 0.07, 0.07, 12, '#8C8F94') + piece(o, -0.42, 0.45, 16 - z, 0.84, 0.16, 2.6, '#3B3F46') +
+    `<rect x="${r(cx - 3)}" y="${r(cy - 1.2)}" width="6" height="2.4" fill="${display}"/>`
+}
+// two staggered layers of sandbags along x, a slice of the parapet in front of a skill
+const BAG = 0.47
+const sandbags = (o: O, from: number, to: number) => {
+  let s = ''
+  for (const [layer, z, fill] of [[0, 0, '#A8946A'], [0.5, 4.5, '#B9A57A']] as const) {
+    for (let k = Math.ceil(from / BAG - layer); (k + layer) * BAG <= to; k++) {
+      const [bx, by] = add(o, rel((k + layer) * BAG, 0.6, z))
+      s += `<rect x="${r(bx - 6)}" y="${r(by - 7)}" width="12" height="6.4" rx="3" fill="${fill}" stroke="#7E6C48" stroke-width=".7"/>`
+    }
+  }
+  return s
+}
+const arcadeScreen = (o: O, color: string, inner = '', bezel = true) => {
+  const q = (dx: number, z: number) => add(o, rel(dx, -0.45, z))
+  return (bezel ? `<polygon points="${pts([q(-0.36, 20), q(0.36, 20), q(0.36, 36), q(-0.36, 36)])}" fill="#15131F"/>` : '') +
+    `<polygon points="${pts([q(-0.3, 22), q(0.3, 22), q(0.3, 34), q(-0.3, 34)])}" fill="${color}" opacity="${bezel ? 0.9 : 0}">${inner}</polygon>`
+}
+
+function furnishClassic(room: RoomGeom, theme: Theme, lab: Lab, active: boolean): Furnished {
+  const Y = (u: number) => room.y0 + u
+  const w = room.x1 - room.x0
   const agentSpots = (t: number) => agentSpotsAt(room, t)
   const spare = (list: Station[], kind: StationKind) => withSpares(room, list, kind)
+  const stations: Station[] = []
+  // the far wall is at the back of a top puesto and at the front of a bottom one: drawn first or last
+  let wall = ''
   let s = ''
+  const done = (kind: StationKind, spotsT = 1.3) => ({ svg: room.top ? wall + s : s + wall, stations: spare(stations, kind), agentSpots: agentSpots(spotsT) })
+  const o = (x: number, u: number, z = 0): O => iso(x, Y(u), z)
 
   if (theme === 'gym') {
     // mirror and dumbbell rack on the far wall
-    s += boxT(room, room.x0 + 0.3, 0.1, 0.7, 0, room.x1 - room.x0 - 0.6, 9, '#8C8F94')
+    wall += boxT(room, room.x0 + 0.3, 0.1, 0.7, 0, w - 0.6, 9, '#8C8F94')
     for (const x of columns(room, 0.7, 0.6, 0.8)) {
       const [cx, cy] = iso(x, T(room, 0.4), 10)
-      s += `<rect x="${r(cx - 4)}" y="${r(cy - 3)}" width="8" height="2.4" fill="#3B3F46"/><rect x="${r(cx - 5)}" y="${r(cy - 4.5)}" width="2.4" height="5" fill="#2B2F35"/><rect x="${r(cx + 2.6)}" y="${r(cy - 4.5)}" width="2.4" height="5" fill="#2B2F35"/>`
+      wall += `<rect x="${r(cx - 4)}" y="${r(cy - 3)}" width="8" height="2.4" fill="#3B3F46"/><rect x="${r(cx - 5)}" y="${r(cy - 4.5)}" width="2.4" height="5" fill="#2B2F35"/><rect x="${r(cx + 2.6)}" y="${r(cy - 4.5)}" width="2.4" height="5" fill="#2B2F35"/>`
     }
-    const stations: Station[] = []
     for (const x of columns(room, 1.3)) {
-      // static bike: base, frame, seat, handlebar
-      s += boxT(room, x - 0.2, 2.0, 2.9, 0, 0.4, 3, '#3B3F46') + boxT(room, x - 0.06, 2.1, 2.3, 3, 0.12, 9, '#C8423A') + boxT(room, x - 0.06, 2.6, 2.75, 3, 0.12, 8, '#C8423A')
-      s += boxT(room, x - 0.15, 2.55, 2.85, 11, 0.3, 1.5, '#222') + boxT(room, x - 0.25, 2.05, 2.15, 12, 0.5, 1, '#222')
-      stations.push({ x, y: T(room, 2.7), kind: 'bike', z: 9 })
+      // static bike facing the room: the rider sits on the saddle, flywheel and handlebar in front
+      s += box(x - 0.18, Y(1.6), 0, 0.36, 1.05, 2.5, '#3B3F46') + box(x - 0.07, Y(1.93), 2.5, 0.14, 0.14, 7, '#C8423A') + box(x - 0.17, Y(1.82), 9.5, 0.34, 0.38, 1.6, '#222')
+      s += bikeFront(o(x, 2.05), 0)
+      stations.push({ x, y: Y(2.05), kind: 'bike', z: 9 })
     }
     for (const x of columns(room, 1.6, 1.2, 1.7)) {
-      // treadmill: belt with a console at the far end
-      s += boxT(room, x - 0.4, 3.9, 5.5, 0, 0.8, 4, '#2B2F35') + boxT(room, x - 0.3, 4.0, 5.4, 4, 0.6, 0.6, '#55595F')
-      s += boxT(room, x - 0.42, 3.85, 4.0, 4, 0.08, 18, '#8C8F94') + boxT(room, x + 0.34, 3.85, 4.0, 4, 0.08, 18, '#8C8F94') + boxT(room, x - 0.42, 3.8, 4.1, 22, 0.84, 3, '#3B3F46')
-      stations.push({ x, y: T(room, 4.9), kind: 'tread', z: 4 })
+      // treadmill: the runner faces the room, the console in front
+      s += box(x - 0.32, Y(3.05), 0, 0.64, 1.15, 3.5, '#2B2F35') + box(x - 0.26, Y(3.1), 3.5, 0.52, 1.0, 0.5, '#55595F')
+      s += treadFront(o(x, 3.6), 0, '#59606B')
+      stations.push({ x, y: Y(3.6), kind: 'tread', z: 4 })
     }
     for (const x of columns(room, 2.2, 1.4, 2).slice(0, 3)) {
-      // bench press: bench, uprights, bar
-      s += boxT(room, x - 0.18, 6.0, 6.9, 0, 0.36, 6, '#4A4E55') + boxT(room, x - 0.5, 6.0, 6.1, 0, 0.06, 20, '#8C8F94') + boxT(room, x + 0.44, 6.0, 6.1, 0, 0.06, 20, '#8C8F94')
-      stations.push({ x, y: T(room, 6.4), kind: 'bench', z: 6 })
+      // bench press: uprights at the head end, a plate tree beside it
+      s += box(x - 0.52, Y(4.9), 0, 0.07, 0.07, 22, '#8C8F94') + box(x + 0.45, Y(4.9), 0, 0.07, 0.07, 22, '#8C8F94')
+      s += box(x - 0.17, Y(4.95), 0, 0.34, 0.95, 5, '#3B3F46') + box(x - 0.15, Y(4.97), 5, 0.3, 0.9, 1.6, '#C8423A')
+      const [px0, py0] = iso(x + 0.75, Y(5.5))
+      s += `<rect x="${r(px0 - 0.8)}" y="${r(py0 - 14)}" width="1.6" height="14" fill="#8C8F94"/>` + [3, 7, 11].map(h => `<rect x="${r(px0 - 3.5)}" y="${r(py0 - h - 1.5)}" width="7" height="3" rx="1.2" fill="#2B2F35"/>`).join('')
+      stations.push({ x, y: Y(5.8), kind: 'bench', z: 7 })
     }
-    return { svg: s, stations: spare(stations, 'tread'), agentSpots: agentSpots(1.3) }
+    return done('tread')
   }
 
   if (theme === 'cafe') {
-    s += boxT(room, room.x0 + 0.3, 0.15, 0.85, 0, room.x1 - room.x0 - 0.6, 18, '#8A5A3B') + boxT(room, room.x0 + 0.3, 0.15, 0.85, 18, room.x1 - room.x0 - 0.6, 1.5, '#5E3B25')
-    s += boxT(room, room.x0 + 0.6, 0.25, 0.7, 19.5, 0.8, 10, '#3B3F46')
+    // counter with the espresso machine and cups on the far wall
+    wall += boxT(room, room.x0 + 0.3, 0.15, 0.85, 0, w - 0.6, 18, '#8A5A3B') + boxT(room, room.x0 + 0.3, 0.15, 0.85, 18, w - 0.6, 1.5, '#5E3B25')
+    wall += boxT(room, room.x0 + 0.6, 0.25, 0.7, 19.5, 0.8, 10, '#3B3F46')
     const [mx, my] = iso(room.x0 + 1.0, T(room, 0.5), 25)
-    s += `<rect x="${r(mx - 2)}" y="${r(my)}" width="4" height="2" fill="#E2463A"><animate attributeName="opacity" values="1;.3;1" dur="1.6s" repeatCount="indefinite"/></rect>`
+    wall += `<rect x="${r(mx - 2)}" y="${r(my)}" width="4" height="2" fill="#E2463A"><animate attributeName="opacity" values="1;.3;1" dur="1.6s" repeatCount="indefinite"/></rect>`
     for (const x of columns(room, 0.9, 2.2, 0.8)) {
       const [cx, cy] = iso(x, T(room, 0.5), 19.5)
-      s += `<rect x="${r(cx - 2)}" y="${r(cy - 4)}" width="4" height="4" fill="#FFFFFF"/>`
+      wall += `<rect x="${r(cx - 2)}" y="${r(cy - 4)}" width="4" height="4" fill="#FFFFFF"/>`
     }
-    const stations: Station[] = []
-    for (const t of [2.8, 5.2]) {
-      for (const x of columns(room, 2.2, 1.6, 1.6)) {
-        const [cx, cy] = iso(x, T(room, t), 13)
-        s += boxT(room, x - 0.05, t - 0.05, t + 0.05, 0, 0.1, 13, '#5E3B25')
-        s += `<ellipse cx="${r(cx)}" cy="${r(cy)}" rx="17" ry="8.5" fill="#F4EBDD" stroke="#A27552" stroke-width="1.5"/><rect x="${r(cx - 2)}" y="${r(cy - 5)}" width="4" height="4" fill="#FFFFFF"/>`
-        stations.push({ x: x - 0.75, y: T(room, t), kind: 'cafe' }, { x: x + 0.75, y: T(room, t), kind: 'cafe' })
+    // bistro tables: a chair behind each one, so the skill sits facing the room with its cup in front
+    for (const u of [1.9, 3.4, 4.9]) {
+      for (const x of columns(room, 1.4, 1.6, 1.6)) {
+        s += box(x - 0.2, Y(u - 0.32), 6, 0.4, 0.08, 12, '#6E4A30') + box(x - 0.2, Y(u - 0.25), 0, 0.4, 0.42, 6, '#8A5A3B')
+        const [tx, ty] = add(o(x, u), rel(0.55, 0.55, 13))
+        s += cafeTable(o(x, u), 0) + cup(tx + 4, ty)
+        stations.push({ x, y: Y(u), kind: 'cafe', z: 4 })
       }
     }
-    return { svg: s, stations: spare(stations, 'cafe'), agentSpots: agentSpots(1.3) }
+    return done('cafe')
   }
 
   if (theme === 'library') {
     const spines = ['#B8553A', '#4F8FCB', '#6FA75A', '#E0A43B', '#8A7BD1', '#3FA7A0', '#D0605E']
     // against the back wall the shelf stays under the room's sign
     const shelves = room.top ? 2 : 3
-    s += boxT(room, room.x0 + 0.2, 0.05, 0.6, 0, room.x1 - room.x0 - 0.4, shelves === 2 ? 28 : 44, '#7A5136')
+    wall += boxT(room, room.x0 + 0.2, 0.05, 0.6, 0, w - 0.4, shelves === 2 ? 28 : 44, '#7A5136')
     for (let shelf = 0; shelf < shelves; shelf++) {
       let k = 0
       for (let x = room.x0 + 0.35; x < room.x1 - 0.35; x += 0.22, k++) {
         const [bx, by] = iso(x, T(room, room.top ? 0.6 : 0.05), 6 + shelf * (shelves === 2 ? 11 : 13))
-        s += `<rect x="${r(bx - 2)}" y="${r(by - 10)}" width="3.4" height="${9 + (k % 3)}" fill="${spines[(k + shelf * 3) % spines.length]}"/>`
+        wall += `<rect x="${r(bx - 2)}" y="${r(by - 10)}" width="3.4" height="${9 + (k % 3)}" fill="${spines[(k + shelf * 3) % spines.length]}"/>`
       }
     }
-    const stations: Station[] = []
-    for (const t of [2.6, 4.9]) {
-      s += boxT(room, room.x0 + 1, t, t + 0.8, 0, room.x1 - room.x0 - 2.4, 13, '#9A6B47')
-      for (const x of columns(room, 2.4, 1.6, 1.8)) {
-        const [lx, ly] = iso(x, T(room, t + 0.3), 13)
-        s += `<rect x="${r(lx - 0.8)}" y="${r(ly - 9)}" width="1.6" height="9" fill="#3B3F46"/><path d="M${r(lx - 5)} ${r(ly - 9)} h10 l-2 -4 h-6 z" fill="#2F7D4A"/>`
-        s += `<ellipse cx="${r(lx)}" cy="${r(ly - 2)}" rx="10" ry="4" fill="#FFE6A0" opacity=".35" class="lamp-light"/>`
+    for (const u of [2.0, 4.3]) {
+      const xs = columns(room, 1.4, 1.6, 1.9)
+      for (const x of xs) s += readingLamp(o(x, u)) + box(x - 0.2, Y(u - 0.4), 0, 0.4, 0.08, 17, '#6E4A30')
+      s += box(room.x0 + 0.9, Y(u + DESK.dy), 0, w - 1.5, DESK.d, DESK.h, DESK.color)
+      for (const x of xs) {
+        s += book(o(x, u), spines[hash(`${room.id}${x}${u}`) % spines.length]!)
+        stations.push({ x, y: Y(u), kind: 'read' })
       }
-      for (const x of columns(room, 1.4, 1.6)) stations.push({ x, y: T(room, t + 0.8 + 0.45), kind: 'read' })
     }
-    return { svg: s, stations: spare(stations, 'read'), agentSpots: agentSpots(1.15) }
+    return done('read', 1.15)
   }
 
   if (theme === 'arcade') {
     const neon = ['#FF4FD8', '#4FE3FF', '#FFE34F', '#7CFF6B', '#FF8A4F']
-    const stations: Station[] = []
-    for (const t of [0.2, 3.6]) {
+    // a top puesto backs its first row on the far wall; a bottom one keeps clear of the door aisle
+    for (const c of room.top ? [0.2, 3.6] : [1.75, 4.6]) {
       columns(room, 1.2, 0.9, 1.3).forEach((x, k) => {
-        s += boxT(room, x - 0.4, t, t + 0.7, 0, 0.8, 31, '#2B2840')
-        const { y, d } = spanY(room, t, t + 0.7)
-        const sy = room.top ? y + d : y
-        const scr = [iso(x - 0.32, sy, 13), iso(x + 0.32, sy, 13), iso(x + 0.32, sy, 25), iso(x - 0.32, sy, 25)] as [number, number][]
-        s += `<polygon points="${pts(scr)}" fill="${neon[k % neon.length]}" opacity=".85"><animate attributeName="opacity" values=".9;.45;.9;.7" dur="${r(0.7 + (k % 3) * 0.3)}s" repeatCount="indefinite"/></polygon>`
-        s += poly([iso(x - 0.4, sy, 28), iso(x + 0.4, sy, 28), iso(x + 0.4, sy, 31), iso(x - 0.4, sy, 31)], neon[(k + 2) % neon.length]!)
-        stations.push({ x, y: T(room, t + 0.7 + 0.5), kind: 'arcade' })
+        const color = neon[k % neon.length]!
+        s += box(x - 0.4, Y(c), 0, 0.8, 0.7, 42, '#2B2840')
+        s += poly([iso(x + 0.4, Y(c + 0.1), 4), iso(x + 0.4, Y(c + 0.6), 4), iso(x + 0.4, Y(c + 0.6), 38), iso(x + 0.4, Y(c + 0.1), 38)], color, ' opacity=".35"')
+        const so = o(x, c + 1.15)
+        s += arcadeScreen(so, color, `<animate attributeName="opacity" values=".9;.5;.9;.7" dur="${r(0.7 + (k % 3) * 0.3)}s" repeatCount="indefinite"/>`)
+        s += poly([0.4, -0.4].map(dx => add(so, rel(dx, -0.45, 38))).concat([0.4, -0.4].map(dx => add(so, rel(-dx, -0.45, 41)))), neon[(k + 2) % neon.length]!)
+        s += piece(so, -0.36, -0.45, 14, 0.72, 0.2, 3, '#3B3850')
+        for (const [dx, b] of [[-0.12, '#FF4F4F'], [0.12, '#4FE3FF']] as const) {
+          const [bx, by] = add(so, rel(dx, -0.35, 17))
+          s += `<circle cx="${r(bx)}" cy="${r(by)}" r="1.3" fill="${b}"/>`
+        }
+        const [gx, gy] = add(so, rel(0, -0.2, 26))
+        s += `<ellipse cx="${r(gx)}" cy="${r(gy)}" rx="16" ry="10" fill="${color}" opacity=".3" class="lamp-light"/>`
+        stations.push({ x, y: Y(c + 1.15), kind: 'arcade' })
       })
     }
-    return { svg: s, stations: spare(stations, 'arcade'), agentSpots: agentSpots(6.2) }
+    return done('arcade', room.top ? 6.2 : 1.0)
   }
 
   if (theme === 'smoking') {
     // extractor fan and an ironic no-smoking sign on the far wall, benches, standing ashtrays, smoke drifting up
-    s += boxT(room, room.x0 + 0.4, 0.1, 0.5, 0, 1.2, 26, '#8C857C')
+    wall += boxT(room, room.x0 + 0.4, 0.1, 0.5, 0, 1.2, 26, '#8C857C')
     {
       const [fx, fy] = iso(room.x0 + 1.0, T(room, room.top ? 0.5 : 0.1), 16)
-      s += `<circle cx="${r(fx)}" cy="${r(fy)}" r="7" fill="#3B3F46"/><g transform="translate(${r(fx)},${r(fy)})"><g><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1.2s" repeatCount="indefinite"/>` +
+      wall += `<circle cx="${r(fx)}" cy="${r(fy)}" r="7" fill="#3B3F46"/><g transform="translate(${r(fx)},${r(fy)})"><g><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1.2s" repeatCount="indefinite"/>` +
         `<rect x="-6" y="-1" width="12" height="2" fill="#B8B2A7"/><rect x="-1" y="-6" width="2" height="12" fill="#B8B2A7"/></g></g>`
       const [nx, ny] = iso(room.x1 - 1.4, T(room, room.top ? 0.5 : 0.1), 12)
-      s += `<circle cx="${r(nx)}" cy="${r(ny)}" r="7" fill="#FFFFFF" stroke="#C8423A" stroke-width="2.4"/><rect x="${r(nx - 3.5)}" y="${r(ny - 1)}" width="7" height="2" fill="#3B3F46"/><path d="M${r(nx - 5)} ${r(ny - 5)} L${r(nx + 5)} ${r(ny + 5)}" stroke="#C8423A" stroke-width="2.4"/>`
+      wall += `<circle cx="${r(nx)}" cy="${r(ny)}" r="7" fill="#FFFFFF" stroke="#C8423A" stroke-width="2.4"/><rect x="${r(nx - 3.5)}" y="${r(ny - 1)}" width="7" height="2" fill="#3B3F46"/><path d="M${r(nx - 5)} ${r(ny - 5)} L${r(nx + 5)} ${r(ny + 5)}" stroke="#C8423A" stroke-width="2.4"/>`
     }
-    const stations: Station[] = []
-    for (const t of [2.4, 4.8]) {
-      s += boxT(room, room.x0 + 1, t, t + 0.6, 0, room.x1 - room.x0 - 2.4, 6, '#8A5A3B') + boxT(room, room.x0 + 1, t, t + 0.12, 6, room.x1 - room.x0 - 2.4, 9, '#6E4A30')
-      for (const x of columns(room, 1.4, 1.6)) stations.push({ x, y: T(room, t + 0.35), kind: 'smoke', z: 6 })
-      for (const x of columns(room, 2.4, 2.2, 1.6)) {
-        const [ax, ay] = iso(x, T(room, t + 1.2))
-        s += `<rect x="${r(ax - 1)}" y="${r(ay - 16)}" width="2" height="16" fill="#8C857C"/><ellipse cx="${r(ax)}" cy="${r(ay - 16)}" rx="5" ry="2.2" fill="#55595F"/><circle cx="${r(ax + 1)}" cy="${r(ay - 17)}" r="1" fill="#FF8A3D"/>`
-      }
+    for (const u of [2.2, 4.6]) {
+      // the backrest behind the seat, whatever the row; the smokers sit on its front edge with their legs hanging
+      s += box(room.x0 + 1, Y(u - 0.62), 0, w - 2.4, 0.1, 16, '#6E4A30') + box(room.x0 + 1, Y(u - 0.55), 0, w - 2.4, 0.55, 5, '#8A5A3B')
+      const xs = columns(room, 1.4, 1.6)
+      xs.forEach((x, k) => {
+        stations.push({ x, y: Y(u), kind: 'smoke', z: 4 })
+        if (k % 2) return
+        const [ax, ay] = iso(x + 0.7, Y(u + 0.95))
+        s += `<ellipse cx="${r(ax)}" cy="${r(ay)}" rx="4" ry="1.6" fill="#000" opacity=".15"/><rect x="${r(ax - 1)}" y="${r(ay - 16)}" width="2" height="16" fill="#8C857C"/><ellipse cx="${r(ax)}" cy="${r(ay - 16)}" rx="5" ry="2.2" fill="#55595F"/><circle cx="${r(ax + 1)}" cy="${r(ay - 17)}" r="1" fill="#FF8A3D"/>`
+      })
     }
     // ambient smoke: soft puffs rising and fading
     for (let k = 0; k < 6; k++) {
-      const [cx, cy] = iso(room.x0 + 1 + ((k * 1.7) % Math.max(1, room.x1 - room.x0 - 2)), T(room, 2 + (k % 3) * 1.6), 20)
+      const [cx, cy] = iso(room.x0 + 1 + ((k * 1.7) % Math.max(1, w - 2)), Y(2 + (k % 3) * 1.6), 20)
       const d = r((k * 0.9) % 4)
       s += `<circle cx="${r(cx)}" cy="${r(cy)}" r="7" fill="#D8D4CC" opacity="0" pointer-events="none"><animate attributeName="opacity" values="0;.45;0" dur="4.5s" begin="${d}s" repeatCount="indefinite"/>` +
         `<animate attributeName="cy" values="${r(cy)};${r(cy - 26)}" dur="4.5s" begin="${d}s" repeatCount="indefinite"/><animate attributeName="r" values="5;12" dur="4.5s" begin="${d}s" repeatCount="indefinite"/></circle>`
     }
-    return { svg: s, stations: spare(stations, 'smoke'), agentSpots: agentSpots(1.3) }
+    return done('smoke')
   }
 
   if (theme === 'military') {
-    // lockers and a flag on the far wall, sandbag parapets, ammo crates and a target
-    for (const x of columns(room, 0.9, 1.6, 0.8)) s += boxT(room, x - 0.4, 0.1, 0.55, 0, 0.8, 26, '#5B6B3A')
+    // lockers on the far wall, sandbag parapets, a flag, ammo crates and a target
+    let lockers = ''
+    for (const x of columns(room, 0.9, 1.6, 0.8)) {
+      lockers += boxT(room, x - 0.4, 0.1, 0.55, 0, 0.8, 26, '#5B6B3A')
+      const [vx, vy] = iso(x, T(room, room.top ? 0.55 : 0.1), 20)
+      lockers += `<rect x="${r(vx - 3)}" y="${r(vy)}" width="6" height="1" fill="#3F4A2A"/><rect x="${r(vx - 3)}" y="${r(vy + 2)}" width="6" height="1" fill="#3F4A2A"/>`
+    }
     {
       // the flag stands in the front corner: on the back wall it would cover the sign
       // the cloth waves by morphing its outline around the pole: a transform animation would pivot on the map's origin
@@ -558,99 +655,213 @@ function furnish(room: RoomGeom, lab: Lab, active: boolean): Furnished {
       const cloth = (a: number) => `M0 0 C7 ${-2 * a} 13 ${2 * a} 20 0 L20 13 C13 ${13 + 2 * a} 7 ${13 - 2 * a} 0 13 Z`
       const stripe = (a: number) => `M0 5 C7 ${5 - 2 * a} 13 ${5 + 2 * a} 20 5 L20 8 C13 ${8 + 2 * a} 7 ${8 - 2 * a} 0 8 Z`
       const wave = (f: (a: number) => string) => `<animate attributeName="d" values="${f(1)};${f(-1)};${f(1)}" dur="1.6s" repeatCount="indefinite"/>`
-      s += `<ellipse cx="${r(fx)}" cy="${r(fy)}" rx="5" ry="2.5" fill="#000" opacity=".18"/><rect x="${r(fx - 1.2)}" y="${r(fy - 60)}" width="2.4" height="60" fill="#8C857C"/><rect x="${r(fx - 1.2)}" y="${r(fy - 60)}" width="1" height="60" fill="#B8B2A7"/>` +
+      wall += `<ellipse cx="${r(fx)}" cy="${r(fy)}" rx="5" ry="2.5" fill="#000" opacity=".18"/><rect x="${r(fx - 1.2)}" y="${r(fy - 60)}" width="2.4" height="60" fill="#8C857C"/><rect x="${r(fx - 1.2)}" y="${r(fy - 60)}" width="1" height="60" fill="#B8B2A7"/>` +
         `<circle cx="${r(fx)}" cy="${r(fy - 61)}" r="2.2" fill="#D4B24C"/>` +
         `<g ${tr([fx + 1.2, fy - 58])}><path d="${cloth(1)}" fill="#3F5A2A">${wave(cloth)}</path><path d="${stripe(1)}" fill="#F2D16B">${wave(stripe)}</path>` +
         `<text x="5" y="11.5" font-size="5" fill="#F2D16B">★</text></g>`
     }
-    const stations: Station[] = []
-    for (const t of [2.4, 4.8]) {
-      let k = 0
-      for (let x = room.x0 + 1; x < room.x1 - 1.4; x += 0.55, k++) {
-        const [bx, by] = iso(x, T(room, t + 0.35), 0)
-        s += `<rect x="${r(bx - 6)}" y="${r(by - 12)}" width="12" height="6" rx="3" fill="${k % 2 ? '#B9A57A' : '#A8946A'}"/><rect x="${r(bx - 3)}" y="${r(by - 17)}" width="12" height="6" rx="3" fill="${k % 2 ? '#A8946A' : '#B9A57A'}"/>`
-      }
-      for (const x of columns(room, 1.4, 1.6)) stations.push({ x, y: T(room, t + 0.8 + 0.45), kind: 'drill' })
+    for (const u of [2.0, 4.4]) {
+      // the parapet runs on a fixed grid so a skill's slice of it lines up with the bags behind
+      s += sandbags(o(room.x0 + 1, u), 0, w - 1.9)
+      for (let x = room.x0 + 1 + BAG; x <= room.x1 - 1.9; x += 3 * BAG) stations.push({ x, y: Y(u), kind: 'drill' })
     }
-    for (const x of [room.x1 - 1.3, room.x1 - 1.9]) s += boxT(room, x, 6.4, 6.9, 0, 0.5, 8, '#6E5A35') + boxT(room, x, 6.4, 6.9, 8, 0.5, 1, '#4E3F25')
+    for (const x of [room.x1 - 1.3, room.x1 - 1.9]) {
+      wall += boxT(room, x, 6.4, 6.9, 0, 0.5, 8, '#6E5A35') + boxT(room, x, 6.4, 6.9, 8, 0.5, 1, '#4E3F25')
+    }
     {
       const [tx, ty] = iso(room.x0 + 1.7, T(room, 6.9), 0)
-      s += `<rect x="${r(tx - 1)}" y="${r(ty - 24)}" width="2" height="24" fill="#6E5A35"/><circle cx="${r(tx)}" cy="${r(ty - 30)}" r="8" fill="#F4EBDD" stroke="#C8423A" stroke-width="2"/><circle cx="${r(tx)}" cy="${r(ty - 30)}" r="4" fill="none" stroke="#C8423A" stroke-width="2"/><circle cx="${r(tx)}" cy="${r(ty - 30)}" r="1.4" fill="#C8423A"/>`
+      wall += `<rect x="${r(tx - 1)}" y="${r(ty - 24)}" width="2" height="24" fill="#6E5A35"/><circle cx="${r(tx)}" cy="${r(ty - 30)}" r="8" fill="#F4EBDD" stroke="#C8423A" stroke-width="2"/><circle cx="${r(tx)}" cy="${r(ty - 30)}" r="4" fill="none" stroke="#C8423A" stroke-width="2"/><circle cx="${r(tx)}" cy="${r(ty - 30)}" r="1.4" fill="#C8423A"/>`
     }
-    return { svg: s, stations: spare(stations, 'drill'), agentSpots: agentSpots(1.3) }
+    // flag, crates and target stand near the door wall: in front of the parapets in a top puesto, behind them in a bottom one
+    const r0 = done('drill')
+    return { ...r0, svg: room.top ? lockers + s + wall : wall + s + lockers }
   }
 
-  // lab
-  s += boxT(room, room.x0 + 0.3, 0.15, 0.85, 0, room.x1 - room.x0 - 0.6, 18, '#B8B2A7') + boxT(room, room.x0 + 0.6, 0.25, 0.6, 18, 0.9, 12, '#3B3F46')
+  // lab: counter with an analyser on the far wall, benches with a flask at every place
+  wall += boxT(room, room.x0 + 0.3, 0.15, 0.85, 0, w - 0.6, 18, '#B8B2A7') + boxT(room, room.x0 + 0.6, 0.25, 0.6, 18, 0.9, 12, '#3B3F46')
   const [mx, my] = iso(room.x0 + 1.5, T(room, 0.4), 24)
-  s += `<rect x="${r(mx - 1)}" y="${r(my - 4)}" width="3" height="7" fill="${active ? '#7CF0A0' : '#59606B'}">${active ? '<animate attributeName="opacity" values="1;.3;1" dur="1.2s" repeatCount="indefinite"/>' : ''}</rect>`
-  const stations: Station[] = []
-  for (const t of [2.2, 4.6]) {
-    s += boxT(room, room.x0 + 1, t, t + 0.8, 0, room.x1 - room.x0 - 2.4, 15, '#F4F1EA')
-    for (const x of columns(room, 1.6, 1.4, 1.6)) {
-      const [cx, cy] = iso(x, T(room, t + 0.4), 15)
-      s += `<rect x="${r(cx - 1.5)}" y="${r(cy - 12)}" width="3" height="6" fill="#DDE7EA" opacity=".9"/><circle cx="${r(cx)}" cy="${r(cy - 4)}" r="4.5" fill="${lab.accent}" opacity=".85" stroke="#FFF" stroke-opacity=".6"/>`
-      if (active) {
-        const delay = r((hash(`${room.id}${x}${t}`) % 13) / 10)
-        s += `<circle cx="${r(cx)}" cy="${r(cy - 10)}" opacity="0" r="1.6" fill="${shade(lab.accent, 1.4)}"><animate attributeName="cy" values="${r(cy - 10)};${r(cy - 24)}" dur="1.4s" begin="${delay}s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="1.4s" begin="${delay}s" repeatCount="indefinite"/></circle>`
-      }
-    }
-    for (const x of columns(room, 1.4, 1.6)) stations.push({ x, y: T(room, t + 0.8 + 0.45), kind: 'lab' })
+  wall += `<rect x="${r(mx - 1)}" y="${r(my - 4)}" width="3" height="7" fill="${active ? '#7CF0A0' : '#59606B'}">${active ? '<animate attributeName="opacity" values="1;.3;1" dur="1.2s" repeatCount="indefinite"/>' : ''}</rect>`
+  for (const [k, x] of columns(room, 0.5, 2.6, 0.8).entries()) {
+    const [bx, by] = iso(x, T(room, 0.5), 18)
+    wall += `<rect x="${r(bx - 1.5)}" y="${r(by - 7)}" width="3" height="7" fill="${['#7FD0FF', '#9BE3A6', '#FFD36B', lab.accent][k % 4]}" opacity=".8"/>`
   }
-  return { svg: s, stations: spare(stations, 'lab'), agentSpots: agentSpots(1.3) }
+  for (const u of [2.0, 4.3]) {
+    s += box(room.x0 + 0.9, Y(u + LAB_BENCH.dy), 0, w - 1.5, LAB_BENCH.d, LAB_BENCH.h, LAB_BENCH.color)
+    for (const x of columns(room, 1.4, 1.6, 1.9)) {
+      const delay = r((hash(`${room.id}${x}${u}`) % 13) / 10)
+      const fizz = active
+        ? `<circle cy="-10" opacity="0" r="1.6" fill="${shade(lab.accent, 1.4)}"><animate attributeName="cy" values="-10;-24" dur="1.4s" begin="${delay}s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="1.4s" begin="${delay}s" repeatCount="indefinite"/></circle>`
+        : ''
+      s += flask(o(x, u), lab.accent, fizz)
+      stations.push({ x, y: Y(u), kind: 'lab' })
+    }
+  }
+  return done('lab')
 }
 
-// how a skill works at each kind of station
+function furnish(room: RoomGeom, lab: Lab, active: boolean): Furnished {
+  const theme = room.theme ?? 'lab'
+  const mod = THEME_MODULES[theme]
+  return mod ? mod.furnish(room, lab, active) : furnishClassic(room, theme, lab, active)
+}
+
+// how a skill works at each kind of station: `move` animates the sprite, `extra` is drawn over it,
+// starting with the slice of furniture that stands in front of the skill
 function workAnim(kind: StationKind, seed: number, accent: string) {
   const mod = THEME_MODULES[kind as Theme]
   if (mod) return mod.work(seed, accent)
   const b = r((seed % 14) / 10)
+  const v = seed % 3
+  // a slow rhythm of its own for every skill
+  const pace = 1 + (seed % 5) / 10
   switch (kind) {
-    case 'bike':
-      return { move: bob(1.5, 0.22, b), extra: sweat(seed) }
-    case 'tread':
-      return { move: bob(3, 0.18, b), extra: sweat(seed) }
-    case 'bench':
+    case 'bike': {
+      const P = r(0.5 / pace + 0.05)
+      const crank =
+        `<g>${spin('rotate', '0;360', P, b, ' calcMode="linear"')}<rect x="-.8" y="-4" width="1.6" height="8" fill="#B8B2A7"/>` +
+        `<rect x="-2.6" y="-4.8" width="5.2" height="1.6" fill="#222"/><rect x="-2.6" y="3.2" width="5.2" height="1.6" fill="#222"/></g>`
       return {
-        move: bob(0.6, 1.2, b),
+        move: spin('translate', '0 0;0 -1.4;0 0;0 -1.4;0 0', P * 2, b) + spin('rotate', '-3;3;-3', P * 2, b),
+        extra: bikeFront(ORIGIN, 9, crank) + sweat(seed),
+      }
+    }
+    case 'tread': {
+      const P = r(0.36 / pace + 0.04)
+      const stripes = [0, 0.5].map(o => {
+        const [x0, y0] = rel(-0.24, 0.48)
+        const [x1, y1] = rel(0.24, 0.48)
+        return `<path d="M${r(x0)} ${r(y0)} L${r(x1)} ${r(y1)}" stroke="#7A7F87" stroke-width="1.2">${spin('translate', '0 0;9 -4.5', P * 2, r(b + o * P * 2))}${loop('opacity', '1;0', P * 2, r(b + o * P * 2))}</path>`
+      }).join('')
+      return {
+        move: spin('translate', '0 0;-.6 -3.2;0 0;.6 -3.2;0 0', P * 2, b) + spin('rotate', '-4;0;4;0;-4', P * 2, b),
+        extra: stripes + treadFront(ORIGIN, 4, accent) + sweat(seed),
+      }
+    }
+    case 'bench': {
+      // lying on the bench, head towards the uprights; the bar goes up and down over the chest
+      const P = r(1.4 * pace)
+      const keys = ' keyTimes="0;.4;.6;1"'
+      const [ax, ay] = rel(-0.42, -0.5, 2)
+      const [bx2, by2] = rel(0.42, -0.5, 2)
+      // the arms stretch from the chest up to the bar, which rises 7 px at every press
+      const arms = [-0.22, 0.22].map(dx => {
+        const [x, y] = rel(dx, -0.5, 2)
+        return limb(r(x - 0.9), r(y - 5), 1.8, 5, accent, `${loop('height', '5;12;12;5', P, b, keys)}${loop('y', `${r(y - 5)};${r(y - 12)};${r(y - 12)};${r(y - 5)}`, P, b, keys)}`)
+      }).join('')
+      const bar =
+        `<g>${spin('translate', '0 0;0 -7;0 -7;0 0', P, b, keys)}<path d="M${r(ax)} ${r(ay - 5)} L${r(bx2)} ${r(by2 - 5)}" stroke="#8C8F94" stroke-width="1.6"/>` +
+        [[ax, ay], [bx2, by2]].map(([x, y]) => `<ellipse cx="${r(x!)}" cy="${r(y! - 5)}" rx="2" ry="4.4" fill="#222"/>`).join('') + `</g>`
+      return {
+        // rotate + skew + scale lay the sprite flat along the bench, head towards the uprights
+        move: `<animateTransform attributeName="transform" type="rotate" values="26.57;26.57" dur="9s" repeatCount="indefinite"/>` + spin('skewX', '-36.87;-36.87', 9, 0) + spin('scale', '.55 .64;.55 .64', 9, 0) + spin('translate', '0 0;0 .8;0 .8;0 0', P, b, keys),
+        extra: arms + bar + sweat(seed),
+      }
+    }
+    case 'cafe': {
+      // a sip now and then: the cup leaves the saucer, goes to the mouth and comes back
+      const P = r(4.2 * pace)
+      const [tx, ty] = rel(0.55, 0.55, 13 - 4)
+      const cupAt = cup(tx + 4, ty)
+      const sip = `<g>${spin('translate', '0 0;0 0;-5 -10;-5 -10;0 0;0 0', P, b, ' keyTimes="0;.55;.65;.8;.9;1"')}${cupAt}${[0, 0.7].map(o => `<path d="M${r(tx + 4)} ${r(ty - 6)} q-2 -3 0 -6" stroke="#FFF" stroke-width="1" fill="none" opacity="0">${loop('opacity', '0;.8;0', 1.8, r(b + o))}${spin('translate', '0 0;0 -5', 1.8, r(b + o))}</path>`).join('')}</g>`
+      const plate = v === 1 ? `<ellipse cx="${r(tx - 5)}" cy="${r(ty + 1)}" rx="4.5" ry="1.8" fill="#FFF"/><path d="M${r(tx - 8)} ${r(ty)} q3 -4 6 0" stroke="#D9A04A" stroke-width="2.4" fill="none"/>` : ''
+      return {
+        move: spin('rotate', '0;0;-4;-4;0;0', P, b, ' keyTimes="0;.55;.65;.8;.9;1"'),
+        extra: cafeTable(ORIGIN, 4) + plate + sip,
+      }
+    }
+    case 'read': {
+      const P = r(3.6 * pace)
+      const flip = `<g transform="translate(0,0)"><rect x=".4" y="-4" width="6" height="4.2" fill="#FFFDF6" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;.78;.8;.98;1" dur="${P}s" begin="${b}s" repeatCount="indefinite"/>${spin('scale', '1 1;1 1;-1 1;-1 1', P, b, ' keyTimes="0;.8;.98;1"')}</rect></g>`
+      return {
+        move: spin('translate', '0 0;0 .8;0 0', P / 2, b) + spin('rotate', '0;0;-3;0', P, b, ' keyTimes="0;.75;.85;1"'),
         extra:
-          `<rect x="-16" y="-24" width="32" height="2.4" fill="#3B3F46"><animate attributeName="y" values="-24;-34;-24" dur="1.2s" begin="${b}s" repeatCount="indefinite"/></rect>` +
-          `<rect x="-18" y="-27" width="3" height="8" fill="#222"><animate attributeName="y" values="-27;-37;-27" dur="1.2s" begin="${b}s" repeatCount="indefinite"/></rect>` +
-          `<rect x="15" y="-27" width="3" height="8" fill="#222"><animate attributeName="y" values="-27;-37;-27" dur="1.2s" begin="${b}s" repeatCount="indefinite"/></rect>` +
-          sweat(seed),
+          piece(ORIGIN, -0.45, DESK.dy, 0, 1.7, DESK.d, DESK.h, DESK.color, true) + book(ORIGIN, accent, flip) +
+          `<text x="10" y="-24" font-size="9" opacity="0">💡<animate attributeName="opacity" values="0;0;1;0" keyTimes="0;.75;.85;1" dur="${r(P * 2)}s" begin="${b}s" repeatCount="indefinite"/></text>`,
       }
-    case 'cafe':
+    }
+    case 'arcade': {
+      // mashing buttons: quick jitters, the screen flashes on every hit and a score pops out
+      const P = r(0.14 + (seed % 4) * 0.03)
+      const [sx, sy] = rel(0, -0.45, 28)
+      const sparks = ['#FFF', '#FFE34F', '#4FE3FF'].map((c, k) => {
+        const dx = ((seed >> (k * 3)) % 9) - 4
+        const dy = ((seed >> (k * 3 + 2)) % 7) - 3
+        return `<rect x="${r(sx + dx - 1)}" y="${r(sy + dy - 1)}" width="2" height="2" fill="${c}" opacity="0">${loop('opacity', '0;1;0', 0.5 + k * 0.17, r(b + k * 0.2))}</rect>`
+      }).join('')
       return {
-        move: `<animateTransform attributeName="transform" type="rotate" values="-4;4;-4" dur="2.4s" begin="${b}s" repeatCount="indefinite"/>`,
+        move: spin('translate', '-1 0;1 -.6;-1 0', P, b),
         extra:
-          `<rect x="10" y="-12" width="4" height="4" fill="#FFFFFF" stroke="#A27552" stroke-width=".6"/>` +
-          [0, 0.6].map(o => `<path d="M12 -14 q-2 -3 0 -6" stroke="#FFFFFF" stroke-width="1" fill="none" opacity="0"><animate attributeName="opacity" values="0;.8;0" dur="1.8s" begin="${r(b + o)}s" repeatCount="indefinite"/><animateTransform attributeName="transform" type="translate" values="0 0;0 -6" dur="1.8s" begin="${r(b + o)}s" repeatCount="indefinite"/></path>`).join(''),
+          arcadeScreen(ORIGIN, '#FFF', loop('opacity', '0;.6;0;0', r(P * 6), b, ' keyTimes="0;.1;.3;1"'), false) + sparks +
+          `<text x="${r(sx)}" y="${r(sy - 8)}" font-size="6" font-weight="700" text-anchor="middle" fill="#FFE34F" stroke="#2B2840" stroke-width="1.6" paint-order="stroke" opacity="0">+${(1 + (seed % 9)) * 100}` +
+          `${loop('opacity', '0;0;1;0', 6.4, b, ' keyTimes="0;.8;.85;1"')}${spin('translate', '0 0;0 0;0 -8', 6.4, b, ' keyTimes="0;.8;1"')}</text>`,
       }
-    case 'read':
+    }
+    case 'smoke': {
+      // a draw on the cigarette: hand to the mouth, the tip glows, then the smoke goes out
+      const P = r(5 * pace)
+      const keys = ' keyTimes="0;.15;.4;.5;1"'
+      const hand =
+        `<g>${spin('translate', '0 0;-6 -4;-6 -4;0 0;0 0', P, b, keys)}${limb(8, -10, 3, 3, accent)}<rect x="10.5" y="-11.2" width="6" height="1.6" fill="#F4F1EA"/>` +
+        `<rect x="16.5" y="-11.2" width="1.4" height="1.6" fill="#FF8A3D"><animate attributeName="fill" values="#FF8A3D;#FF8A3D;#FFE07A;#FF8A3D;#FF8A3D" keyTimes="0;.15;.3;.4;1" dur="${P}s" begin="${b}s" repeatCount="indefinite"/></rect></g>`
+      const puff = [0, 0.08].map(o =>
+        `<circle cx="1" cy="-10" r="1.5" fill="#D8D4CC" opacity="0">${loop('opacity', '0;0;.85;0', P, r(b + o * P), ' keyTimes="0;.45;.55;.9"')}${loop('cy', '-10;-10;-12;-30', P, r(b + o * P), ' keyTimes="0;.45;.55;.9"')}${loop('r', '1.5;1.5;2;7', P, r(b + o * P), ' keyTimes="0;.45;.55;.9"')}</circle>`,
+      ).join('')
+      const curl = `<circle cx="17" cy="-12" r="1" fill="#D8D4CC" opacity="0">${loop('opacity', '0;0;.6;0', P, b, ' keyTimes="0;.5;.6;1"')}${loop('cy', '-12;-12;-14;-26', P, b, ' keyTimes="0;.5;.6;1"')}${loop('r', '1;1;1.4;4', P, b, ' keyTimes="0;.5;.6;1"')}</circle>`
       return {
-        move: bob(0.8, 2.2, b),
+        move: spin('translate', '0 0;0 0;0 -1;0 0;0 0', P, b, keys),
         extra:
-          `<rect x="-6" y="-11" width="12" height="7" fill="${accent}"/><rect x="0" y="-10.5" width="5.5" height="6" fill="#FFFFFF"><animateTransform attributeName="transform" type="scale" values="1 1;-1 1;1 1" dur="3.2s" begin="${b}s" repeatCount="indefinite" additive="sum"/></rect>` +
-          `<text x="10" y="-22" font-size="9" opacity="0">💡<animate attributeName="opacity" values="0;0;1;0" keyTimes="0;.75;.85;1" dur="6s" begin="${b}s" repeatCount="indefinite"/></text>`,
+          hand + puff + curl +
+          `<text x="-14" y="-20" font-size="7" font-weight="700" fill="#6E6A66" opacity="0">cof<animate attributeName="opacity" values="0;0;1;0" keyTimes="0;.8;.86;1" dur="${r(P * 2 + 1)}s" begin="${b}s" repeatCount="indefinite"/></text>`,
       }
-    case 'arcade':
+    }
+    case 'drill': {
+      const P = r(1.6 * pace)
+      const parapet = sandbags(ORIGIN, -BAG, 2 * BAG)
+      if (v === 0) {
+        // salute: the arm snaps to the forehead and holds it
+        const arm = `<g transform="translate(13,-11)"><g>${spin('rotate', '0;-150;-150;0;0', P * 2, b, ' keyTimes="0;.1;.55;.65;1"')}${limb(-1.2, 0, 2.4, 7, accent)}</g></g>`
+        return {
+          move: spin('translate', '0 0;0 -1.5;0 -1.5;0 0;0 0', P * 2, b, ' keyTimes="0;.1;.55;.65;1"'),
+          extra: parapet + arm + `<text x="0" y="-26" font-size="7" font-weight="700" text-anchor="middle" fill="#3F4A2A" stroke="#F4EBDD" stroke-width="2" paint-order="stroke" opacity="0">¡Sí, señor!${loop('opacity', '0;0;1;1;0;0', P * 6, b, ' keyTimes="0;.66;.68;.8;.84;1"')}</text>`,
+        }
+      }
+      if (v === 1) {
+        // on watch: binoculars up to the eyes, a glint on the lenses
+        const keys = ' keyTimes="0;.2;.3;.7;.8;1"'
+        return {
+          move: spin('rotate', '0;0;-4;4;0;0', P * 3, b, keys),
+          extra: parapet +
+            `<g opacity="0">${loop('opacity', '0;0;1;1;0;0', P * 3, b, keys)}${limb(-8, -16.5, 6, 5, '#2B2F35')}${limb(2, -16.5, 6, 5, '#2B2F35')}<rect x="-2" y="-15" width="4" height="2" fill="#2B2F35"/>` +
+            `<rect x="-7" y="-15.5" width="2" height="2" fill="#7FD0FF">${loop('opacity', '.3;1;.3', 0.8, b)}</rect><rect x="3" y="-15.5" width="2" height="2" fill="#7FD0FF">${loop('opacity', '.3;1;.3', 0.8, r(b + 0.4))}</rect></g>`,
+        }
+      }
+      // jumping jacks behind the parapet, counted out loud
+      const J = r(0.8 * pace)
+      const arm = (side: number) => `<g transform="translate(${side * 13},-11)"><g>${spin('rotate', `0;${side * -140};0`, J, b)}${limb(-1.2, 0, 2.4, 7, accent)}</g></g>`
       return {
-        move: `<animateTransform attributeName="transform" type="translate" values="-1 0;1 0;-1 0" dur=".16s" begin="${b}s" repeatCount="indefinite"/>`,
-        extra: ['#FF4FD8', '#4FE3FF', '#FFE34F'].map((c, k) => `<text x="${-8 + k * 8}" y="-24" font-size="7" fill="${c}" opacity="0">★<animate attributeName="opacity" values="0;1;0" dur=".9s" begin="${r(b + k * 0.3)}s" repeatCount="indefinite"/></text>`).join(''),
+        move: spin('translate', '0 0;0 -5;0 0', J, b),
+        extra: parapet + `<g>${spin('translate', '0 0;0 -5;0 0', J, b)}${arm(-1)}${arm(1)}</g>` +
+          `<text x="0" y="-28" font-size="8" font-weight="700" text-anchor="middle" fill="#3F4A2A" stroke="#F4EBDD" stroke-width="2" paint-order="stroke" opacity="0">¡1, 2!${loop('opacity', '0;0;1;1;0', 4.2, b, ' keyTimes="0;.6;.65;.9;1"')}</text>`,
       }
-    case 'smoke':
+    }
+    case 'lab': {
+      const P = r(1.6 * pace)
+      const bench = piece(ORIGIN, -0.45, LAB_BENCH.dy, 0, 1.7, LAB_BENCH.d, LAB_BENCH.h, LAB_BENCH.color, true)
+      const bubbles = [0, 0.5].map(o => `<circle cy="-10" r="1.4" opacity="0" fill="${shade(accent, 1.4)}">${loop('cy', '-10;-24', 1.2, r(b + o))}${loop('opacity', '1;0', 1.2, r(b + o))}</circle>`).join('')
+      const [fx, fy] = rel(-0.3, 0.75, LAB_BENCH.h)
+      if (v === 0) {
+        // dropping a reagent into the flask with a pipette
+        const pipette = `<g ${tr([fx + 2, fy - 22])}><g>${spin('translate', '0 0;0 4;0 4;0 0', P, b, ' keyTimes="0;.3;.6;1"')}<rect x="-.8" y="0" width="1.6" height="9" fill="#DDE7EA" stroke="#8C9199" stroke-width=".5"/><rect x="-1.4" y="-3" width="2.8" height="3" fill="${INK}"/></g>` +
+          `<rect x="-.7" y="12" width="1.4" height="1.8" fill="${accent}" opacity="0">${loop('opacity', '0;0;1;0', P, b, ' keyTimes="0;.45;.5;.7"')}${loop('y', '12;12;12;18', P, b, ' keyTimes="0;.45;.5;.7"')}</rect></g>`
+        return { move: spin('rotate', '0;-4;-4;0', P, b, ' keyTimes="0;.3;.6;1"'), extra: bench + flask(ORIGIN, accent, bubbles) + pipette }
+      }
+      // swirling the flask by its neck
+      const swirl = `<animateTransform attributeName="transform" type="rotate" values="-14 0 -10;14 0 -10;-14 0 -10" dur="${P}s" begin="${b}s" repeatCount="indefinite"/>`
       return {
-        move: bob(0.8, 2.6, b),
-        extra:
-          `<rect x="9" y="-9.6" width="6" height="1.6" fill="#F4F1EA"/><rect x="15" y="-9.6" width="1.4" height="1.6" fill="#FF8A3D"><animate attributeName="opacity" values="1;.5;1" dur="1.4s" begin="${b}s" repeatCount="indefinite"/></rect>` +
-          [0, 1.1].map(o => `<circle cx="16" cy="-12" r="2" fill="#D8D4CC" opacity="0"><animate attributeName="opacity" values="0;.8;0" dur="2.2s" begin="${r(b + o)}s" repeatCount="indefinite"/><animate attributeName="cy" values="-12;-28" dur="2.2s" begin="${r(b + o)}s" repeatCount="indefinite"/><animate attributeName="r" values="1.5;5" dur="2.2s" begin="${r(b + o)}s" repeatCount="indefinite"/></circle>`).join('') +
-          `<text x="-12" y="-18" font-size="7" font-weight="700" fill="#6E6A66" opacity="0">cof<animate attributeName="opacity" values="0;0;1;0" keyTimes="0;.8;.86;1" dur="7s" begin="${b}s" repeatCount="indefinite"/></text>`,
+        move: spin('rotate', '-3;3;-3', P, b),
+        extra: bench + flask(ORIGIN, accent, swirl + bubbles) + `<text x="10" y="-24" font-size="9" fill="${accent}" opacity="0">✦${loop('opacity', '0;1;0', r(P * 1.4), b)}</text>`,
       }
-    case 'drill':
-      return {
-        move: `<animateTransform attributeName="transform" type="scale" values="1 1;1.12 .62;1 1" dur=".7s" begin="${b}s" repeatCount="indefinite"/>`,
-        extra: `<text x="0" y="-22" font-size="8" font-weight="700" text-anchor="middle" fill="#3F4A2A" stroke="#F4EBDD" stroke-width="2" paint-order="stroke" opacity="0">¡1, 2!<animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;.6;.65;.9;1" dur="4.2s" begin="${b}s" repeatCount="indefinite"/></text>`,
-      }
+    }
     default:
       return {
         move: bob(1.6, 1.5, b),
