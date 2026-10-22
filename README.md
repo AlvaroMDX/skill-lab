@@ -15,6 +15,21 @@
 
 ![El mismo laboratorio de noche](images/night.png)
 
+## Instalación
+
+1. Descarga `skill-lab-0.9.0.vsix` de la última [release](https://github.com/AlvaroMDX/skill-lab/releases/latest).
+2. En VS Code: **Extensiones → ··· → Install from VSIX…** y elige el fichero.
+   También desde un terminal: `code --install-extension skill-lab-0.9.0.vsix`.
+3. Recarga la ventana (**Developer: Reload Window**).
+
+Para compilarla desde el código:
+
+```bash
+npm install
+npx esbuild@0.24.0 src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js
+npx @vscode/vsce@3.2.1 package
+```
+
 ## Cómo se usa
 
 1. Abre la pestaña **Skill Lab** del panel inferior.
