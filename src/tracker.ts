@@ -18,6 +18,11 @@ const LIST_EVERY_POLLED_MS = 5_000
 const WALK_DEPTH = 3
 const NOT_PERMISSION = new Set(['Agent', 'Task', 'Workflow', 'Monitor', 'ScheduleWakeup', 'TaskStop'])
 const COMMAND_RE = /<command-name>\/?([^<\s]+)<\/command-name>/
+// <project>/<sessionId>/subagents/agent-<agentId>.jsonl: a subagent's own transcript, next to its .meta.json
+const SUBAGENT_FILE_RE = /[\\/]([^\\/]+)[\\/]subagents[\\/]agent-([^\\/]+)\.jsonl$/
+// a finished subagent lingers a moment: its last text line may be followed by a tool call still being written
+const SUBAGENT_ENDED_GRACE_MS = 15_000
+const SUBAGENT_LABEL_CHARS = 22
 const NEWLINE = 0x0a
 
 const TOOL_ACTIVITY: Record<string, Activity> = {
@@ -30,6 +35,17 @@ const TOOL_ACTIVITY: Record<string, Activity> = {
 
 type PendingTool = { name: string; at: number }
 type Subagent = { label: string; since: number }
+
+// A subagent seen through its own transcript: background agents return their tool_result at launch, so this is how they stay visible.
+type SubagentFile = {
+  sessionId: string
+  // the launching tool_use id when the meta file names it, so a foreground agent is not shown twice
+  id: string
+  label?: string
+  mtime: number
+  // its latest assistant message called no tool: the agent has answered
+  ended: boolean
+}
 
 type Session = {
   id: string
@@ -99,6 +115,7 @@ export class Tracker {
   private lastListing = 0
   private dirty = new Set<string>()
   private seeds = new Map<string, string>()
+  private subagentFiles = new Map<string, SubagentFile>()
   private watcher?: fs.FSWatcher
 
   constructor(private root: string, readonly uses: Record<string, number>, private hooks: TrackerHooks) {
@@ -132,6 +149,7 @@ export class Tracker {
       this.lastListing = now
       this.files = this.listRecent(now)
       for (const file of this.carry.keys()) if (!this.files.has(file)) this.forget(file)
+      for (const file of this.subagentFiles.keys()) if (!this.files.has(file)) this.subagentFiles.delete(file)
       for (const file of batch) this.files.add(file)
       for (const file of this.files) this.readFile(file, now)
       return
@@ -165,13 +183,16 @@ export class Tracker {
 
   private readFile(file: string, now: number) {
     let size: number
+    let mtime: number
     try {
-      size = fs.statSync(file).size
+      ;({ size, mtimeMs: mtime } = fs.statSync(file))
     } catch {
       this.files.delete(file)
       this.forget(file)
+      this.subagentFiles.delete(file)
       return
     }
+    const subagent = this.trackSubagent(file, mtime)
     const known = this.offsets.get(file)
     // a file that shrank was rewritten: read it again from the start, without sounds or counters
     const replay = known === undefined || size < known
@@ -193,7 +214,38 @@ export class Tracker {
     const end = start + chunk.length
     this.offsets.set(file, end)
     if (end < size) this.dirty.add(file)
-    this.parseChunk(file, chunk, !replay, now)
+    this.parseChunk(file, chunk, !replay, now, subagent)
+  }
+
+  // Only the mtime and the small meta file are used: the transcript itself is read like any other.
+  private trackSubagent(file: string, mtime: number): SubagentFile | undefined {
+    const m = SUBAGENT_FILE_RE.exec(file)
+    if (!m) return undefined
+    let entry = this.subagentFiles.get(file)
+    if (!entry) {
+      entry = { sessionId: m[1]!, id: `agent-${m[2]}`, mtime, ended: false }
+      this.subagentFiles.set(file, entry)
+    }
+    entry.mtime = mtime
+    if (entry.label === undefined) this.readSubagentMeta(file, entry)
+    return entry
+  }
+
+  private readSubagentMeta(file: string, entry: SubagentFile) {
+    let meta: { description?: unknown; agentType?: unknown; toolUseId?: unknown }
+    try {
+      meta = JSON.parse(fs.readFileSync(file.replace(/\.jsonl$/, '.meta.json'), 'utf8'))
+    } catch {
+      // not written yet: retried on the next read of the transcript
+      return
+    }
+    if (!meta || typeof meta !== 'object') return
+    if (typeof meta.toolUseId === 'string' && meta.toolUseId) entry.id = meta.toolUseId
+    entry.label = String(meta.description || meta.agentType || 'agente').slice(0, SUBAGENT_LABEL_CHARS)
+  }
+
+  private subagentActive(entry: SubagentFile, now: number) {
+    return now - entry.mtime < (entry.ended ? SUBAGENT_ENDED_GRACE_MS : STALE_MS)
   }
 
   private readRange(file: string, start: number, end: number): Buffer | undefined {
@@ -210,7 +262,7 @@ export class Tracker {
     }
   }
 
-  private parseChunk(file: string, chunk: Buffer, live: boolean, now: number) {
+  private parseChunk(file: string, chunk: Buffer, live: boolean, now: number, subagent?: SubagentFile) {
     const carried = this.carry.get(file)
     const data = carried ? Buffer.concat([carried, chunk]) : chunk
     let from = 0
@@ -224,7 +276,7 @@ export class Tracker {
       from = nl + 1
     }
     for (let nl = data.indexOf(NEWLINE, from); nl >= 0; nl = data.indexOf(NEWLINE, from)) {
-      this.handleLine(data.toString('utf8', from, nl), live, now)
+      this.handleLine(data.toString('utf8', from, nl), live, now, subagent)
       from = nl + 1
     }
     const rest = data.length - from
@@ -290,7 +342,7 @@ export class Tracker {
     for (const [skill, c] of Object.entries(this.crew)) if (c.lab && c.session === id) this.stopSkill(skill)
   }
 
-  private handleLine(raw: string, live: boolean, now: number) {
+  private handleLine(raw: string, live: boolean, now: number, subagent?: SubagentFile) {
     if (!raw.trim()) return
     let line: TranscriptLine
     try {
@@ -303,6 +355,8 @@ export class Tracker {
     if (typeof id !== 'string' || !id || (line.type !== 'assistant' && line.type !== 'user')) return
     const ts = Date.parse(line.timestamp ?? '') || now
     const s = this.session(id, typeof line.cwd === 'string' ? line.cwd : '', ts)
+    const content = line.message?.content
+    if (subagent && line.type === 'assistant' && Array.isArray(content)) subagent.ended = !content.some(b => b?.type === 'tool_use')
     if (line.type === 'assistant') this.handleAssistant(line, s, ts, live)
     else this.handleUser(line, s, ts, live)
   }
@@ -429,6 +483,14 @@ export class Tracker {
 
   agents(onlyUnder?: string[]): AgentView[] {
     const roots = onlyUnder?.length ? onlyUnder.map(dir => dir.toLowerCase()) : undefined
+    const now = Date.now()
+    const background = new Map<string, SubagentFile[]>()
+    for (const entry of this.subagentFiles.values()) {
+      if (!this.subagentActive(entry, now)) continue
+      const list = background.get(entry.sessionId)
+      if (list) list.push(entry)
+      else background.set(entry.sessionId, [entry])
+    }
     const list: AgentView[] = []
     for (const s of this.sessions.values()) {
       if (s.hiddenAt !== undefined) continue
@@ -441,7 +503,10 @@ export class Tracker {
         label: `Claude · ${path.basename(s.cwd) || 'sesión'}`,
         lab: labForDir(s.cwd),
         activity: s.activity,
-        subagents: [...s.subagents.entries()].map(([id, sub]) => ({ id, label: sub.label })),
+        subagents: [
+          ...[...s.subagents.entries()].map(([id, sub]) => ({ id, label: sub.label })),
+          ...(background.get(s.id) ?? []).filter(b => !s.subagents.has(b.id)).map(b => ({ id: b.id, label: b.label ?? 'agente' })),
+        ],
       })
     }
     return list.sort((a, b) => a.id.localeCompare(b.id))
