@@ -318,3 +318,16 @@ button.mini { width: 28px; height: 28px; padding: 0; justify-content: center; fl
 .tips { margin: 6px 0; padding-left: 18px; line-height: 1.7; }
 #setup code { background: #1f1b18; padding: 1px 4px; }
 button.wide { width: 100%; justify-content: center; }
+
+/* server racks: name shown on hover; status dots in the puesto card */
+#scene [data-service] { cursor: help; }
+#scene .rack-name { font: 700 9px Verdana, sans-serif; fill: #fff; stroke: #1b1d21; stroke-width: 3px; paint-order: stroke; stroke-linejoin: round; opacity: 0; pointer-events: none; transition: opacity .15s ease-out; }
+#scene [data-service]:hover .rack-name { opacity: 1; }
+.svc-row { display: flex; gap: 6px; align-items: flex-start; }
+.svc-row textarea { flex: 1; min-width: 0; resize: vertical; font: 11px Consolas, monospace; color: var(--ink); background: #1f1b18; border: 2px solid var(--edge); box-shadow: var(--px-in); padding: 5px 7px; line-height: 1.5; }
+.svc-dots { display: flex; flex-direction: column; gap: 9.5px; padding-top: 9px; }
+.svc-dot { display: block; width: 8px; height: 8px; border: 2px solid var(--edge); background: #8A8F98; }
+.svc-dot.up { background: #4CD964; animation: svc-pulse 2.4s steps(4) infinite; }
+.svc-dot.down { background: #FF3B30; animation: svc-blink .6s steps(1) infinite; }
+@keyframes svc-pulse { 50% { opacity: .45; } }
+@keyframes svc-blink { 50% { opacity: 0; } }

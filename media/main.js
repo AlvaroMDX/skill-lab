@@ -887,6 +887,9 @@
         <label class="field"><span>Fila</span><select data-f="row"><option value="top"${l.row === 'top' ? ' selected' : ''}>Arriba</option><option value="bottom"${l.row === 'bottom' ? ' selected' : ''}>Abajo</option></select></label></div>
         <label class="field"><span>Ancho <b class="wval">${l.width}</b> casillas</span><input type="range" data-f="width" min="4" max="14" step="1" value="${l.width}"></label>
         <label class="field"><span>Carpeta (regla)</span><span class="row"><input data-f="match" value="${esc(l.match)}" placeholder="${l.removable ? 'sin carpeta: solo skills fijas' : 'lo que no encaje en otro puesto'}" spellcheck="false"><button class="mini" data-folder="${l.id}" title="Elegir carpeta">📁</button></span></label>
+        <label class="field svc-field"><span>Servicios <small class="muted">Nombre = https://url, uno por línea</small></span>
+        <span class="svc-row"><textarea data-services="${l.id}" rows="${Math.max(2, (l.services || []).length + 1)}" spellcheck="false" placeholder="Portal = https://mi.ejemplo.es">${esc(svcDrafts[l.id] ?? (l.services || []).map(sv => `${sv.name} = ${sv.url}`).join('\n'))}</textarea>
+        <span class="svc-dots">${(l.services || []).map(sv => svcDot(sv)).join('')}</span></span></label>
       </section>`,
         )
         .join('')
@@ -899,11 +902,80 @@
         }),
       )
     })
+    drawerBody.querySelectorAll('textarea[data-services]').forEach(ta => {
+      const id = ta.dataset.services
+      const restore = svcFocus && svcFocus.id === id ? svcFocus : null
+      const track = () => (svcFocus = { id, start: ta.selectionStart, end: ta.selectionEnd })
+      ta.addEventListener('input', () => {
+        track()
+        svcDrafts[id] = ta.value
+        sendLab(id, { services: parseServices(ta.value) })
+      })
+      for (const ev of ['focus', 'keyup', 'click', 'select']) ta.addEventListener(ev, track)
+      ta.addEventListener('blur', () => {
+        // the drawer re-renders on every model push: keep focus and caret if this textarea was being edited
+        if (!ta.isConnected) return
+        svcFocus = null
+        delete svcDrafts[id]
+      })
+      if (restore) {
+        ta.focus()
+        ta.setSelectionRange(restore.start, restore.end)
+        svcFocus = restore
+      }
+    })
     drawerBody.querySelectorAll('[data-folder]').forEach(b => b.addEventListener('click', () => vscode.postMessage({ type: 'pickLabFolder', id: b.dataset.folder })))
     drawerBody.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => vscode.postMessage({ type: 'removeLab', id: b.dataset.remove })))
     drawerBody.querySelectorAll('button[data-msg]').forEach(b => b.addEventListener('click', () => vscode.postMessage({ type: b.dataset.msg })))
     scrollToFocus()
   }
+
+  // ---------- services (server racks) ----------
+
+  const svcDrafts = {}
+  let svcFocus = null
+  // "Name = https://url" per line; a bare URL takes its host as the name
+  const parseServices = text =>
+    text
+      .split(/\r?\n/)
+      .map(line => {
+        const m = line.match(/^\s*(?:(.*?)\s*=\s*)?(https?:\/\/\S+)\s*$/i)
+        if (!m) return null
+        let name = (m[1] || '').trim()
+        if (!name) {
+          try {
+            name = new URL(m[2]).host
+          } catch {
+            name = m[2]
+          }
+        }
+        return { name, url: m[2] }
+      })
+      .filter(Boolean)
+      .slice(0, 6)
+  const svcDot = sv => {
+    const st = model && model.services ? model.services[sv.url] : undefined
+    const cls = !st ? 'unknown' : st.up ? 'up' : 'down'
+    const info = !st ? 'sin comprobar' : st.up ? `en pie (${st.code}, ${st.ms} ms)` : `caído${st.code ? ` (${st.code})` : ''}`
+    return `<i class="svc-dot ${cls}" title="${esc(sv.name)} · ${info}"></i>`
+  }
+
+  let svcHover = null
+  scene.addEventListener('mouseover', e => {
+    const rack = e.target.closest && e.target.closest('[data-service]')
+    if (rack === svcHover) return
+    svcHover = rack
+    if (rack) emit('service-hover', { name: rack.dataset.service, up: rack.dataset.up === '1' ? true : rack.dataset.up === '0' ? false : null })
+  })
+  let svcDown = new Set()
+  window.addEventListener('message', e => {
+    if (!e.data || e.data.type !== 'scene' || typeof e.data.svg !== 'string') return
+    const down = new Set()
+    const unesc = s => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+    for (const m of e.data.svg.matchAll(/<g data-service="([^"]*)" data-up="0"/g)) down.add(unesc(m[1]))
+    for (const name of down) if (!svcDown.has(name)) emit('service-down', { name })
+    svcDown = down
+  })
 
   // ---------- medals ----------
 
