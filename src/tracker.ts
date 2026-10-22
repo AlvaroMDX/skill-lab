@@ -8,11 +8,17 @@ const RECENT_MS = 30 * 60_000
 const REPLAY_BYTES = 512 * 1024
 const MAX_READ_BYTES = 4 * 1024 * 1024
 const MAX_LINE_BYTES = 8 * 1024 * 1024
+const SEED_HEAD_BYTES = 64 * 1024
 const DONE_BUBBLE_MS = 8_000
 const WAIT_GUESS_MS = 7_000
 const SESSION_TTL_MS = 20 * 60_000
 const STALE_MS = 5 * 60_000
+const LIST_EVERY_WATCHED_MS = 60_000
+const LIST_EVERY_POLLED_MS = 5_000
+const WALK_DEPTH = 3
 const NOT_PERMISSION = new Set(['Agent', 'Task', 'Workflow', 'Monitor', 'ScheduleWakeup', 'TaskStop'])
+const COMMAND_RE = /<command-name>\/?([^<\s]+)<\/command-name>/
+const NEWLINE = 0x0a
 
 const TOOL_ACTIVITY: Record<string, Activity> = {
   Edit: 'escribiendo', Write: 'escribiendo', NotebookEdit: 'escribiendo', MultiEdit: 'escribiendo',
@@ -22,20 +28,63 @@ const TOOL_ACTIVITY: Record<string, Activity> = {
   AskUserQuestion: 'pregunta', ExitPlanMode: 'pregunta',
 }
 
+type PendingTool = { name: string; at: number }
+type Subagent = { label: string; since: number }
+
 type Session = {
   id: string
   cwd: string
   lastEvent: number
   activity: Activity
   doneAt?: number
-  pending: Map<string, { name: string; at: number }>
-  subagents: Map<string, { label: string; since: number }>
+  // set once the finished turn's skills have walked back, so tick stops rescanning the crew for it
+  released?: boolean
+  pending: Map<string, PendingTool>
+  subagents: Map<string, Subagent>
   hiddenAt?: number
+}
+
+// The parts of a transcript line the tracker reads; everything else is ignored.
+type ContentBlock = {
+  type?: string
+  id?: string
+  name?: string
+  input?: { skill?: unknown; subagent_type?: unknown; description?: unknown }
+  tool_use_id?: string
+  text?: unknown
+}
+type TranscriptLine = {
+  type?: string
+  sessionId?: string
+  cwd?: string
+  timestamp?: string
+  isSidechain?: boolean
+  isMeta?: boolean
+  message?: { content?: string | ContentBlock[]; stop_reason?: string }
 }
 
 export type TrackerHooks = {
   sound: (kind: 'done' | 'ask') => void
   knownSkill: (name: string) => boolean
+}
+
+// Every transcript under root, at most WALK_DEPTH folders down (project / session / subagents).
+export function walkTranscripts(root: string, onFile: (file: string) => void) {
+  const visit = (dir: string, depth: number) => {
+    let entries: fs.Dirent[]
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of entries) {
+      const full = path.join(dir, e.name)
+      if (e.isDirectory()) {
+        if (depth < WALK_DEPTH) visit(full, depth + 1)
+      } else if (e.isFile() && e.name.endsWith('.jsonl')) onFile(full)
+    }
+  }
+  visit(root, 0)
 }
 
 export class Tracker {
@@ -44,7 +93,9 @@ export class Tracker {
   private sessions = new Map<string, Session>()
   private offsets = new Map<string, number>()
   private carry = new Map<string, Buffer>()
-  private files: string[] = []
+  // files whose next read starts mid-line: everything up to the first newline is dropped
+  private resync = new Set<string>()
+  private files = new Set<string>()
   private lastListing = 0
   private dirty = new Set<string>()
   private seeds = new Map<string, string>()
@@ -53,7 +104,8 @@ export class Tracker {
   constructor(private root: string, readonly uses: Record<string, number>, private hooks: TrackerHooks) {
     try {
       this.watcher = fs.watch(root, { recursive: true }, (_event, name) => {
-        if (name && name.toString().endsWith('.jsonl')) this.dirty.add(path.join(root, name.toString()))
+        const rel = name?.toString()
+        if (rel?.endsWith('.jsonl')) this.dirty.add(path.join(root, rel))
       })
       this.watcher.on('error', () => this.stopWatching())
     } catch {
@@ -72,50 +124,42 @@ export class Tracker {
 
   // With a watcher only changed files are read; the full listing (stat of every transcript) is a safety net.
   poll(now: number) {
-    const listEvery = this.watcher ? 60_000 : 5_000
+    const listEvery = this.watcher ? LIST_EVERY_WATCHED_MS : LIST_EVERY_POLLED_MS
+    // taken before reading: a file read only in part puts itself back in dirty and must stay there
+    const batch = [...this.dirty]
+    this.dirty.clear()
     if (now - this.lastListing > listEvery) {
-      this.files = this.listRecent(now)
       this.lastListing = now
-      const recent = new Set(this.files)
-      for (const file of this.carry.keys()) if (!recent.has(file)) this.carry.delete(file)
+      this.files = this.listRecent(now)
+      for (const file of this.carry.keys()) if (!this.files.has(file)) this.forget(file)
+      for (const file of batch) this.files.add(file)
       for (const file of this.files) this.readFile(file, now)
-      this.dirty.clear()
       return
     }
     if (!this.watcher) {
       for (const file of this.files) this.readFile(file, now)
       return
     }
-    const batch = [...this.dirty]
-    this.dirty.clear()
     for (const file of batch) {
-      if (!this.files.includes(file)) this.files.push(file)
+      this.files.add(file)
       this.readFile(file, now)
     }
   }
 
-  private listRecent(now: number): string[] {
-    const found: string[] = []
-    const visit = (dir: string, depth: number) => {
-      let entries: fs.Dirent[]
+  private forget(file: string) {
+    this.carry.delete(file)
+    this.resync.delete(file)
+  }
+
+  private listRecent(now: number): Set<string> {
+    const found = new Set<string>()
+    walkTranscripts(this.root, file => {
       try {
-        entries = fs.readdirSync(dir, { withFileTypes: true })
+        if (now - fs.statSync(file).mtimeMs < RECENT_MS) found.add(file)
       } catch {
-        return
+        // vanished between readdir and stat
       }
-      for (const e of entries) {
-        const full = path.join(dir, e.name)
-        if (e.isDirectory() && depth < 3) visit(full, depth + 1)
-        else if (e.isFile() && e.name.endsWith('.jsonl')) {
-          try {
-            if (now - fs.statSync(full).mtimeMs < RECENT_MS) found.push(full)
-          } catch {
-            // vanished between readdir and stat
-          }
-        }
-      }
-    }
-    visit(this.root, 0)
+    })
     return found
   }
 
@@ -124,67 +168,90 @@ export class Tracker {
     try {
       size = fs.statSync(file).size
     } catch {
+      this.files.delete(file)
+      this.forget(file)
       return
     }
     const known = this.offsets.get(file)
-    const replay = known === undefined
-    if (replay) this.seedCwd(file)
-    let start = known ?? Math.max(0, size - REPLAY_BYTES)
-    if (size < start) start = 0
+    // a file that shrank was rewritten: read it again from the start, without sounds or counters
+    const replay = known === undefined || size < known
+    if (known === undefined) this.seedCwd(file)
+    if (size < (known ?? 0)) this.forget(file)
+    const start = replay ? Math.max(0, size - REPLAY_BYTES) : known!
+    if (replay && start > 0) this.resync.add(file)
     if (size === start) {
       this.offsets.set(file, start)
       return
     }
     // a huge burst is read in slices so one poll never blocks the extension host
-    const end = Math.min(size, start + MAX_READ_BYTES)
-    const buf = Buffer.alloc(end - start)
-    let fd: number
-    try {
-      fd = fs.openSync(file, 'r')
-    } catch {
+    const chunk = this.readRange(file, start, Math.min(size, start + MAX_READ_BYTES))
+    if (!chunk) {
+      // locked or gone for a moment (Windows): try again on the next poll
+      this.dirty.add(file)
       return
     }
-    try {
-      fs.readSync(fd, buf, 0, buf.length, start)
-    } finally {
-      fs.closeSync(fd)
-    }
+    const end = start + chunk.length
     this.offsets.set(file, end)
     if (end < size) this.dirty.add(file)
-    const data = Buffer.concat([this.carry.get(file) ?? Buffer.alloc(0), buf])
+    this.parseChunk(file, chunk, !replay, now)
+  }
+
+  private readRange(file: string, start: number, end: number): Buffer | undefined {
+    let fd: number | undefined
+    try {
+      fd = fs.openSync(file, 'r')
+      const buf = Buffer.alloc(end - start)
+      const n = fs.readSync(fd, buf, 0, buf.length, start)
+      return n > 0 ? buf.subarray(0, n) : undefined
+    } catch {
+      return undefined
+    } finally {
+      if (fd !== undefined) fs.closeSync(fd)
+    }
+  }
+
+  private parseChunk(file: string, chunk: Buffer, live: boolean, now: number) {
+    const carried = this.carry.get(file)
+    const data = carried ? Buffer.concat([carried, chunk]) : chunk
     let from = 0
-    if (replay && start > 0) from = data.indexOf(0x0a) + 1
-    for (;;) {
-      const nl = data.indexOf(0x0a, from)
-      if (nl < 0) break
-      this.handleLine(data.subarray(from, nl).toString('utf8'), !replay, now)
+    if (this.resync.has(file)) {
+      const nl = data.indexOf(NEWLINE)
+      if (nl < 0) {
+        this.carry.delete(file)
+        return
+      }
+      this.resync.delete(file)
       from = nl + 1
     }
-    // copy the unfinished line: a subarray would keep the whole read buffer alive
+    for (let nl = data.indexOf(NEWLINE, from); nl >= 0; nl = data.indexOf(NEWLINE, from)) {
+      this.handleLine(data.toString('utf8', from, nl), live, now)
+      from = nl + 1
+    }
     const rest = data.length - from
-    if (rest > 0 && rest < MAX_LINE_BYTES) this.carry.set(file, Buffer.from(data.subarray(from)))
-    else this.carry.delete(file)
+    if (rest === 0) this.carry.delete(file)
+    // copy the unfinished line: a subarray would keep the whole read buffer alive
+    else if (rest < MAX_LINE_BYTES) this.carry.set(file, Buffer.from(data.subarray(from)))
+    else {
+      // an absurdly long line is dropped, and so is the rest of it in the next read
+      this.carry.delete(file)
+      this.resync.add(file)
+    }
   }
 
   // The session's own directory is on its first lines; later lines carry wherever a command cd'd to.
   private seedCwd(file: string) {
-    let fd: number | undefined
-    try {
-      fd = fs.openSync(file, 'r')
-      const head = Buffer.alloc(64 * 1024)
-      const n = fs.readSync(fd, head, 0, head.length, 0)
-      for (const raw of head.subarray(0, n).toString('utf8').split('\n')) {
-        const id = /"sessionId":"([^"]+)"/.exec(raw)?.[1]
-        const cwd = /"cwd":"((?:[^"\\]|\\.)*)"/.exec(raw)?.[1]
-        if (id && cwd) {
-          if (!this.seeds.has(id)) this.seeds.set(id, JSON.parse(`"${cwd}"`))
-          return
-        }
+    const head = this.readRange(file, 0, SEED_HEAD_BYTES)
+    if (!head) return
+    for (const raw of head.toString('utf8').split('\n')) {
+      const id = /"sessionId":"([^"]+)"/.exec(raw)?.[1]
+      const cwd = /"cwd":"((?:[^"\\]|\\.)*)"/.exec(raw)?.[1]
+      if (!id || !cwd) continue
+      try {
+        if (!this.seeds.has(id)) this.seeds.set(id, JSON.parse(`"${cwd}"`))
+      } catch {
+        // malformed escape: fall back to the cwd of the lines we read
       }
-    } catch {
-      // unreadable head: fall back to the cwd of the lines we read
-    } finally {
-      if (fd !== undefined) fs.closeSync(fd)
+      return
     }
   }
 
@@ -225,43 +292,49 @@ export class Tracker {
 
   private handleLine(raw: string, live: boolean, now: number) {
     if (!raw.trim()) return
-    let line: any
+    let line: TranscriptLine
     try {
       line = JSON.parse(raw)
     } catch {
       return
     }
-    const id: string | undefined = line.sessionId
-    if (!id || (line.type !== 'assistant' && line.type !== 'user')) return
-    const ts = Date.parse(line.timestamp) || now
-    const s = this.session(id, line.cwd ?? '', ts)
+    if (!line || typeof line !== 'object') return
+    const id = line.sessionId
+    if (typeof id !== 'string' || !id || (line.type !== 'assistant' && line.type !== 'user')) return
+    const ts = Date.parse(line.timestamp ?? '') || now
+    const s = this.session(id, typeof line.cwd === 'string' ? line.cwd : '', ts)
+    if (line.type === 'assistant') this.handleAssistant(line, s, ts, live)
+    else this.handleUser(line, s, ts, live)
+  }
+
+  private handleAssistant(line: TranscriptLine, s: Session, ts: number, live: boolean) {
     const content = line.message?.content
+    if (!Array.isArray(content)) return
     const sidechain = line.isSidechain === true
-
-    if (line.type === 'assistant') {
-      if (!Array.isArray(content)) return
-      for (const block of content) {
-        if (block?.type !== 'tool_use') continue
-        if (block.name === 'Skill' && typeof block.input?.skill === 'string') this.goToLab(block.input.skill, s, ts, live)
-        if (sidechain) continue
-        s.pending.set(block.id, { name: block.name, at: ts })
-        s.doneAt = undefined
-        s.activity = TOOL_ACTIVITY[block.name] ?? 'pensando'
-        if (block.name === 'Agent' || block.name === 'Task') {
-          s.subagents.set(block.id, { label: String(block.input?.subagent_type ?? block.input?.description ?? 'agente').slice(0, 18), since: ts })
-        }
-        if (s.activity === 'pregunta' && live) this.hooks.sound('ask')
+    for (const block of content) {
+      if (block?.type !== 'tool_use' || typeof block.name !== 'string') continue
+      if (block.name === 'Skill' && typeof block.input?.skill === 'string') this.goToLab(block.input.skill, s, ts, live)
+      if (sidechain || typeof block.id !== 'string') continue
+      s.pending.set(block.id, { name: block.name, at: ts })
+      this.reopen(s)
+      s.activity = TOOL_ACTIVITY[block.name] ?? 'pensando'
+      if (block.name === 'Agent' || block.name === 'Task') {
+        const label = block.input?.subagent_type ?? block.input?.description ?? 'agente'
+        s.subagents.set(block.id, { label: String(label).slice(0, 18), since: ts })
       }
-      if (!sidechain && line.message?.stop_reason === 'end_turn') this.finishTurn(s, ts, live)
-      return
+      if (s.activity === 'pregunta' && live) this.hooks.sound('ask')
     }
+    if (!sidechain && line.message?.stop_reason === 'end_turn') this.finishTurn(s, ts, live)
+  }
 
-    if (sidechain || line.isMeta) return
+  private handleUser(line: TranscriptLine, s: Session, ts: number, live: boolean) {
+    if (line.isSidechain === true || line.isMeta) return
+    const content = line.message?.content
     if (typeof content === 'string') {
-      const cmd = /<command-name>\/?([^<\s]+)<\/command-name>/.exec(content)
+      const cmd = COMMAND_RE.exec(content)?.[1]
       if (cmd) {
-        if (this.hooks.knownSkill(cmd[1]!)) {
-          this.goToLab(cmd[1]!, s, ts, live)
+        if (this.hooks.knownSkill(cmd)) {
+          this.goToLab(cmd, s, ts, live)
           this.startTurn(s)
         }
         return
@@ -275,6 +348,7 @@ export class Tracker {
     let prompt = false
     for (const block of content) {
       if (block?.type === 'tool_result') {
+        if (typeof block.tool_use_id !== 'string') continue
         s.pending.delete(block.tool_use_id)
         s.subagents.delete(block.tool_use_id)
       } else if (block?.type === 'text') {
@@ -283,16 +357,22 @@ export class Tracker {
       }
     }
     if (prompt) this.startTurn(s)
-    else if (s.pending.size === 0 && !s.doneAt) s.activity = 'pensando'
+    else if (s.pending.size === 0 && s.doneAt === undefined) s.activity = 'pensando'
+  }
+
+  private reopen(s: Session) {
+    s.doneAt = undefined
+    s.released = undefined
   }
 
   private startTurn(s: Session) {
-    s.doneAt = undefined
+    this.reopen(s)
     s.activity = 'pensando'
   }
 
   private finishTurn(s: Session, ts: number, live: boolean) {
     s.doneAt = ts
+    s.released = undefined
     s.activity = 'listo'
     s.pending.clear()
     s.subagents.clear()
@@ -308,35 +388,54 @@ export class Tracker {
     this.crew[skill] = { lab, from: null, since: prev?.lab === lab ? prev.since : ts, uses: this.uses[skill] ?? 0, session: s.id }
   }
 
+  // Skills working for the session walk back to bed.
+  private sendHome(sessionId: string, since: number) {
+    for (const [skill, c] of Object.entries(this.crew)) {
+      if (c.lab && c.session === sessionId) this.crew[skill] = { ...c, lab: null, from: c.lab, since: Math.max(since, c.since) }
+    }
+  }
+
   tick(now: number) {
     for (const s of this.sessions.values()) {
       if (s.doneAt !== undefined) {
         const back = s.doneAt + RETURN_DELAY_MS
-        if (now >= back) {
-          for (const [skill, c] of Object.entries(this.crew)) {
-            if (c.lab && c.session === s.id) this.crew[skill] = { ...c, lab: null, from: c.lab, since: Math.max(back, c.since) }
-          }
+        if (now >= back && !s.released) {
+          this.sendHome(s.id, back)
+          s.released = true
         }
         if (s.activity === 'listo' && now - s.doneAt > DONE_BUBBLE_MS) s.activity = 'idle'
       } else if (s.pending.size > 0 && now - s.lastEvent > STALE_MS) {
         // a session that died mid-tool: rest, don't ask for attention
         s.activity = 'idle'
-      } else if (s.pending.size > 0) {
-        const waiting = [...s.pending.values()].every(p => !NOT_PERMISSION.has(p.name) && now - p.at > WAIT_GUESS_MS)
-        if (waiting && s.activity !== 'pregunta' && s.activity !== 'esperando' && now - s.lastEvent > WAIT_GUESS_MS) {
+      } else if (s.pending.size > 0 && s.activity !== 'pregunta' && s.activity !== 'esperando' && now - s.lastEvent > WAIT_GUESS_MS) {
+        if (this.looksLikePermission(s, now)) {
           s.activity = 'esperando'
           this.hooks.sound('ask')
         }
       }
-      if (now - s.lastEvent > SESSION_TTL_MS && (s.doneAt !== undefined || s.pending.size === 0)) this.sessions.delete(s.id)
+      // long silent, even mid-tool (a closed terminal never writes its result): it leaves, and so do its skills
+      if (now - s.lastEvent > SESSION_TTL_MS) {
+        this.sendHome(s.id, now)
+        this.sessions.delete(s.id)
+      }
     }
   }
 
+  // Every open tool is one that asks permission and has been waiting a while.
+  private looksLikePermission(s: Session, now: number) {
+    for (const p of s.pending.values()) if (NOT_PERMISSION.has(p.name) || now - p.at <= WAIT_GUESS_MS) return false
+    return true
+  }
+
   agents(onlyUnder?: string[]): AgentView[] {
+    const roots = onlyUnder?.length ? onlyUnder.map(dir => dir.toLowerCase()) : undefined
     const list: AgentView[] = []
     for (const s of this.sessions.values()) {
       if (s.hiddenAt !== undefined) continue
-      if (onlyUnder?.length && !onlyUnder.some(dir => s.cwd.toLowerCase().startsWith(dir.toLowerCase()))) continue
+      if (roots) {
+        const cwd = s.cwd.toLowerCase()
+        if (!roots.some(dir => cwd.startsWith(dir))) continue
+      }
       list.push({
         id: s.id,
         label: `Claude · ${path.basename(s.cwd) || 'sesión'}`,
@@ -361,29 +460,15 @@ export class Tracker {
 export async function countPastUses(root: string, onDone: (uses: Record<string, number>) => void) {
   const uses: Record<string, number> = {}
   const files: string[] = []
-  const visit = (dir: string, depth: number) => {
-    let entries: fs.Dirent[] = []
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true })
-    } catch {
-      return
-    }
-    for (const e of entries) {
-      const full = path.join(dir, e.name)
-      if (e.isDirectory() && depth < 3) visit(full, depth + 1)
-      else if (e.isFile() && e.name.endsWith('.jsonl')) files.push(full)
-    }
-  }
-  visit(root, 0)
-  const skillRe = /"name":"Skill","input":\{"skill":"([^"]+)"/g
-  const cmdRe = /<command-name>\/?([^<\s]+)<\/command-name>/g
+  walkTranscripts(root, file => files.push(file))
+  const patterns = [/"name":"Skill","input":\{"skill":"([^"]+)"/g, new RegExp(COMMAND_RE.source, 'g')]
   for (const file of files) {
     await new Promise<void>(resolve => {
       let tail = ''
       const stream = fs.createReadStream(file, { encoding: 'utf8', highWaterMark: 1 << 20 })
       stream.on('data', chunk => {
         const text = tail + chunk
-        for (const re of [skillRe, cmdRe]) {
+        for (const re of patterns) {
           re.lastIndex = 0
           let m: RegExpExecArray | null
           // a match lying wholly in the carried tail was counted with the previous chunk
