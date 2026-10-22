@@ -207,6 +207,15 @@ export class Tracker {
     if (c) this.crew[name] = { ...c, lab: null, from: null }
   }
 
+  // The puesto rules changed: skills already at work move to where the new rules send them.
+  relocate(now: number) {
+    for (const [skill, c] of Object.entries(this.crew)) {
+      if (!c.lab) continue
+      const lab = labForSkill(skill, this.sessions.get(c.session ?? '')?.cwd ?? '')
+      if (lab !== c.lab) this.crew[skill] = { ...c, lab, from: null, since: now }
+    }
+  }
+
   hideSession(id: string, now: number) {
     const s = this.sessions.get(id)
     if (!s) return

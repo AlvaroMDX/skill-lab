@@ -612,6 +612,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   const watcher = fs.watch(LAB_DIR, (_e, file) => {
     if (file !== 'config.json') return
     applyConfig(readConfig())
+    tracker.relocate(Date.now())
     rescanSkills?.()
     view?.push(true)
   })

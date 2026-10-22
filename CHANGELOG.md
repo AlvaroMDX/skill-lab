@@ -1,5 +1,8 @@
 # Cambios
 
+## 0.9.1 — 2026-10-22
+- Al cambiar el reparto de skills (Layout o config.json), los muñecos que ya estaban trabajando se mueven a su puesto nuevo en vez de quedarse en el antiguo hasta el siguiente uso.
+
 ## 0.9.0 — 2026-10-22
 - Lista para distribuir: sin datos personales en el código y con un asistente inicial que crea los puestos a partir de tus carpetas.
 - Tema «zona de fumadores» y nuevas medallas.
