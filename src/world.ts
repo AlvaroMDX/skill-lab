@@ -203,12 +203,13 @@ const doorPath = (W: number, fill: string) => floorQuad(W, D, W + 2.6, D + 1, fi
 // Something crossing the whole island along x at depth y (car, boat…): it enters and leaves past the island's ends,
 // clipped to the terrain so it never floats in the void, then rests out of sight for `rest` of the loop.
 // The body is a side view drawn at the origin facing +x; it is sheared onto the road's slope.
-function crossing(W: number, y: number, body: string, speed: number, off: number, dir: 1 | -1, rest: number, light = ''): [string, string] {
+// A body already drawn in isometric space (solid: true) is used as is; a side view is sheared onto the slope.
+function crossing(W: number, y: number, body: string, speed: number, off: number, dir: 1 | -1, rest: number, light = '', solid = false): [string, string] {
   const ends = [iso(-8, y), iso(W + 8, y)]
   const [a, b] = dir > 0 ? ends : [ends[1]!, ends[0]!]
   const dur = r((W + 16) / speed / (1 - rest))
   const motion = `<animateMotion path="M${pts([a!])}L${pts([b!])}" keyPoints="0;1;1" keyTimes="0;${r(1 - rest)};1" calcMode="linear" dur="${dur}s" ${begin(dur, off)} repeatCount="indefinite"/>`
-  const sheared = (s: string) => `<g transform="matrix(1,.5,0,1,0,0)${dir < 0 ? ' scale(-1,1)' : ''}">${s}</g>`
+  const sheared = (s: string) => (solid ? s : `<g transform="matrix(1,.5,0,1,0,0)${dir < 0 ? ' scale(-1,1)' : ''}">${s}</g>`)
   return [
     `<g clip-path="url(#world-clip)" pointer-events="none"><g>${sheared(body)}${motion}</g></g>`,
     light ? `<g class="lamp-light" clip-path="url(#world-clip)" pointer-events="none"><g>${sheared(light)}${motion}</g></g>` : '',
@@ -285,23 +286,71 @@ function cityProps(W: number): Props {
   svg += roundTree(tx, ty, 1.1)
   // traffic: one car per lane, driving on the right, low enough for the near walkers to stay clear above them
   ;([[H + 3.75, 1, '#D94F3D', 0], [H + 2.6, -1, '#3E7CC4', 9]] as const).forEach(([lane, dir, paint, off]) => {
-    const [car, light] = crossing(W, lane, carBody(paint), 2.6, off, dir, 0.35, carLight)
+    const [car, light] = crossing(W, lane, carIso(paint, dir), 2.6, off, dir, 0.35, carGlow(dir), true)
     svg += car
     lamps.push(light)
   })
   return { svg, lamps }
 }
 
-// a side-view hatchback, nose at +x, wheels turning
-const carBody = (paint: string) => {
-  const wheel = (x: number) =>
-    `<g><circle cx="${x}" cy="-3" r="3.2" fill="#26282C"/><path d="M${x - 2} -3h4M${x} -5v4" stroke="#8D9098" stroke-width="1"/>` +
-    `<animateTransform attributeName="transform" type="rotate" from="0 ${x} -3" to="360 ${x} -3" dur=".4s" ${begin(0.4)} repeatCount="indefinite"/></g>`
-  return `<ellipse cy="0" rx="15" ry="2.4" fill="#000" fill-opacity=".22"/><path d="M-13 -4v-5l3 -1h4l4 -5h9l4 5h2l1 1v5z" fill="${paint}"/>` +
-    `<path d="M-4.5 -10l3.4 -4h4v4zM3.8 -14h3.6l3.2 4h-6.8z" fill="#BFE0F0"/><path d="M-13 -6h26" stroke="#000" stroke-opacity=".18"/>` +
-    `<rect x="11.5" y="-8.5" width="2" height="1.6" fill="#FFE9A8"/><rect x="-13.4" y="-8.5" width="1.6" height="1.6" fill="#D22B2B"/>` + wheel(-7) + wheel(7)
+// A solid isometric saloon centred on its lane, driving along x (dir picks which end is the nose).
+// Offsets are in tiles (x along the road, y across it) and pixels up (z), relative to the car's centre.
+const P = (x: number, y: number, z: number): [number, number] => [r((x - y) * 18), r((x + y) * 9 - z)]
+const quad = (a: [number, number, number], b: [number, number, number], c: [number, number, number], d: [number, number, number], fill: string, extra = '') =>
+  poly([P(...a), P(...b), P(...c), P(...d)], fill, extra)
+
+// the visible faces of a block: top, the long side facing the viewer (+y) and the +x end
+function block(x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, color: string, top = color) {
+  return (
+    quad([x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1], shade(color, 0.72)) +
+    quad([x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], shade(color, 0.88)) +
+    quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], top)
+  )
 }
-const carLight = `<path d="M13 -8l26 -6v11z" fill="url(#lamp)"/><rect x="11.5" y="-8.5" width="2" height="1.6" fill="#FFF6D0"/><rect x="-13.4" y="-8.5" width="1.6" height="1.6" fill="#FF5A4A"/>`
+
+const carIso = (paint: string, dir: 1 | -1) => {
+  const L = 0.95 // half length (tiles)
+  const Wd = 0.42 // half width (tiles)
+  const nose = dir // +x or -x end
+  // a wheel on the near side: a ten-sided disc in the vertical plane of that side
+  const wheel = (x: number) => {
+    const ring = (rx: number, rz: number) =>
+      Array.from({ length: 10 }, (_, k) => P(x + rx * Math.cos((k / 10) * Math.PI * 2), Wd + 0.01, 3.4 + rz * Math.sin((k / 10) * Math.PI * 2)))
+    return poly(ring(0.19, 3.4), '#1E2024') + poly(ring(0.09, 1.6), '#9AA0A8')
+  }
+  // the cabin sits a little towards the back, with a sloped windscreen at the nose
+  const c0 = nose > 0 ? -0.55 : -0.35
+  const c1 = nose > 0 ? 0.35 : 0.55
+  let s = poly([P(-L - 0.1, -Wd - 0.05, 0), P(L + 0.15, -Wd - 0.05, 0), P(L + 0.15, Wd + 0.15, 0), P(-L - 0.1, Wd + 0.15, 0)], '#000', ' fill-opacity=".24"')
+  s += block(-L, L, -Wd, Wd, 2.5, 9, paint)
+  // bumpers and a darker sill line along the side
+  s += quad([-L, Wd + 0.005, 2.5], [L, Wd + 0.005, 2.5], [L, Wd + 0.005, 4], [-L, Wd + 0.005, 4], shade(paint, 0.6))
+  // cabin: glass side and ends, painted pillars and roof
+  s += block(c0, c1, -Wd + 0.06, Wd - 0.06, 9, 15, paint, shade(paint, 1.12))
+  const gx = (k: number) => c0 + (c1 - c0) * k
+  s += quad([gx(0.06), Wd - 0.055, 10], [gx(0.46), Wd - 0.055, 10], [gx(0.46), Wd - 0.055, 14], [gx(0.1), Wd - 0.055, 14], '#9CC6DC')
+  s += quad([gx(0.54), Wd - 0.055, 10], [gx(0.94), Wd - 0.055, 10], [gx(0.9), Wd - 0.055, 14], [gx(0.54), Wd - 0.055, 14], '#9CC6DC')
+  s += quad([c1 + 0.005, -Wd + 0.12, 10], [c1 + 0.005, Wd - 0.12, 10], [c1 + 0.005, Wd - 0.12, 14], [c1 + 0.005, -Wd + 0.12, 14], nose > 0 ? '#8FB9D0' : '#7FA6BA')
+  // a light streak on the glass
+  s += `<path d="M${pts([P(gx(0.15), Wd - 0.05, 10.5), P(gx(0.3), Wd - 0.05, 13.5)])}" stroke="#FFF" stroke-opacity=".55" stroke-width="1.2"/>`
+  // head and tail lights at both corners of the visible side
+  const front = nose * L
+  const back = -nose * L
+  s += quad([front - nose * 0.12, Wd + 0.006, 6], [front, Wd + 0.006, 6], [front, Wd + 0.006, 8], [front - nose * 0.12, Wd + 0.006, 8], '#FFE9A8')
+  s += quad([back, Wd + 0.006, 6], [back + nose * 0.1, Wd + 0.006, 6], [back + nose * 0.1, Wd + 0.006, 8], [back, Wd + 0.006, 8], '#D22B2B')
+  // the +x end shows its lights too: headlights going right, tail lights going left
+  const endColor = nose > 0 ? '#FFE9A8' : '#D22B2B'
+  for (const yy of [-Wd + 0.08, Wd - 0.18]) s += quad([L + 0.005, yy, 6], [L + 0.005, yy + 0.1, 6], [L + 0.005, yy + 0.1, 8], [L + 0.005, yy, 8], endColor)
+  s += wheel(-L + 0.32) + wheel(L - 0.32)
+  return s
+}
+
+// headlight beam on the road ahead, only at night (lamp-light layer)
+const carGlow = (dir: 1 | -1) => {
+  const [hx, hy] = P(dir * 0.95, 0.1, 7)
+  const [fx, fy] = P(dir * 2.6, 0.1, 0)
+  return `<path d="M${hx} ${hy}L${r(fx - 10)} ${r(fy - 6)}L${r(fx + 10)} ${r(fy + 6)}Z" fill="url(#lamp)"/><circle cx="${hx}" cy="${hy}" r="3" fill="#FFF6D0"/>`
+}
 
 // ---------- beach ----------
 

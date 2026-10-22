@@ -1,5 +1,8 @@
 # Cambios
 
+## 1.1.2 — 2026-10-22
+- Los coches que circulan por la ciudad son ahora sólidos en isometría (carrocería, cabina con ventanillas, ruedas, faros y pilotos) en vez de un perfil plano.
+
 ## 1.1.1 — 2026-10-22
 - Ajustes: los selectores de disfraz dicen qué es cada personaje: robots (agentes) y drones (subagentes).
 
