@@ -57,6 +57,9 @@ const Y_MAX = H + 5.8
 const WALL_H = 70
 const WALK_SPEED = 75
 const STROLL_SPEED = 26
+// how many skills and idle robots may walk the street at once: each one is a moving, animated sprite
+const MAX_STROLLERS = 4
+const MAX_STROLLING_AGENTS = 2
 
 export type Pt = { x: number; y: number }
 export type RoomGeom = { id: string; kind: 'dorm' | 'lab' | 'patio'; theme?: Theme; x0: number; x1: number; y0: number; y1: number; top: boolean }
@@ -189,14 +192,12 @@ const inked = (rects: Rect[]) => outline(rects) + fills(rects)
 const stepFrames = (cycle: number, up: number[], dy: number) =>
   `<animateTransform attributeName="transform" type="translate" calcMode="discrete" values="${[0, 1, 2, 3].map(f => `0 ${up.includes(f) ? r(-dy * U) : 0}`).join(';')}" dur="${cycle}s" repeatCount="indefinite"/>`
 
-// Legs A and B alternate and the body rises on each lifted frame. Outlines of every part go first, then the fills,
-// so the legs still merge into the body like a single inked sprite. Without a cycle it draws the standing pose.
-function gait(a: Rect[], b: Rect[], body: Rect[], legShade: (legs: Rect[]) => string, over: string, cycle = 0, lift = 1.5, rise = 0.5) {
-  if (!cycle) return outline([...a, ...b, ...body]) + fills([...a, ...b]) + legShade([...a, ...b]) + fills(body) + over
-  const A = (s: string) => `<g>${stepFrames(cycle, [1], lift)}${s}</g>`
-  const B = (s: string) => `<g>${stepFrames(cycle, [3], lift)}${s}</g>`
-  const body$ = (s: string) => `<g>${stepFrames(cycle, [1, 3], rise)}${s}</g>`
-  return A(outline(a)) + B(outline(b)) + body$(outline(body)) + A(fills(a) + legShade(a)) + B(fills(b) + legShade(b)) + body$(fills(body) + over)
+// Legs A and B alternate and the body rises on each lifted frame: three animations per walker, every <use> clones them.
+// `under` rides with the body behind it (a tail). Without a cycle it draws the standing pose, inked as one piece.
+function gait(a: Rect[], b: Rect[], body: Rect[], legShade: (legs: Rect[]) => string, over: string, cycle = 0, lift = 1.5, rise = 0.5, under = '') {
+  if (!cycle) return under + outline([...a, ...b, ...body]) + fills([...a, ...b]) + legShade([...a, ...b]) + fills(body) + over
+  const part = (up: number[], dy: number, s: string) => `<g>${stepFrames(cycle, up, dy)}${s}</g>`
+  return part([1], lift, inked(a) + legShade(a)) + part([3], lift, inked(b) + legShade(b)) + part([1, 3], rise, under + inked(body) + over)
 }
 const lit = (x: number, y: number, w: number, h: number, o = 0.3) => px(x, y, w, h, '#FFFFFF', ` opacity="${o}"`)
 const dim = (x: number, y: number, w: number, h: number, o = 0.18) => px(x, y, w, h, '#000', ` opacity="${o}"`)
@@ -303,8 +304,9 @@ function spriteDef(id: string, kind: 'awake' | 'asleep', cycle = 0) {
 }
 
 // Claude sessions: a small dome robot, skill-sized but a different silhouette (two feet, visor, antenna).
-// `cycle` > 0 draws the strolling version: alternating feet, a bob per step and the eyes looking ahead (right)
-function agentDef(id: string, cycle = 0) {
+// `cycle` > 0 draws the strolling version: alternating feet, a bob per step and the eyes looking ahead (right);
+// `still` is the resting one, with no blink or beacon (an idle robot costs no animation)
+function agentDef(id: string, cycle = 0, still = false) {
   const look = AGENT_LOOK[AGENT_SKIN]
   const shell = look.shell
   const visor = look.visor
@@ -316,7 +318,7 @@ function agentDef(id: string, cycle = 0) {
   over += px(-4.5, -8.5, 9, 3.5, visor) + lit(-4.5, -8.5, 9, 0.6, 0.14) + lit(2.6, -8, 1.4, 0.6, 0.25)
   // a quick double blink squashing the eyes around their centre line, instead of switching them off
   over += `<g transform="translate(0,${-6.8 * U})"><g>${px(-2.8 + ahead, -0.7, 1.4, 1.4, look.eyes)}${px(1.4 + ahead, -0.7, 1.4, 1.4, look.eyes)}` +
-    `<animateTransform attributeName="transform" type="scale" values="1 1;1 1;1 .15;1 1;1 1;1 .15;1 1" keyTimes="0;.84;.86;.88;.92;.94;1" dur="5s" repeatCount="indefinite"/></g></g>`
+    `${still ? '' : '<animateTransform attributeName="transform" type="scale" values="1 1;1 1;1 .15;1 1;1 1;1 .15;1 1" keyTimes="0;.84;.86;.88;.92;.94;1" dur="5s" repeatCount="indefinite"/>'}</g></g>`
   if (AGENT_SKIN === 'pirata') over += px(1 + ahead, -8.2, 2.4, 2.2, '#111')
   // the chest panel takes the colour of the puesto the robot works in
   over += inked([[-2, -4.6, 4, 2.2, 'currentColor']]) + lit(-2, -4.6, 4, 0.5, 0.35)
@@ -324,9 +326,8 @@ function agentDef(id: string, cycle = 0) {
   // the antenna comes out of whatever the robot wears, so its currentColor tip is never hidden
   const tip = crown - stick - 2.4
   over += inked([[-0.3, crown - stick, 0.6, stick, '#8C857C']]) + px(-1.7, tip - 0.5, 3.4, 3.4, INK)
-  // a short beacon flash with a halo, like a status LED, rather than a slow fade
-  over += `<rect x="${-1.2 * U}" y="${tip * U}" width="${2.4 * U}" height="${2.4 * U}" fill="currentColor"><animate attributeName="opacity" values="1;1;.35;1" keyTimes="0;.7;.8;1" dur="2.4s" repeatCount="indefinite"/></rect>`
-  over += `<circle cy="${(tip + 1.2) * U}" r="${2.4 * U}" fill="currentColor" opacity="0"><animate attributeName="opacity" values="0;.35;0;0" keyTimes="0;.06;.25;1" dur="2.4s" repeatCount="indefinite"/></circle>`
+  // a short beacon flash, like a status LED, rather than a slow fade
+  over += `<rect x="${-1.2 * U}" y="${tip * U}" width="${2.4 * U}" height="${2.4 * U}" fill="currentColor">${still ? '' : '<animate attributeName="opacity" values="1;1;.35;1" keyTimes="0;.7;.8;1" dur="2.4s" repeatCount="indefinite"/>'}</rect>`
   over += lit(-1.2, tip, 0.8, 0.8, 0.6)
   const feet = (legs: Rect[]) => legs.map(([x, , w]) => lit(x, -2, w, 0.5, 0.2)).join('')
   const s = `<ellipse rx="12" ry="4" fill="#000" opacity=".2"/>` +
@@ -365,9 +366,7 @@ function catDef(coat: Coat, cycle = 0) {
   const legs = cycle
     ? { a: [[-4.2, -3, 0.9, 3, c.dark], [2.9, -3, 0.9, 3, far]] as Rect[], b: [[-3.1, -3, 0.9, 3, far], [1.8, -3, 0.9, 3, c.dark]] as Rect[] }
     : { a: [[-4, -2, 1, 2, c.dark]] as Rect[], b: [[2, -2, 1, 2, c.dark]] as Rect[] }
-  // the tail rides the body's bob: it sits in a group lifted on the same frames
-  const tailGroup = cycle ? `<g>${stepFrames(cycle, [1, 3], 0.5)}${tail}</g>` : tail
-  const s = `<ellipse rx="9" ry="3" fill="#000" opacity=".18"/>` + tailGroup + gait(legs.a, legs.b, body, () => '', over, cycle, 1, 0.5)
+  const s = `<ellipse rx="9" ry="3" fill="#000" opacity=".18"/>` + gait(legs.a, legs.b, body, () => '', over, cycle, 1, 0.5, tail)
   return `<g id="${cycle ? 'pw' : 'pt'}-${coat}" shape-rendering="crispEdges">${s}</g>`
 }
 
@@ -380,17 +379,18 @@ const WALK_STEP = 0.4
 const STROLL_STEP = 0.8
 const CAT_STEP = 0.6
 
-// Sleepers' z's: a small one and a big one rising up and to the right from the head, staggered.
+// Sleepers' z: one every few seconds, rising up and to the right from the head.
 // Three phases so a full dorm does not snore in unison.
+const SNORE = 4
 function snore(k: number) {
-  const z = (ch: string, size: number, delay: number) =>
-    `<text font-size="${size}" font-weight="700" fill="#8C7A66" stroke="#FFF8EE" stroke-width="1.6" paint-order="stroke" opacity="0">${ch}` +
-    `<animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.15;.7;1" dur="3s" begin="${r(k + delay)}s" repeatCount="indefinite"/>` +
-    `<animateTransform attributeName="transform" type="translate" values="5 -13;9 -20;12 -27" dur="3s" begin="${r(k + delay)}s" repeatCount="indefinite"/></text>`
-  return `<g id="zz${k}">${z('z', 6, 0)}${z('Z', 8, 1.5)}</g>`
+  const timing = `dur="${SNORE}s" begin="${r(k * SNORE / 3)}s" repeatCount="indefinite"`
+  return `<g id="zz${k}"><text font-size="7" font-weight="700" fill="#8C7A66" stroke="#FFF8EE" stroke-width="1.6" paint-order="stroke" opacity="0">z` +
+    `<animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;.08;.4;.55;1" ${timing}/>` +
+    `<animateTransform attributeName="transform" type="translate" values="5 -13;11 -26;11 -26" keyTimes="0;.55;1" ${timing}/></text></g>`
 }
 
-function defs() {
+// walking cats only for the coats on patrol: each def is a few kB of every redraw
+function defs(walkingCoats: Coat[]) {
   const post = (x: number, y: number, color: string) => box(x, y, 0, 0.1, 0.1, 44, color)
   const bunkBack = post(0, 0, shade(WOOD, 0.9)) + post(BUNK_W - 0.1, 0, shade(WOOD, 0.9)) + box(0, 0, BED_LEVEL_Z[0]! - 6, BUNK_W, BUNK_D, 6, MATTRESS)
   const bunkMid = box(0, 0, BED_LEVEL_Z[1]! - 8, BUNK_W, BUNK_D, 2, WOOD) + box(0, 0, BED_LEVEL_Z[1]! - 6, BUNK_W, BUNK_D, 6, MATTRESS)
@@ -406,17 +406,17 @@ function defs() {
     l => `<radialGradient id="gl-${l.id}"><stop offset="0" stop-color="${l.accent}" stop-opacity=".55"/><stop offset="1" stop-color="${l.accent}" stop-opacity="0"/></radialGradient>`,
   ).join('')
   // every coat, not just the configured cats: the Konami parade uses them all
-  const coats = COATS.map(coat => catDef(coat) + catDef(coat, CAT_STEP)).join('')
+  const coats = COATS.map(coat => catDef(coat) + (walkingCoats.includes(coat) ? catDef(coat, CAT_STEP) : '')).join('')
   return (
     `<defs>${spriteDef('ca', 'awake')}${spriteDef('cs', 'asleep')}${agentDef('ag')}${coats}` +
-    `${spriteDef('cw', 'awake', WALK_STEP)}${spriteDef('cp', 'awake', STROLL_STEP)}${agentDef('ap', STROLL_STEP * 1.15)}${[0, 1, 2].map(snore).join('')}` +
+    `${spriteDef('cw', 'awake', WALK_STEP)}${spriteDef('cp', 'awake', STROLL_STEP)}${agentDef('ap', STROLL_STEP * 1.15)}${agentDef('ai', 0, true)}${[0, 1, 2].map(snore).join('')}` +
     `<linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFE8F5"/><stop offset="1" stop-color="#8DBFD9"/></linearGradient>${glows}` +
     `<radialGradient id="lamp"><stop offset="0" stop-color="#FFE6A0" stop-opacity=".75"/><stop offset="1" stop-color="#FFD36B" stop-opacity="0"/></radialGradient>` +
     `<g id="b1">${bunkBack}</g><g id="b2">${bunkMid}</g><g id="b3">${bunkFront}</g><g id="bl">${blanket}</g><g id="pl">${plant}</g></defs>`
   )
 }
 
-const useSprite = (id: 'ca' | 'cs' | 'ag' | 'cw' | 'cp' | 'ap', color: string, sx: number, sy: number, scale = 1, goggles?: string, anim = '') =>
+const useSprite = (id: 'ca' | 'cs' | 'ag' | 'cw' | 'cp' | 'ap' | 'ai', color: string, sx: number, sy: number, scale = 1, goggles?: string, anim = '') =>
   `<use href="#${id}" color="${color}"${goggles ? ` style="--g:${goggles}"` : ''} transform="translate(${r(sx)},${r(sy)})${scale !== 1 ? ` scale(${scale})` : ''}">${anim}</use>`
 
 const recolor = (from: string, to: string, begin: number, dur = 0.5) =>
@@ -844,7 +844,7 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
   const dayIndex = Math.floor(now / 86_400_000)
   const shownCats = pet ? cats.slice(0, 8) : []
 
-  const out: string[] = [defs()]
+  const out: string[] = [defs(shownCats.map(c => c.coat))]
   const busy = new Map<string, number>()
   for (const skill of roster) {
     const lab = crew[skill]?.lab
@@ -1001,14 +1001,19 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
 
   const t = (ms: number) => (now - ms) / 1000
   // by day a third of the idle skills (a different third each day) go out for a walk instead of napping
+  // capped, so a big roster does not fill the street with animations: the day's hash picks which ones go out
   const strolling = (skill: string) => !night && (hash(skill) + dayIndex) % 3 === 0
+  const outToday = new Set(
+    roster
+      .filter(skill => !crew[skill]?.lab && !(crew[skill]?.from && t(crew[skill]!.since) < 30) && strolling(skill))
+      .sort((a, b) => hash(a + dayIndex) - hash(b + dayIndex))
+      .slice(0, MAX_STROLLERS),
+  )
   const sleeperAt = new Map<number, string>()
   const strollers: string[] = []
   roster.forEach((skill, i) => {
-    const c = crew[skill]
-    if (c?.lab) return
-    const returning = c?.from && t(c.since) < 30
-    if (!returning && strolling(skill)) strollers.push(skill)
+    if (crew[skill]?.lab) return
+    if (outToday.has(skill)) strollers.push(skill)
     else sleeperAt.set(i, skill)
   })
 
@@ -1039,22 +1044,26 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     const open = `<g data-skill="${esc(skill)}" data-home="${r(spot.front.x)},${r(spot.front.y)}" data-color="${color}" data-asleep="1" style="cursor:pointer"${appearIn > 0 ? ` opacity="0"><animate attributeName="opacity" from="0" to="1" begin="${r(appearIn - FADE)}s" dur="${FADE}s" fill="freeze"/` : ''}>`
     const title = `<title>${esc(skill)} · durmiendo${c?.uses ? ` · ${c.uses} usos` : ''}</title>`
     const k = hash(skill) % 3
-    // a slow breath from the feet up, exhaling as its z's come out
-    const breathing = (sx: number, sy: number, scale: number) =>
-      `<g ${tr([sx, sy])}><g><animateTransform attributeName="transform" type="scale" values="1 1;1.03 1.06;1 1" keyTimes="0;.45;1" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1" dur="3s" begin="${r(k - 4.35)}s" repeatCount="indefinite"/>` +
-      `${useSprite('cs', color, 0, 0, scale)}</g></g>`
+    // a slow breath from the feet up, exhaling as its z comes out; a lower bunk is half hidden by the one above, so it lies still
+    const breathing = (sx: number, sy: number, scale: number, still = false) =>
+      still
+        ? useSprite('cs', color, sx, sy, scale)
+        : `<g ${tr([sx, sy])}><g><animateTransform attributeName="transform" type="scale" values="1 1;1.03 1.06;1 1" keyTimes="0;.45;1" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1" dur="${SNORE}s" begin="${r(k * SNORE / 3 - 1.45 * SNORE)}s" repeatCount="indefinite"/>` +
+          `${useSprite('cs', color, 0, 0, scale)}</g></g>`
+    // z's are spaced out: every other sleeper, and never on a lower bunk, where they would rise into the mattress above
+    const snores = i % 4 < 2 ? false : spot.bunk ? spot.level === 1 : true
     if (spot.bunk) {
       const b = spot.bunk
       const z = BED_LEVEL_Z[spot.level ?? 0]!
       const [sx, sy] = iso(b.x + BUNK_W / 2, b.y + 0.55, z)
       return (
-        `${open}${title}${breathing(sx, sy, 0.75)}<use href="#bl" style="color:${color}" ${at(b.x, b.y, z)}/>` +
-        `<use href="#zz${k}" ${tr([sx, sy])}/><g ${tr([sx, sy])}>${label(skill, -16, 8)}</g></g>`
+        `${open}${title}${breathing(sx, sy, 0.75, spot.level === 0)}<use href="#bl" style="color:${color}" ${at(b.x, b.y, z)}/>` +
+        `${snores ? `<use href="#zz${k}" ${tr([sx, sy])}/>` : ''}<g ${tr([sx, sy])}>${label(skill, -16, 8)}</g></g>`
       )
     }
     const f = spot.floor!
     const [sx, sy] = iso(f.x, f.y)
-    return `${open}${title}${box(f.x - 0.4, f.y - 0.25, 0, 0.8, 0.5, 3, shade(color, 1.3))}${breathing(sx, sy - 2, 0.7)}<use href="#zz${k}" ${tr([sx, sy - 2])}/></g>`
+    return `${open}${title}${box(f.x - 0.4, f.y - 0.25, 0, 0.8, 0.5, 3, shade(color, 1.3))}${breathing(sx, sy - 2, 0.7)}${snores ? `<use href="#zz${k}" ${tr([sx, sy - 2])}/>` : ''}</g>`
   }
 
   // sleepers are drawn once the puestos are furnished (a returning one needs the station it left), in these slots
@@ -1191,8 +1200,8 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
   const subagentDef = (id: string, phase: number) => {
     const look = AGENT_LOOK[AGENT_SKIN]
     const ease = `keyTimes="0;.5;1" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1" dur="${HOVER}s" begin="${r(-phase * HOVER)}s" repeatCount="indefinite"`
-    // the shadow stays on the floor and shrinks while the drone is up
-    let s = `<ellipse rx="7" ry="2.2" fill="#000" opacity=".16"><animate attributeName="rx" values="7;5.2;7" ${ease}/></ellipse>`
+    // the shadow stays on the floor
+    let s = `<ellipse rx="6.4" ry="2" fill="#000" opacity=".16"/>`
     let d = px(-0.4, -14.4, 0.8, 2.4, '#5B5650')
     // a faint disc for the blur, and the blade: four turns per bob, so both loops restart together
     d += `<ellipse cy="${-14.6 * U}" rx="${5.4 * U}" ry="1.4" fill="#FFFFFF" opacity=".28"/>`
@@ -1218,7 +1227,7 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
   const agentsPerRoom = new Map<string, number>()
   const strollingAgents: AgentView[] = []
   for (const a of agents) {
-    if (a.activity === 'idle' && !night) {
+    if (a.activity === 'idle' && !night && strollingAgents.length < MAX_STROLLING_AGENTS) {
       strollingAgents.push(a)
       continue
     }
@@ -1232,7 +1241,7 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     const gym = room.theme === 'gym' && working
     let svg =
       `<g data-session="${esc(a.id)}" data-home="${r(spot.x)},${r(spot.y)}" data-color="${CLAUDE}" style="cursor:pointer" ${tr([sx, sy])}${a.activity === 'idle' ? ' opacity=".6"' : ''}><title>${esc(a.label)} · ${a.activity === 'idle' ? 'en reposo' : a.activity}</title>` +
-      `<g>${working ? (gym ? bob(3, 0.25) : typing(hash(a.id))) : ''}${useSprite('ag', CLAUDE, 0, 0, 1)}</g>${gym ? sweat(hash(a.id)) : ''}${bubble(a.activity, -50)}${label(a.label, -38, 8)}</g>`
+      `<g>${working ? (gym ? bob(3, 0.25) : typing(hash(a.id))) : ''}${useSprite(a.activity === 'idle' ? 'ai' : 'ag', CLAUDE, 0, 0, 1)}</g>${gym ? sweat(hash(a.id)) : ''}${bubble(a.activity, -50)}${label(a.label, -38, 8)}</g>`
     // up to 10 sub-agents in rows of 5, shifted so the whole block stays inside the room
     const subs = a.subagents.slice(0, 10)
     const cols = Math.min(subs.length, 5)
