@@ -326,7 +326,9 @@ class LabView implements vscode.WebviewViewProvider {
           if (msg.width !== undefined) entry.width = Number(msg.width)
           if (msg.row === 'top' || msg.row === 'bottom') entry.row = msg.row
           if (typeof msg.theme === 'string') entry.theme = msg.theme
+          if (Array.isArray(msg.services)) entry.services = msg.services.map((sv: any) => ({ name: String(sv?.name ?? '').trim(), url: String(sv?.url ?? '').trim() })).filter((sv: { url: string }) => sv.url)
         })
+        if (Array.isArray(msg.services)) void monitor?.check()
         return this.refreshAll()
       case 'setupPickRoot': {
         const chosen = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, openLabel: 'Usar como carpeta de proyectos' })
@@ -557,7 +559,10 @@ export function activate(ctx: vscode.ExtensionContext) {
   })
   let roster = installedSkills(projectRepos())
   view = new LabView(ctx, tracker)
-  monitor = new ServiceMonitor(() => view?.push(true))
+  monitor = new ServiceMonitor(() => {
+    view?.push(true)
+    view?.pushModel()
+  })
   monitor.start()
   ctx.subscriptions.push({ dispose: () => monitor?.dispose() })
   view.setRoster(roster)
