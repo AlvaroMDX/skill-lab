@@ -1940,8 +1940,8 @@
       <section class="card plain look"><label class="field"><span>Temporada</span><select id="season">${seasonOptions}</select></label>
         <small class="muted">Adornos de temporada para todo el laboratorio.</small></section>
       <section class="card plain look"><span class="field"><span>Disfraz de las skills</span></span>${skinPicker('skill', 'skillSkin', 'ca', '#D97757')}
-        <span class="field"><span>Disfraz de los robots</span></span>${skinPicker('agent', 'agentSkin', 'ag', '#3D85C6')}
-        <span class="field"><span>Disfraz de los drones</span></span>${skinPicker('drone', 'droneSkin', 'sd0', '#3D85C6')}
+        <span class="field"><span>Disfraz de los robots (agentes)</span></span>${skinPicker('agent', 'agentSkin', 'ag', '#3D85C6')}
+        <span class="field"><span>Disfraz de los drones (subagentes)</span></span>${skinPicker('drone', 'droneSkin', 'sd0', '#3D85C6')}
         <small class="muted">El cuerpo sigue tomando el color de su puesto.</small></section>
       <section class="card plain">
         <label class="field"><span>Vuelta a la litera <b id="delayVal">${s.returnDelay} s</b></span>

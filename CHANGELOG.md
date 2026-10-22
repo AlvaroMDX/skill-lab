@@ -1,5 +1,8 @@
 # Cambios
 
+## 1.1.1 — 2026-10-22
+- Ajustes: los selectores de disfraz dicen qué es cada personaje: robots (agentes) y drones (subagentes).
+
 ## 1.1.0 — 2026-10-22
 - Personajes con paso de verdad (patas alternas y bote por paso), miran hacia donde andan, llegan y salen de su puesto sin saltos y respiran al dormir; gatos que no patinan, robots que teclean y drones con hélice sincronizada.
 - Cada muñeco encaja en su mueble en los 13 temas y en las dos filas: en el sillín, tumbado en el banco de pesas o en la tumbona, sentado a su mesa, ante su tragaperras… con animaciones de trabajo a su ritmo.
