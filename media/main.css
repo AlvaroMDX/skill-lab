@@ -431,3 +431,6 @@ button.palette .chips i { flex: 1; }
 }
 @keyframes fadeout { 0%, 60% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes toastfade { 0% { opacity: 0; transform: translateX(-50%); } 10%, 85% { opacity: 1; transform: translateX(-50%); } 100% { opacity: 0; transform: translateX(-50%); } }
+
+/* Santa only shows at night: by day he cannot be clicked either */
+#world:not(.night) #scene [data-egg="santa"] { pointer-events: none; }

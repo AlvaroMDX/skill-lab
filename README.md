@@ -12,17 +12,17 @@
 - **Servidores con piloto.** Cada puesto puede mostrar los servicios desplegados de su proyecto como armarios: luz verde si responden, roja si se han caído. Al pasar el ratón sale su nombre.
 - **Cinco mundos.** El edificio puede estar en la ciudad, en la playa, en el bosque, en la nieve o en la Luna.
 - **Temporadas.** Halloween, Navidad, Nochevieja, Reyes, Carnaval, San Valentín, San Fermín, las cuatro estaciones… se ponen solas según la fecha, o eliges una.
-- **Disfraces y colores.** Pirata, alien, astronauta, mago, vaquero, ninja, chef o vikingo, para los muñecos y para los robots. Seis paletas para los carteles: cálidos, pasteles, multicolor, fríos, neón y tierra.
+- **Disfraces y colores.** Pirata, alien, astronauta, mago, vaquero, ninja, chef o vikingo, por separado para los muñecos, los robots y los drones. Seis paletas para los carteles: cálidos, pasteles, multicolor, fríos, neón y tierra.
 - **Día y noche, avisos y gatos.** La luz sigue la hora real, suena un aviso cuando Claude termina o espera permiso, y los gatos reaccionan a cada sala en la que los sueltes.
-- **47 medallas** escondidas para quien las encuentre. Pista: en el casino hay tragaperras de verdad.
+- **49 medallas** escondidas para quien las encuentre. Pistas: en el casino hay tragaperras de verdad, Wally sale a pasear algunas horas y en Navidad Papá Noel cruza el cielo de noche.
 
 ![El mismo laboratorio de noche](images/night.png)
 
 ## Instalación
 
-1. Descarga `skill-lab-1.0.2.vsix` de la última [release](https://github.com/AlvaroMDX/skill-lab/releases/latest).
+1. Descarga `skill-lab-1.1.0.vsix` de la última [release](https://github.com/AlvaroMDX/skill-lab/releases/latest).
 2. En VS Code: **Extensiones → ··· → Install from VSIX…** y elige el fichero.
-   También desde un terminal: `code --install-extension skill-lab-1.0.2.vsix`.
+   También desde un terminal: `code --install-extension skill-lab-1.1.0.vsix`.
 3. Recarga la ventana (**Developer: Reload Window**).
 
 Para compilarla desde el código:

@@ -1,5 +1,14 @@
 # Cambios
 
+## 1.1.0 — 2026-10-22
+- Personajes con paso de verdad (patas alternas y bote por paso), miran hacia donde andan, llegan y salen de su puesto sin saltos y respiran al dormir; gatos que no patinan, robots que teclean y drones con hélice sincronizada.
+- Cada muñeco encaja en su mueble en los 13 temas y en las dos filas: en el sillín, tumbado en el banco de pesas o en la tumbona, sentado a su mesa, ante su tragaperras… con animaciones de trabajo a su ritmo.
+- Mundos y temporadas sincronizados con el reloj: las travesías (Reyes, toro de San Fermín, Papá Noel…) ya cruzan enteras aunque se redibuje la escena. Olas, nieve, árboles, rover y fuegos artificiales más finos.
+- El vehículo que asusta al gato depende del mundo: coche en la ciudad, lancha en la playa, tractor en el bosque, moto de nieve y rover en la Luna.
+- Zoom suave centrado en el puntero, mapa con inercia y arrastre con balanceo, sombra y rebote; respeta reducir movimiento.
+- Disfraz propio para los drones, menos personajes paseando a la vez (máx. 4 skills y 2 robots) y medallas de Wally y Papá Noel (49 en total).
+- Arreglo: la sesión ya no se va a General cuando sus agentes en segundo plano trabajan en otra carpeta.
+
 ## 1.0.2 — 2026-10-22
 - Easter egg: las tragaperras del casino se pueden jugar con un clic. Saca 777 para el jackpot (medallas Triple siete y Ludópata).
 

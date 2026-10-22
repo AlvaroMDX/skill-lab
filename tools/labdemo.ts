@@ -54,10 +54,10 @@ const model = {
   seasons: SEASONS,
   seasonNames: SEASON_NAMES,
   seasonWhen: SEASON_WHEN,
-  settings: { ...oldModel.settings, cats, skillSkin: 'pirata', agentSkin: 'alien', season: 'auto' },
+  settings: { ...oldModel.settings, cats, skillSkin: 'pirata', agentSkin: 'alien', droneSkin: 'vikingo', season: 'auto' },
 }
 for (const night of [false, true]) {
-  const r = renderScene({ roster, crew, agents: agents as any, now, pet: true, cats: cats as any, night, services: { 'https://a.example': { up: true, code: 200, ms: 120 }, 'https://b.example': { up: false, code: 502 } }, skillSkin: 'pirata', agentSkin: 'alien', season: 'auto' })
+  const r = renderScene({ roster, crew, agents: agents as any, now, pet: true, cats: cats as any, night, services: { 'https://a.example': { up: true, code: 200, ms: 120 }, 'https://b.example': { up: false, code: 502 } }, skillSkin: 'pirata', agentSkin: 'alien', droneSkin: 'vikingo', season: 'auto' })
   const msg = { type: 'scene', svg: r.svg, geo: r.geo, clockMode: night ? 'night' : 'day', stats: { asleep: r.asleep, working: r.working, strolling: r.strolling, sessions: r.sessions } }
   const extra = night ? '' : `setTimeout(()=>{const t=location.hash.slice(1);if(t)document.querySelector('[data-act=layout][data-tab=labs]').click();if(t&&t!=='layout')setTimeout(()=>document.querySelector('#drawer nav [data-tab='+t+']').click(),200)},800);`
   fs.writeFileSync(`${out}/${night ? 'night' : 'day'}.html`, `${head}

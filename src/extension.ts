@@ -26,9 +26,9 @@ let freshInstall = false
 // Preferences edited from the panel live in globalState: writing VS Code settings can fail silently
 // (a settings.json the editor refuses to touch), and then nothing the panel changed would stick.
 let prefs: vscode.Memento | undefined
-const PANEL_PREFS = ['sound', 'showPet', 'watchAllSessions', 'skipPermissions', 'cats', 'clockMode', 'skillSkin', 'agentSkin', 'season']
+const PANEL_PREFS = ['sound', 'showPet', 'watchAllSessions', 'skipPermissions', 'cats', 'clockMode', 'skillSkin', 'agentSkin', 'droneSkin', 'season']
 
-const skin = (key: 'skillSkin' | 'agentSkin'): Skin => {
+const skin = (key: 'skillSkin' | 'agentSkin' | 'droneSkin'): Skin => {
   const v = setting<string>(key, 'clasico')
   return SKINS.includes(v as Skin) ? (v as Skin) : 'clasico'
 }
@@ -160,7 +160,7 @@ class LabView implements vscode.WebviewViewProvider {
   <button class="primary" data-act="newAgent" title="Lanzar Claude Code en una carpeta"><svg viewBox="0 0 16 16"><path d="M7 2h2v5h5v2H9v5H7V9H2V7h5z"/></svg>Agent</button>
   <button data-act="layout" data-tab="labs" title="Editar labs y skills"><svg viewBox="0 0 16 16"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>Layout</button>
   <button data-act="layout" data-tab="settings" title="Ajustes"><svg viewBox="0 0 16 16"><path d="M7 1h2v2h2v2h2v2h2v2h-2v2h-2v2H9v2H7v-2H5v-2H3V9H1V7h2V5h2V3h2zm0 5v4h2V6z"/></svg>Settings</button>
-  <button data-act="layout" data-tab="medals" title="Medallas: los easter eggs que has encontrado">🏅 <span class="count">0/47</span></button>
+  <button data-act="layout" data-tab="medals" title="Medallas: los easter eggs que has encontrado">🏅 <span class="count">0/49</span></button>
 </div>
 <aside id="drawer" class="panel" aria-hidden="true">
   <header><h2>Layout</h2><button class="icon ghost" data-act="close" title="Cerrar"><svg viewBox="0 0 16 16"><path d="M3 3h2v2h2v2h2V5h2V3h2v2h-2v2h-2v2h2v2h2v2h-2v-2h-2V9H7v2H5v2H3v-2h2V9h2V7H5V5H3z"/></svg></button></header>
@@ -184,7 +184,7 @@ class LabView implements vscode.WebviewViewProvider {
     const night = darkness(new Date(now), clockMode()) >= 0.5
     const cats = catList()
     const services = monitor?.status ?? {}
-    const skins = { skillSkin: skin('skillSkin'), agentSkin: skin('agentSkin'), season: setting<string>('season', 'auto') }
+    const skins = { skillSkin: skin('skillSkin'), agentSkin: skin('agentSkin'), droneSkin: skin('droneSkin'), season: setting<string>('season', 'auto') }
     const signature = JSON.stringify([roster, crew, agents, LABS.map(l => [l.name, l.accent, l.width, l.row, l.theme, l.services]), setting('showPet', true), cats, night, WORLD, services, skins])
     if (!force && signature === this.lastSignature) return
     this.lastSignature = signature
@@ -231,6 +231,7 @@ class LabView implements vscode.WebviewViewProvider {
         skipPermissions: setting('skipPermissions', false),
         skillSkin: skin('skillSkin'),
         agentSkin: skin('agentSkin'),
+        droneSkin: skin('droneSkin'),
         season: setting<string>('season', 'auto'),
       },
     }
@@ -459,7 +460,7 @@ class LabView implements vscode.WebviewViewProvider {
           await setPref('cats', cats)
         } else if (msg.key === 'clockMode' && ['auto', 'day', 'night'].includes(msg.value)) {
           await setPref('clockMode', msg.value)
-        } else if ((msg.key === 'skillSkin' || msg.key === 'agentSkin') && SKINS.includes(msg.value)) {
+        } else if ((msg.key === 'skillSkin' || msg.key === 'agentSkin' || msg.key === 'droneSkin') && SKINS.includes(msg.value)) {
           await setPref(msg.key, msg.value)
         } else if (msg.key === 'season' && (SEASONS as readonly string[]).includes(msg.value)) {
           await setPref('season', msg.value)

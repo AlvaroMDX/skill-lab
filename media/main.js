@@ -334,13 +334,29 @@
   })
 
   function click(e) {
-    const hit = pick(e, '[data-skill],[data-session],[data-lab],[data-pet],[data-bag],[data-slot]')
+    const hit = pick(e, '[data-egg],[data-skill],[data-session],[data-lab],[data-pet],[data-bag],[data-slot]')
     if (!hit) return
+    if (hit.dataset.egg) return eggClick(hit, e)
     if (hit.dataset.slot) return playSlot(hit)
     if (hit.dataset.lab) return openDrawer('labs', hit.dataset.lab)
     if (hit.dataset.bag) return floatText(scenePoint(e), '🪰 ¡a la papelera!')
     if (hit.dataset.pet !== undefined) catClicks(hit, e)
     flashTag(keyOf(hit))
+  }
+
+  // hidden characters: Wally among the strollers, Santa crossing the Christmas night sky
+  function eggClick(hit, e) {
+    const p = scenePoint(e)
+    if (hit.dataset.egg === 'wally') {
+      floatText(p, '🔍 ¡Encontrado Wally!', 'big')
+      beep([659, 784, 988], 0.09)
+      return unlock('wally')
+    }
+    if (hit.dataset.egg === 'santa') {
+      floatText(p, '🎅 ¡Jo, jo, jo!', 'big')
+      beep([392, 494, 587, 784], 0.1)
+      return unlock('santa')
+    }
   }
 
   // casino slot machines: a click spins three reels over the machine; 777 is the jackpot (1 in 27)
@@ -1763,6 +1779,8 @@
     ['down', '🚨', 'Alerta roja', 'Pilla un servidor caído', 'world'],
     ['slot777', '🎰', 'Triple siete', 'Saca 777 en una tragaperras del casino', 'eggs'],
     ['slot50', '🪙', 'Ludópata', 'Juega 50 tiradas en la tragaperras', 'eggs'],
+    ['wally', '🔍', '¿Dónde está Wally?', 'Encuentra a Wally entre los paseantes y pínchale', 'eggs'],
+    ['santa', '🎅', 'Jo, jo, jo', 'Pincha a Papá Noel cuando cruce el cielo en Navidad', 'eggs'],
     ['all', '🏆', 'Coleccionista', 'Consigue todas las demás medallas', 'eggs'],
   ]
 
@@ -1923,6 +1941,7 @@
         <small class="muted">Adornos de temporada para todo el laboratorio.</small></section>
       <section class="card plain look"><span class="field"><span>Disfraz de las skills</span></span>${skinPicker('skill', 'skillSkin', 'ca', '#D97757')}
         <span class="field"><span>Disfraz de los robots</span></span>${skinPicker('agent', 'agentSkin', 'ag', '#3D85C6')}
+        <span class="field"><span>Disfraz de los drones</span></span>${skinPicker('drone', 'droneSkin', 'sd0', '#3D85C6')}
         <small class="muted">El cuerpo sigue tomando el color de su puesto.</small></section>
       <section class="card plain">
         <label class="field"><span>Vuelta a la litera <b id="delayVal">${s.returnDelay} s</b></span>
@@ -1991,7 +2010,7 @@
         b.addEventListener('click', () => {
           const kind = pick.dataset.kind
           pick.querySelectorAll('[data-skin]').forEach(x => x.classList.toggle('on', x === b))
-          vscode.postMessage({ type: 'setSetting', key: kind === 'skill' ? 'skillSkin' : 'agentSkin', value: b.dataset.skin })
+          vscode.postMessage({ type: 'setSetting', key: kind === 'skill' ? 'skillSkin' : kind === 'agent' ? 'agentSkin' : 'droneSkin', value: b.dataset.skin })
           emit('skin', { kind, skin: b.dataset.skin })
         }),
       ),
