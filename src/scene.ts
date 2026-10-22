@@ -1036,6 +1036,23 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     }
   })
 
+  // Sub-agents: a hovering mini drone with a spinning rotor; the band takes the puesto's colour, the shell follows the robots' costume.
+  const subagentDef = (id: string) => {
+    const look = AGENT_LOOK[AGENT_SKIN]
+    let s = `<ellipse rx="8" ry="2.5" fill="#000" opacity=".16"/>`
+    s += px(-0.4, -14.4, 0.8, 2.4, '#5B5650')
+    s += `<g transform="translate(0,${-14.6 * U})"><g>${px(-6, -0.4, 12, 0.8, '#3B3631')}${px(-6, -0.4, 2, 0.8, '#FFFFFF', ' opacity=".35"')}` +
+      `<animateTransform attributeName="transform" type="scale" values="1 1;.12 1;-1 1;.12 1;1 1" dur=".32s" repeatCount="indefinite"/></g></g>`
+    s += px(-5.4, -9.6, 1.4, 2.2, '#5B5650') + px(4, -9.6, 1.4, 2.2, '#5B5650')
+    s += px(-3, -12, 6, 1, look.shell) + px(-4, -11, 8, 5, look.shell) + px(-3, -6, 6, 1, look.shell) + px(-4, -7, 8, 1, '#000', ' opacity=".14"')
+    s += px(-3, -11.6, 2, 0.8, '#FFFFFF', ' opacity=".4"')
+    s += px(-4, -8.6, 8, 1.3, 'currentColor')
+    s += px(-1.6, -10.6, 3.2, 1.8, look.visor) + px(-0.7, -10.2, 1.4, 1, look.eyes)
+    s += px(-1, -5, 2, 0.8, look.eyes, ' opacity=".5"')
+    return `<g id="${id}" shape-rendering="crispEdges">${s}</g>`
+  }
+  out.push(`<defs>${subagentDef('sd')}</defs>`)
+
   // Claude sessions and their sub-agents; idle ones go for a walk by day
   const agentsPerRoom = new Map<string, number>()
   const strollingAgents: AgentView[] = []
@@ -1063,7 +1080,7 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     const fy = Math.max(room.y0 + 0.5, Math.min(spot.y + 0.7, room.y1 - 0.4 - (rows - 1) * 0.7))
     subs.forEach((sub, j) => {
       const [qx, qy] = iso(fx + (j % 5) * 0.7, fy + Math.floor(j / 5) * 0.7)
-      svg += `<g ${tr([qx, qy])}><title>subagente · ${esc(sub.label)}</title><g>${bob(1.5, 0.45, j * 0.1)}${useSprite('ag', '#E9A07E', 0, 0, 0.6)}</g></g>`
+      svg += `<g ${tr([qx, qy])}><title>subagente · ${esc(sub.label)}</title><g>${bob(1.5, 0.45, j * 0.1)}<use href="#sd" color="${labById(a.lab).accent}" transform="scale(.75)"/></g></g>`
     })
     layer.push({ depth: spot.x + spot.y, svg })
   }
