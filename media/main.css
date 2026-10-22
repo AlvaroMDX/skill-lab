@@ -331,3 +331,20 @@ button.wide { width: 100%; justify-content: center; }
 .svc-dot.down { background: #FF3B30; animation: svc-blink .6s steps(1) infinite; }
 @keyframes svc-pulse { 50% { opacity: .45; } }
 @keyframes svc-blink { 50% { opacity: 0; } }
+/* look: world, season, costumes and palettes */
+.world-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.skin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; flex: 1; min-width: 0; }
+button.pick { flex-direction: column; gap: 2px; padding: 5px 2px; justify-content: center; min-width: 0; }
+button.pick i { font-style: normal; font-size: 17px; line-height: 1; }
+button.pick span { font-size: 9.5px; font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skin-grid button.pick { padding: 3px 2px; }
+.skin-grid button.pick i { font-size: 14px; }
+.skin-pick { display: flex; gap: 6px; align-items: stretch; }
+.skin-preview { width: 52px; flex: none; background: #1f1b18; border: 2px solid var(--edge); box-shadow: var(--px-in); shape-rendering: crispEdges; }
+.look select { width: 100%; }
+.palettes { display: flex; flex-direction: column; gap: 4px; }
+button.palette { display: grid; grid-template-columns: 82px 1fr; gap: 8px; padding: 5px 7px; text-align: left; }
+button.palette .pname { font-size: 11px; white-space: nowrap; }
+button.palette .pname b { color: #9be3a6; margin-left: 3px; }
+button.palette .chips { display: flex; height: 14px; border: 2px solid var(--edge); }
+button.palette .chips i { flex: 1; }

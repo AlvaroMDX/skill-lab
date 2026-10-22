@@ -3,10 +3,11 @@ import * as os from 'os'
 import * as path from 'path'
 import * as vscode from 'vscode'
 
-import { FALLBACK_LAB, HIDDEN, LABS, PALETTES, PALETTE_NAME, PROJECTS_ROOT, RETURN_DELAY_MS, SKILL_LAB, THEMES, WORLD, WORLDS, applyConfig, defaultConfig, folderRule } from './labs'
+import { FALLBACK_LAB, HIDDEN, LABS, PALETTES, PALETTE_NAME, PROJECTS_ROOT, RETURN_DELAY_MS, SKILL_LAB, THEMES, WORLD, WORLDS, applyConfig, defaultConfig, folderRule, paintWithPalette } from './labs'
 import type { LabConfig, Theme } from './labs'
 import { COATS, SKINS, colorOf, darkness, renderScene } from './scene'
 import type { Cat, ClockMode, Skin } from './scene'
+import { SEASONS } from './season'
 import { ServiceMonitor } from './services'
 import { Tracker, countPastUses } from './tracker'
 
@@ -205,6 +206,7 @@ class LabView implements vscode.WebviewViewProvider {
       palette: PALETTE_NAME,
       palettes: PALETTES,
       skins: SKINS,
+      seasons: SEASONS,
       projectsRoot: PROJECTS_ROOT,
       medals: this.ctx.globalState.get<Record<string, number>>(MEDALS_KEY, {}),
       needsSetup: freshInstall && !this.ctx.globalState.get(SETUP_KEY),
@@ -316,6 +318,16 @@ class LabView implements vscode.WebviewViewProvider {
         return openLayout()
       case 'vscodeSettings':
         return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.ctx.extension.id}`)
+      case 'setWorld':
+        if (!WORLDS.includes(msg.world)) return
+        writeConfig(cfg => {
+          cfg.world = msg.world
+        })
+        return this.refreshAll()
+      case 'applyPalette':
+        if (!PALETTES[msg.name]) return
+        writeConfig(cfg => paintWithPalette(cfg, msg.name))
+        return this.refreshAll()
       case 'setLab':
         writeConfig(cfg => {
           cfg.labs ??= {}
@@ -445,6 +457,10 @@ class LabView implements vscode.WebviewViewProvider {
           await setPref('cats', cats)
         } else if (msg.key === 'clockMode' && ['auto', 'day', 'night'].includes(msg.value)) {
           await setPref('clockMode', msg.value)
+        } else if ((msg.key === 'skillSkin' || msg.key === 'agentSkin') && SKINS.includes(msg.value)) {
+          await setPref(msg.key, msg.value)
+        } else if (msg.key === 'season' && (SEASONS as readonly string[]).includes(msg.value)) {
+          await setPref('season', msg.value)
         }
         return this.refreshAll()
       case 'exportLayout': {
