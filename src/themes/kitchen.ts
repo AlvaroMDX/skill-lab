@@ -1,5 +1,5 @@
 import type { RoomGeom, Station, ThemeModule } from '../scene'
-import { agentSpotsAt, boxT, columns, hash, iso, pts, r, T, withSpares } from '../scene'
+import { boxT, columns, hash, iso, pts, r, shade, T, withSpares } from '../scene'
 
 const STEEL = '#B9BEC5'
 const BLOCK = '#C89B6A'
@@ -73,6 +73,13 @@ function utensils(room: RoomGeom, x0: number, x1: number) {
   return s
 }
 
+// a cook stands this far in front of the island, and works on the middle of its top
+const GAP = 0.45
+const ISLAND_DEPTH = 0.8
+const TOP_Z = 14
+// t of the side of [ta, tb] nearest to the viewer, pushed out by gap: rows below see the far wall up front
+const nearT = (room: RoomGeom, ta: number, tb: number, gap: number) => (room.top ? tb + gap : ta - gap)
+
 export const kitchen: ThemeModule = {
   floor: '#ECE6DA',
   furnish(room, lab, active) {
@@ -89,15 +96,32 @@ export const kitchen: ThemeModule = {
       wall += `<path d="${grout}" stroke="#D8D3C8" stroke-width=".8"/>`
     }
     const units: number[] = []
-    for (let x = room.x0 + 0.3; x + 1.2 <= room.x1 - 0.3; x += 1.25) units.push(x)
+    if (room.top) for (let x = room.x0 + 0.3; x + 1.2 <= room.x1 - 0.3; x += 1.25) units.push(x)
+    else {
+      // up front in a row below a range would hide the cooks: low crates of vegetables instead
+      const veg = ['#E2463A', '#F07B2C', '#7FB04F', '#F2C14E', '#B05BB0']
+      for (let x = room.x0 + 0.4, k = 0; x + 0.7 <= room.x1 - 0.3; x += 0.85, k++) {
+        wall += boxT(room, x, 0.15, 0.75, 0, 0.7, 5, '#B8894E')
+        const c = veg[k % veg.length]!
+        for (const [dx, dt] of [[0.18, 0.3], [0.42, 0.3], [0.3, 0.55], [0.55, 0.55]] as const) {
+          const [vx, vy] = iso(x + dx, T(room, dt), 5)
+          wall += `<circle cx="${r(vx)}" cy="${r(vy - 1.5)}" r="2.2" fill="${c}"/><rect x="${r(vx - 1)}" y="${r(vy - 3)}" width="1" height="1" fill="#FFF" opacity=".4"/>`
+        }
+      }
+    }
     units.forEach((x, k) => {
       wall += boxT(room, x, 0.1, 0.8, 0, 1.2, 14, STEEL)
       wall += quad(faceAt(room, x + 0.12, x + 1.08, 0.8, 2, 10), '#3B3F46') + quad(faceAt(room, x + 0.3, x + 0.9, 0.8, 4, 8), active ? '#FF9A4A' : '#5A4A42', active ? `<animate attributeName="opacity" values="1;.6;1" dur="${r(1.2 + k * 0.3)}s" repeatCount="indefinite"/>` : '')
       wall += quad(faceAt(room, x + 0.1, x + 1.1, 0.8, 11, 12.4), '#8C9199')
+      if (active) {
+        // the oven glow carries on at night
+        const [gx, gy] = iso(x + 0.6, T(room, 0.8), 6)
+        wall += `<ellipse cx="${r(gx)}" cy="${r(gy)}" rx="12" ry="7" fill="url(#lamp)" class="lamp-light" pointer-events="none"/>`
+      }
       for (const [j, bx] of [x + 0.32, x + 0.88].entries()) {
         const [cx, cy] = iso(bx, T(room, 0.45), 14)
         const seed = hash(`${room.id}${k}${j}`)
-        wall += `<ellipse cx="${r(cx)}" cy="${r(cy)}" rx="5" ry="2.5" fill="#2B2F35"/>`
+        wall += `<ellipse cx="${r(cx)}" cy="${r(cy)}" rx="5" ry="2.5" fill="#2B2F35"/><ellipse cx="${r(cx)}" cy="${r(cy)}" rx="3" ry="1.4" fill="none" stroke="#454B55" stroke-width=".8"/>`
         if (active) wall += flame(cx, cy + 0.5, (seed % 7) / 10)
         if ((k + j) % 2 === 0) wall += pot(cx, cy - 1, j ? lab.accent : '#C8423A', active, (seed % 11) / 10)
         else if (k % 2 === 0) wall += pan(cx, cy, active, (seed % 9) / 10)
@@ -111,6 +135,7 @@ export const kitchen: ThemeModule = {
       for (let x = hx + 0.3; x < hx + hw; x += 0.9) {
         const [lx, ly] = iso(x, T(room, 0.85), 22)
         wall += `<rect x="${r(lx - 2)}" y="${r(ly - 1)}" width="4" height="1.6" fill="#FFE6A0" opacity="${active ? 1 : 0.4}"/>`
+        if (active) wall += `<ellipse cx="${r(lx)}" cy="${r(ly + 9)}" rx="8" ry="10" fill="url(#lamp)" class="lamp-light" pointer-events="none"/>`
       }
       wall += utensils(room, hx + hw + 0.3, room.x1 - 0.3)
     }
@@ -118,39 +143,70 @@ export const kitchen: ThemeModule = {
 
     // two islands with a butcher-block top, a pot, a pan or a cutting board at every place
     const stations: Station[] = []
-    for (const t of [2.5, 4.9]) {
-      let s = boxT(room, room.x0 + 1, t, t + 0.8, 0, w - 2.4, 12, STEEL) + boxT(room, room.x0 + 0.95, t - 0.05, t + 0.85, 12, w - 2.3, 2, BLOCK)
-      for (let x = room.x0 + 1.4; x < room.x1 - 1.6; x += 0.7) s += quad(faceAt(room, x, x + 0.4, t + 0.8, 7, 7.8), '#7A7F87')
+    for (const t of [2.0, 5.2]) {
+      let s = boxT(room, room.x0 + 1, t, t + ISLAND_DEPTH, 0, w - 2.4, 12, STEEL) + boxT(room, room.x0 + 0.95, t - 0.05, t + ISLAND_DEPTH + 0.05, 12, w - 2.3, 2, BLOCK)
+      // drawer handles on the side the cooks stand at
+      const ht = nearT(room, t, t + ISLAND_DEPTH, 0)
+      for (let x = room.x0 + 1.4; x < room.x1 - 1.6; x += 0.7) s += quad(faceAt(room, x, x + 0.4, ht, 7, 7.8), '#7A7F87')
       columns(room, 1.4, 1.6).forEach((x, k) => {
         const seed = hash(`${room.id}${x}${t}`)
-        const [cx, cy] = iso(x, T(room, t + 0.4), 14)
+        const [cx, cy] = iso(x, T(room, t + ISLAND_DEPTH / 2), TOP_Z)
         const kind = (k + (t > 3 ? 1 : 0)) % 3
-        s += kind === 0 ? pot(cx, cy, k % 2 ? lab.accent : '#5E6A7A', active, (seed % 13) / 10) : kind === 1 ? pan(cx, cy, active, (seed % 9) / 10) : board(room, x, t + 0.4)
-        stations.push({ x, y: T(room, t + 0.8 + 0.45), kind: 'kitchen' })
+        s += kind === 0 ? pot(cx, cy, k % 2 ? lab.accent : '#5E6A7A', active, (seed % 13) / 10) : kind === 1 ? pan(cx, cy, active, (seed % 9) / 10) : board(room, x, t + ISLAND_DEPTH / 2)
+        stations.push({ x, y: T(room, nearT(room, t, t + ISLAND_DEPTH, GAP)), kind: 'kitchen' })
       })
       parts.push({ t, svg: s })
     }
     parts.sort((a, b) => (room.top ? a.t - b.t : b.t - a.t))
-    return { svg: floorTiles(room) + parts.map(p => p.svg).join(''), stations: withSpares(room, stations, 'kitchen'), agentSpots: agentSpotsAt(room, 1.3) }
+    // the robots wait between the range and the first island above, by the door below
+    const spotT = room.top ? 1.3 : 6.75
+    return { svg: floorTiles(room) + parts.map(p => p.svg).join(''), stations: withSpares(room, stations, 'kitchen'), agentSpots: [0, 1, 2].map(n => ({ x: room.x0 + 1.9 + n * 1.4, y: T(room, spotT) })).filter(p => p.x < room.x1 - 1) }
   },
+  // cooking on the island behind: stirring a pot, sautéing in a pan or chopping on a board, all on the spot where the island's own piece sits
   work(seed, accent) {
-    const b = r((seed % 14) / 10)
-    const flip = seed % 2 === 1
-    const tool = flip
-      ? // tossing a pancake: the pan jerks up and the pancake jumps out and back
-        `<g transform="translate(8,-9)"><g><animateTransform attributeName="transform" type="translate" values="0 0;0 -2;0 0" dur="1.3s" begin="${b}s" repeatCount="indefinite"/>` +
-        `<rect x="5" y="-1" width="6" height="1.6" fill="#4A3527"/><ellipse rx="6" ry="2.4" fill="#2B2F35"/></g>` +
-        `<ellipse rx="3.6" ry="1.4" fill="#E9B45F"><animate attributeName="cy" values="-1;-14;-1" keyTimes="0;.45;1" dur="1.3s" begin="${b}s" repeatCount="indefinite"/></ellipse></g>`
-      : // stirring a pot with a wooden spoon
-        `<g transform="translate(9,-8)"><ellipse cy="2" rx="5.5" ry="2.4" fill="${accent}"/><rect x="-5.5" y="-3" width="11" height="5" fill="${accent}"/><ellipse cy="-3" rx="5.5" ry="2.4" fill="#D9822B"/>` +
-        `<g><animateTransform attributeName="transform" type="rotate" values="-25;25;-25" dur=".9s" begin="${b}s" repeatCount="indefinite"/><rect x="-.7" y="-12" width="1.4" height="10" fill="#A27552"/></g></g>` +
-        steam(9, -12, b)
+    const b = r((seed % 19) / 10)
+    // middle of the island top, seen from the cook's feet
+    const ox = r((GAP + ISLAND_DEPTH / 2) * 18)
+    const oy = r(-(GAP + ISLAND_DEPTH / 2) * 9 - TOP_Z)
+    const kind = seed % 3
+    const lean = (dur: number) => `<animateTransform attributeName="transform" type="rotate" values="1;4;1" keyTimes="0;.5;1" keySplines=".4 0 .6 1;.4 0 .6 1" calcMode="spline" dur="${dur}s" begin="${b}s" repeatCount="indefinite"/>`
+    let tool = ''
+    let dur = 1
+    if (kind === 0) {
+      // stirring: the spoon handle circles over the pot, the steam rises from its middle
+      dur = r(1.1 + (seed % 4) * 0.1)
+      tool =
+        `<g transform="translate(${ox},${oy})"><ellipse cy="1" rx="6.4" ry="3" fill="${shade(accent, 0.7)}"/><rect x="-6.4" y="-6" width="12.8" height="7" fill="${accent}"/><rect x="2" y="-5" width="3" height="5" fill="#000" opacity=".12"/>` +
+        `<ellipse cy="-6" rx="6.4" ry="3" fill="${shade(accent, 1.2)}"/><ellipse cy="-5.6" rx="5" ry="2.2" fill="#D9822B"/>` +
+        `<g><animateMotion path="M3 -6 A3.4 1.4 0 1 1 -3 -6 A3.4 1.4 0 1 1 3 -6" dur="${dur}s" begin="${b}s" repeatCount="indefinite"/><rect x="-.7" y="-12" width="1.4" height="7" fill="#A27552"/><ellipse cy="-5" rx="1.4" ry=".7" fill="#A27552"/></g>` +
+        `<circle cx="-2" cy="-5.6" r=".8" fill="#F4D58D"/><circle cx="2.4" cy="-5.2" r=".7" fill="#7FB04F"/>` +
+        steam(0, -10, b) + `</g>`
+    } else if (kind === 1) {
+      // sautéing: the pan jerks up and the food jumps out of it and lands back in
+      dur = r(1.2 + (seed % 4) * 0.1)
+      const jerk = `<animateTransform attributeName="transform" type="translate" values="0 0;-1 -3;0 0;0 0" keyTimes="0;.15;.35;1" dur="${dur}s" begin="${b}s" repeatCount="indefinite"/>`
+      const bits = [[-2, '#E2463A'], [0.5, '#7FB04F'], [3, '#F2C14E']]
+        .map(([dx, c], k) => `<rect x="${dx}" y="-3" width="1.8" height="1.8" fill="${c}"><animate attributeName="y" values="-3;-3;${-11 - k * 2};-3;-3" keyTimes="0;.12;.42;.7;1" keySplines="0 0 1 1;.2 .7 .5 1;.5 0 .8 .3;0 0 1 1" calcMode="spline" dur="${dur}s" begin="${b}s" repeatCount="indefinite"/></rect>`)
+        .join('')
+      tool =
+        `<g transform="translate(${ox},${oy})"><g>${jerk}<rect x="-14" y="-2.6" width="8" height="2" fill="#4A3527"/><ellipse cy="-1" rx="7" ry="3.4" fill="#2B2F35"/><ellipse cy="-1.5" rx="5.6" ry="2.6" fill="#454B55"/>${bits}</g>` +
+        `<path d="M-4 1q1 -3 4 -4q3 1 4 4z" fill="#FF8A3D" opacity=".9"><animate attributeName="opacity" values=".9;.5;.9" dur=".3s" repeatCount="indefinite"/></path>` +
+        `<text x="6" y="-8" font-size="5" font-weight="700" fill="#C8644A" opacity="0">tss<animate attributeName="opacity" values="0;0;1;0" keyTimes="0;.3;.45;1" dur="${dur}s" begin="${b}s" repeatCount="indefinite"/></text></g>`
+    } else {
+      // chopping: the knife taps down on the carrot and the slices pile up beside it
+      dur = r(0.45 + (seed % 3) * 0.05)
+      const chop = `<animateTransform attributeName="transform" type="translate" values="0 -3;0 0;0 -3" keyTimes="0;.3;1" dur="${dur}s" begin="${b}s" repeatCount="indefinite"/>`
+      tool =
+        `<g transform="translate(${ox},${oy})"><path d="M-8 0l7 3.5l9 -4.5l-7 -3.5z" fill="#E7BE88" stroke="#C99A62" stroke-width=".6"/>` +
+        `<rect x="-5" y="-2.4" width="6" height="2" rx="1" fill="#F07B2C"/><rect x="1" y="-2.6" width="1" height="1" fill="#7FB04F"/>` +
+        [0, 1, 2].map(k => `<ellipse cx="${3 + k * 1.6}" cy="${-0.6 + k * 0.4}" rx="1.1" ry=".7" fill="#F07B2C"/>`).join('') +
+        `<g>${chop}<path d="M1 -3h6l-1 -2.4h-5z" fill="#D5D9DE"/><rect x="7" y="-5.4" width="3.4" height="1.6" fill="#3B3F46"/></g></g>`
+    }
     return {
-      move: `<animateTransform attributeName="transform" type="rotate" values="-3;3;-3" dur="${flip ? 1.3 : 0.9}s" begin="${b}s" repeatCount="indefinite"/>`,
+      move: lean(dur),
       extra:
         tool +
-        `<text x="-14" y="-22" font-size="8" opacity="0">${flip ? '🍳' : '🔥'}<animate attributeName="opacity" values="0;0;1;0" keyTimes="0;.7;.8;1" dur="5.4s" begin="${b}s" repeatCount="indefinite"/></text>` +
-        `<text x="8" y="-26" font-size="6" fill="#FF8A3D" opacity="0">✦<animate attributeName="opacity" values="0;1;0" dur="1.7s" begin="${r(b + 0.5)}s" repeatCount="indefinite"/></text>`,
+        `<text x="-15" y="-22" font-size="8" opacity="0">${kind === 1 ? '🍳' : kind === 0 ? '🥄' : '🥕'}<animate attributeName="opacity" values="0;0;1;0" keyTimes="0;.7;.8;1" dur="${r(dur * 5)}s" begin="${b}s" repeatCount="indefinite"/></text>`,
     }
   },
 }
