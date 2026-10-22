@@ -1055,8 +1055,14 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     let svg =
       `<g data-session="${esc(a.id)}" data-home="${r(spot.x)},${r(spot.y)}" data-color="${CLAUDE}" style="cursor:pointer" ${tr([sx, sy])}${a.activity === 'idle' ? ' opacity=".6"' : ''}><title>${esc(a.label)} · ${a.activity === 'idle' ? 'en reposo' : a.activity}</title>` +
       `<g>${working ? bob(gym ? 3 : 2, gym ? 0.25 : 0.6) : ''}${useSprite('ag', CLAUDE, 0, 0, 1)}</g>${gym ? sweat(hash(a.id)) : ''}${bubble(a.activity, -50)}${label(a.label, -38, 8)}</g>`
-    a.subagents.slice(0, 4).forEach((sub, j) => {
-      const [qx, qy] = iso(spot.x + 0.6 + (j % 2) * 0.55, spot.y + 0.6 + Math.floor(j / 2) * 0.5)
+    // up to 10 sub-agents in rows of 5, shifted so the whole block stays inside the room
+    const subs = a.subagents.slice(0, 10)
+    const cols = Math.min(subs.length, 5)
+    const rows = Math.ceil(subs.length / 5)
+    const fx = Math.max(room.x0 + 0.5, Math.min(spot.x + 0.5, room.x1 - 0.5 - (cols - 1) * 0.7))
+    const fy = Math.max(room.y0 + 0.5, Math.min(spot.y + 0.7, room.y1 - 0.4 - (rows - 1) * 0.7))
+    subs.forEach((sub, j) => {
+      const [qx, qy] = iso(fx + (j % 5) * 0.7, fy + Math.floor(j / 5) * 0.7)
       svg += `<g ${tr([qx, qy])}><title>subagente · ${esc(sub.label)}</title><g>${bob(1.5, 0.45, j * 0.1)}${useSprite('ag', '#E9A07E', 0, 0, 0.6)}</g></g>`
     })
     layer.push({ depth: spot.x + spot.y, svg })

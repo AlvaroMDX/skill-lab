@@ -872,7 +872,17 @@
     const working = id => model.skills.filter(sk => sk.lab === id).length
     const themeOptions = sel => THEMES.map(([v, label]) => `<option value="${v}"${v === sel ? ' selected' : ''}>${label}</option>`).join('')
     const root = model.projectsRoot
+    const palettes = model.palettes || {}
+    if (!palettes[pickedPalette]) pickedPalette = palettes[model.palette] ? model.palette : Object.keys(palettes)[0] || ''
+    const paletteRows = Object.entries(palettes)
+      .map(([id, colors]) => `<button class="palette${id === pickedPalette ? ' on' : ''}" data-palette="${id}" aria-pressed="${id === pickedPalette}"><span class="pname">${PALETTE_NAMES[id] || id}${id === model.palette ? ' <b title="Paleta actual">✓</b>' : ''}</span><span class="chips">${colors.map(c => `<i style="background:${c}"></i>`).join('')}</span></button>`)
+      .join('')
     drawerBody.innerHTML =
+      (paletteRows
+        ? `<section class="card plain look"><span class="field"><span>Paleta de colores</span></span><div class="palettes">${paletteRows}</div>
+        <button id="applyPalette" class="primary wide">🎨 Pintar todos los puestos</button>
+        <small class="muted">Repinta los carteles en orden; los puestos nuevos también la usarán.</small></section>`
+        : '') +
       `<section class="card plain root"><span class="field"><span>Carpeta de proyectos</span></span>
         <div class="row"><span class="path${root ? '' : ' empty'}" title="${esc(root || '')}">${esc(root || 'sin elegir')}</span><button data-msg="pickRoot">📁 Elegir…</button></div>
         <div class="row two"><button data-msg="detectLabs"${root ? '' : ' disabled'}>🔍 Crear puestos</button><button data-msg="addLab">+ Puesto vacío</button></div>
@@ -899,6 +909,21 @@
         }),
       )
     })
+    drawerBody.querySelectorAll('[data-palette]').forEach(b =>
+      b.addEventListener('click', () => {
+        pickedPalette = b.dataset.palette
+        drawerBody.querySelectorAll('[data-palette]').forEach(x => {
+          x.classList.toggle('on', x === b)
+          x.setAttribute('aria-pressed', String(x === b))
+        })
+      }),
+    )
+    const apply = $('applyPalette')
+    if (apply)
+      apply.addEventListener('click', () => {
+        vscode.postMessage({ type: 'applyPalette', name: pickedPalette })
+        emit('palette', pickedPalette)
+      })
     drawerBody.querySelectorAll('[data-folder]').forEach(b => b.addEventListener('click', () => vscode.postMessage({ type: 'pickLabFolder', id: b.dataset.folder })))
     drawerBody.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => vscode.postMessage({ type: 'removeLab', id: b.dataset.remove })))
     drawerBody.querySelectorAll('button[data-msg]').forEach(b => b.addEventListener('click', () => vscode.postMessage({ type: b.dataset.msg })))
@@ -1014,12 +1039,31 @@
     scrollToFocus()
   }
 
+  const WORLD_NAMES = { city: ['🏙️', 'Ciudad'], beach: ['🏖️', 'Playa'], forest: ['🌲', 'Bosque'], snow: ['❄️', 'Nieve'], moon: ['🌙', 'Luna'] }
+  const SKIN_NAMES = { clasico: ['🙂', 'Clásico'], pirata: ['🏴‍☠️', 'Pirata'], alien: ['👽', 'Alien'], astronauta: ['🧑‍🚀', 'Astronauta'], mago: ['🧙', 'Mago'], vaquero: ['🤠', 'Vaquero'], ninja: ['🥷', 'Ninja'], chef: ['👨‍🍳', 'Chef'], vikingo: ['🪓', 'Vikingo'] }
+  const SEASON_NAMES = { auto: '📅 Automática (según la fecha)', off: '🚫 Ninguna', halloween: '🎃 Halloween', navidad: '🎄 Navidad', verano: '☀️ Verano', primavera: '🌸 Primavera', otono: '🍂 Otoño', invierno: '⛄ Invierno', carnaval: '🎭 Carnaval', sanvalentin: '💘 San Valentín', pascua: '🐣 Pascua', feria: '💃 Feria' }
+  // seasons added later still get a readable name
+  const seasonName = v => SEASON_NAMES[v] || v.charAt(0).toUpperCase() + v.slice(1)
+  const PALETTE_NAMES = { calidos: 'Cálidos', pasteles: 'Pasteles', multicolor: 'Multicolor', frios: 'Fríos', neon: 'Neón', tierra: 'Tierra' }
+  let pickedPalette = ''
+
   function renderSettings() {
     const s = model.settings
     const toggle = (key, label, hint, warn) => `<label class="toggle${warn ? ' warn' : ''}"><input type="checkbox" data-key="${key}"${s[key] ? ' checked' : ''}><span class="sw"></span><span><b>${label}</b><small>${hint}</small></span></label>`
     const coatOptions = sel => COATS.map(c => `<option value="${c}"${c === sel ? ' selected' : ''}>${c}</option>`).join('')
     const cats = s.cats.map((c, i) => `<div class="catrow" data-i="${i}"><select data-f="coat">${coatOptions(c.coat)}</select><input data-f="name" value="${esc(c.name)}" maxlength="24" spellcheck="false"><button class="icon ghost-btn" data-del="${i}" title="Quitar">✕</button></div>`).join('')
+    const worlds = (model.worlds || []).map(w => { const [icon, name] = WORLD_NAMES[w] || ['🌍', w]; return `<button class="pick${w === model.world ? ' on' : ''}" data-world="${w}" title="${name}"><i>${icon}</i><span>${name}</span></button>` }).join('')
+    const seasonOptions = (model.seasons || ['auto', 'off']).map(v => `<option value="${v}"${v === s.season ? ' selected' : ''}>${seasonName(v)}</option>`).join('')
+    const skinPicker = (kind, key, sprite, color) => `<div class="skin-pick" data-kind="${kind}"><svg class="skin-preview" viewBox="-17 -40 34 44" aria-hidden="true"><use href="#${sprite}" color="${color}"/></svg>
+      <div class="skin-grid">${(model.skins || []).map(v => { const [icon, name] = SKIN_NAMES[v] || ['🙂', v]; return `<button class="pick${v === s[key] ? ' on' : ''}" data-skin="${v}" title="${name}"><i>${icon}</i><span>${name}</span></button>` }).join('')}</div></div>`
     drawerBody.innerHTML = `
+      <section class="card plain look"><span class="field"><span>Mundo</span></span><div class="world-grid">${worlds}</div>
+        <small class="muted">Lo que rodea al edificio.</small></section>
+      <section class="card plain look"><label class="field"><span>Temporada</span><select id="season">${seasonOptions}</select></label>
+        <small class="muted">Adornos de temporada para todo el laboratorio.</small></section>
+      <section class="card plain look"><span class="field"><span>Disfraz de las skills</span></span>${skinPicker('skill', 'skillSkin', 'ca', '#D97757')}
+        <span class="field"><span>Disfraz de los robots</span></span>${skinPicker('agent', 'agentSkin', 'ag', '#3D85C6')}
+        <small class="muted">El cuerpo sigue tomando el color de su puesto.</small></section>
       <section class="card plain">
         <label class="field"><span>Vuelta a la litera <b id="delayVal">${s.returnDelay} s</b></span>
         <input id="delay" type="range" min="3" max="120" step="1" value="${s.returnDelay}"></label>
@@ -1070,6 +1114,28 @@
       closeDrawer()
       openSetup()
     })
+    drawerBody.querySelectorAll('[data-world]').forEach(b =>
+      b.addEventListener('click', () => {
+        const world = b.dataset.world
+        drawerBody.querySelectorAll('[data-world]').forEach(x => x.classList.toggle('on', x === b))
+        vscode.postMessage({ type: 'setWorld', world })
+        emit('world', world)
+      }),
+    )
+    $('season').addEventListener('change', e => {
+      vscode.postMessage({ type: 'setSetting', key: 'season', value: e.target.value })
+      emit('season', e.target.value)
+    })
+    drawerBody.querySelectorAll('.skin-pick').forEach(pick =>
+      pick.querySelectorAll('[data-skin]').forEach(b =>
+        b.addEventListener('click', () => {
+          const kind = pick.dataset.kind
+          pick.querySelectorAll('[data-skin]').forEach(x => x.classList.toggle('on', x === b))
+          vscode.postMessage({ type: 'setSetting', key: kind === 'skill' ? 'skillSkin' : 'agentSkin', value: b.dataset.skin })
+          emit('skin', { kind, skin: b.dataset.skin })
+        }),
+      ),
+    )
     drawerBody.querySelectorAll('input[data-key]').forEach(cb => cb.addEventListener('change', () => vscode.postMessage({ type: 'setSetting', key: cb.dataset.key, value: cb.checked })))
     drawerBody.querySelectorAll('button[data-msg]').forEach(b => b.addEventListener('click', () => vscode.postMessage({ type: b.dataset.msg })))
   }
