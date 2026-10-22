@@ -7,8 +7,21 @@ import { D, H, Y_MAX, box, floorQuad, iso, poly, pts, r, shade } from './scene'
 
 type Props = { svg: string; lamps: string[] }
 
+// The svg is replaced on every redraw, which restarts SMIL at 0: begins follow the wall clock so loops carry on where they were.
+let CLOCK = 0
+const sync = () => (CLOCK = Date.now() / 1000)
+const begin = (dur: number, off = 0) => `begin="${-Math.round((((CLOCK + off) % dur) + dur) % dur * 1000) / 1000}s"`
+const anim = (attr: string, values: string, dur: number, off = 0, extra = '') =>
+  `<animate attributeName="${attr}" values="${values}" dur="${dur}s" ${begin(dur, off)}${extra} repeatCount="indefinite"/>`
+const EASE = '.45 0 .55 1'
+const eased = (n: number) => ` calcMode="spline" keySplines="${Array(n).fill(EASE).join(';')}"`
+// gentle back-and-forth rotation about a pivot (trees, fronds, boats)
+const sway = (deg: number, cx: number, cy: number, dur: number, off: number) =>
+  `<animateTransform attributeName="transform" type="rotate" values="${-deg} ${r(cx)} ${r(cy)};${deg} ${r(cx)} ${r(cy)};${-deg} ${r(cx)} ${r(cy)}" dur="${dur}s" ${begin(dur, off)}${eased(2)} repeatCount="indefinite"/>`
+
 // Ground under everything: the island of terrain the building sits on, and the sky around it.
 export function worldGround(W: number, viewW: number, viewH: number) {
+  sync()
   switch (WORLD) {
     case 'beach':
       return stars(viewW, viewH, true) + beachGround(W)
@@ -25,6 +38,7 @@ export function worldGround(W: number, viewW: number, viewH: number) {
 
 // Props drawn in front of the building, plus the light each one casts at night (shown through the dark shade).
 export function worldProps(W: number): Props {
+  sync()
   switch (WORLD) {
     case 'beach':
       return beachProps(W)
@@ -41,6 +55,7 @@ export function worldProps(W: number): Props {
 
 // Weather or sky effects above the characters (snowfall, gulls, shooting stars).
 export function worldOverlay(_W: number, viewW: number, viewH: number) {
+  sync()
   switch (WORLD) {
     case 'snow':
       return snowfall(viewW, viewH)
@@ -120,8 +135,16 @@ function stars(viewW: number, viewH: number, nightOnly: boolean) {
     const x = rnd(500 + i) * viewW
     const y = rnd(900 + i) * viewH * 0.6
     const size = rnd(1300 + i) < 0.2 ? 2.5 : 1.5
-    const blink = i % 4 === 0 ? `<animate attributeName="opacity" values="1;.25;1" dur="${r(2 + rnd(1700 + i) * 3)}s" repeatCount="indefinite"/>` : ''
-    s += `<rect x="${r(x)}" y="${r(y)}" width="${size}" height="${size}" fill="#FFF8E0">${blink}</rect>`
+    const dur = r(2.5 + rnd(1700 + i) * 4)
+    // a short dip now and then reads as twinkling; a steady fade looks like breathing
+    const blink = i % 3 === 0 ? anim('opacity', '1;1;.2;1;1', dur, rnd(1800 + i) * dur, ' keyTimes="0;.55;.62;.7;1"') : ''
+    s += `<rect x="${r(x)}" y="${r(y)}" width="${size}" height="${size}" fill="${i % 7 === 0 ? '#CFE0FF' : '#FFF8E0'}" opacity="${r(0.55 + rnd(1900 + i) * 0.45)}">${blink}</rect>`
+  }
+  // a few bright ones with a cross glint
+  for (let i = 0; i < 4; i++) {
+    const x = r(rnd(2000 + i) * viewW)
+    const y = r(rnd(2100 + i) * viewH * 0.4)
+    s += `<path d="M${x - 3} ${y}h7M${x + 0.5} ${y - 3.5}v7" stroke="#FFF8E0" stroke-width="1">${anim('stroke-opacity', '.9;.15;.9', r(3 + i * 0.8), i * 1.7)}</path>`
   }
   return `<g${nightOnly ? ' class="lamp-light"' : ''} pointer-events="none">${s}</g>`
 }
@@ -132,22 +155,28 @@ function roundTree(sx: number, sy: number, s = 1, leaf = '#4F8F45', light = '#6D
   const blobs: [number, number, number][] = [[0, -28, 11], [-7, -22, 8], [7, -23, 8], [-3, -34, 7], [4, -31, 6]]
   return (
     shadow(sx, sy, 12 * s) + `<rect x="${r(sx - 2 * s)}" y="${r(sy - 18 * s)}" width="${r(4 * s)}" height="${r(18 * s)}" fill="#6B4A2F"/>` +
-    blobs.map(([dx, dy, rr], i) => `<circle cx="${r(sx + dx * s)}" cy="${r(sy + dy * s)}" r="${r(rr * s)}" fill="${i % 2 ? light : leaf}"/>`).join('') +
-    `<circle cx="${r(sx - 3 * s)}" cy="${r(sy - 33 * s)}" r="${r(2.5 * s)}" fill="${shade(light, 1.25)}"/>`
+    // the crown sways about the top of the trunk; the phase follows x so a gust runs along the row
+    `<g>${blobs.map(([dx, dy, rr], i) => `<circle cx="${r(sx + dx * s)}" cy="${r(sy + dy * s)}" r="${r(rr * s)}" fill="${i % 2 ? light : leaf}"/>`).join('')}` +
+    `<circle cx="${r(sx + 4 * s)}" cy="${r(sy - 20 * s)}" r="${r(5 * s)}" fill="#000" fill-opacity=".1"/>` +
+    `<circle cx="${r(sx - 3 * s)}" cy="${r(sy - 33 * s)}" r="${r(2.5 * s)}" fill="${shade(light, 1.25)}"/>${sway(1.6, sx, sy - 18 * s, gust(sx), -sx / 90)}</g>`
   )
 }
+
+const gust = (sx: number) => r(3.6 + rnd(Math.round(sx)) * 1.2)
 
 function pine(sx: number, sy: number, s = 1, snowy = false) {
   const dark = snowy ? '#2F5E46' : '#2F6B3E'
   const lite = snowy ? '#3F7556' : '#3E8048'
-  let g = shadow(sx, sy, 11 * s) + `<rect x="${r(sx - 2 * s)}" y="${r(sy - 9 * s)}" width="${r(4 * s)}" height="${r(9 * s)}" fill="#5E3F27"/>`
+  let g = ''
   for (const [off, w, tall] of [[-6, 13, 20], [-18, 10.5, 18], [-30, 8, 18]] as const) {
     const base = sy + off * s
     const top = base - tall * s
     g += poly([[sx - w * s, base], [sx, base], [sx, top]], lite) + poly([[sx, base], [sx + w * s, base], [sx, top]], dark)
     if (snowy) g += poly([[sx - w * s * 0.55, top + tall * s * 0.55], [sx, top], [sx + w * s * 0.55, top + tall * s * 0.55], [sx, top + tall * s * 0.4]], '#F4F8FB')
   }
-  return g
+  // a stiff conifer: the whole crown leans a little from the trunk
+  return shadow(sx, sy, 11 * s) + `<rect x="${r(sx - 2 * s)}" y="${r(sy - 9 * s)}" width="${r(4 * s)}" height="${r(9 * s)}" fill="#5E3F27"/>` +
+    `<g>${g}${sway(0.9, sx, sy - 6 * s, gust(sx), -sx / 90)}</g>`
 }
 
 // a street lamp: the post, and its warm pool of light for the night layer
@@ -170,6 +199,21 @@ function groundEllipse(cx: number, cy: number, a: number, b: number, fill: strin
 
 // the path out of the corridor door (end of the corridor, x = W) down to the near strip
 const doorPath = (W: number, fill: string) => floorQuad(W, D, W + 2.6, D + 1, fill) + floorQuad(W + 0.8, D, W + 2.6, H + 0.2, fill)
+
+// Something crossing the whole island along x at depth y (car, boat…): it enters and leaves past the island's ends,
+// clipped to the terrain so it never floats in the void, then rests out of sight for `rest` of the loop.
+// The body is a side view drawn at the origin facing +x; it is sheared onto the road's slope.
+function crossing(W: number, y: number, body: string, speed: number, off: number, dir: 1 | -1, rest: number, light = ''): [string, string] {
+  const ends = [iso(-8, y), iso(W + 8, y)]
+  const [a, b] = dir > 0 ? ends : [ends[1]!, ends[0]!]
+  const dur = r((W + 16) / speed / (1 - rest))
+  const motion = `<animateMotion path="M${pts([a!])}L${pts([b!])}" keyPoints="0;1;1" keyTimes="0;${r(1 - rest)};1" calcMode="linear" dur="${dur}s" ${begin(dur, off)} repeatCount="indefinite"/>`
+  const sheared = (s: string) => `<g transform="matrix(1,.5,0,1,0,0)${dir < 0 ? ' scale(-1,1)' : ''}">${s}</g>`
+  return [
+    `<g clip-path="url(#world-clip)" pointer-events="none"><g>${sheared(body)}${motion}</g></g>`,
+    light ? `<g class="lamp-light" clip-path="url(#world-clip)" pointer-events="none"><g>${sheared(light)}${motion}</g></g>` : '',
+  ]
+}
 
 // ---------- city ----------
 
@@ -239,8 +283,25 @@ function cityProps(W: number): Props {
   }
   const [tx, ty] = iso(-3.6, H + 0.5)
   svg += roundTree(tx, ty, 1.1)
+  // traffic: one car per lane, driving on the right, low enough for the near walkers to stay clear above them
+  ;([[H + 3.75, 1, '#D94F3D', 0], [H + 2.6, -1, '#3E7CC4', 9]] as const).forEach(([lane, dir, paint, off]) => {
+    const [car, light] = crossing(W, lane, carBody(paint), 2.6, off, dir, 0.35, carLight)
+    svg += car
+    lamps.push(light)
+  })
   return { svg, lamps }
 }
+
+// a side-view hatchback, nose at +x, wheels turning
+const carBody = (paint: string) => {
+  const wheel = (x: number) =>
+    `<g><circle cx="${x}" cy="-3" r="3.2" fill="#26282C"/><path d="M${x - 2} -3h4M${x} -5v4" stroke="#8D9098" stroke-width="1"/>` +
+    `<animateTransform attributeName="transform" type="rotate" from="0 ${x} -3" to="360 ${x} -3" dur=".4s" ${begin(0.4)} repeatCount="indefinite"/></g>`
+  return `<ellipse cy="0" rx="15" ry="2.4" fill="#000" fill-opacity=".22"/><path d="M-13 -4v-5l3 -1h4l4 -5h9l4 5h2l1 1v5z" fill="${paint}"/>` +
+    `<path d="M-4.5 -10l3.4 -4h4v4zM3.8 -14h3.6l3.2 4h-6.8z" fill="#BFE0F0"/><path d="M-13 -6h26" stroke="#000" stroke-opacity=".18"/>` +
+    `<rect x="11.5" y="-8.5" width="2" height="1.6" fill="#FFE9A8"/><rect x="-13.4" y="-8.5" width="1.6" height="1.6" fill="#D22B2B"/>` + wheel(-7) + wheel(7)
+}
+const carLight = `<path d="M13 -8l26 -6v11z" fill="url(#lamp)"/><rect x="11.5" y="-8.5" width="2" height="1.6" fill="#FFF6D0"/><rect x="-13.4" y="-8.5" width="1.6" height="1.6" fill="#FF5A4A"/>`
 
 // ---------- beach ----------
 
@@ -259,18 +320,29 @@ function beachGround(W: number) {
   // wet sand, shallow and deep water, then the sandbar on the far side
   s += band(W, H + 2.2, H + 2.5, wet) + band(W, H + 2.5, far0 - 0.25, '#6CC3D6') + band(W, H + 2.8, far0 - 0.5, '#3F98BF') + band(W, far0 - 0.25, far0, wet)
   s += band(W, far0, Y_MAX + 3, sand) + speckles(22, 50, -5, far0, W + 5, Y_MAX + 1.2, ['#D9BF88', '#F5E4BC'])
-  // waves rolling along the water, foam lapping both shores
+  // swell lines drifting along the water: each dash pattern scrolls exactly one period, so the loop has no seam
   ;[2.95, 3.3, 3.65].forEach((k, i) => {
-    s += `<path d="${lineX(-6, W + 6, H + k)}" stroke="#FFF" stroke-width="1.6" stroke-dasharray="${10 + i * 4} ${24 + i * 6}" opacity=".5">` +
-      `<animate attributeName="stroke-dashoffset" from="0" to="${-(34 + i * 10)}" dur="${3 + i}s" repeatCount="indefinite"/>` +
-      `<animate attributeName="opacity" values=".15;.7;.15" dur="${2.6 + i * 0.7}s" repeatCount="indefinite"/></path>`
+    const period = 34 + i * 10
+    const dur = 5 + i * 1.5
+    s += `<path d="${lineX(-6, W + 6, H + k)}" stroke="#FFF" stroke-width="1.6" stroke-dasharray="${10 + i * 4} ${24 + i * 6}" stroke-linecap="round" opacity=".5">` +
+      anim('stroke-dashoffset', `0;${-period}`, dur, i * 0.9) + anim('opacity', '.12;.6;.12', r(3.2 + i * 0.9), i * 1.3, eased(2)) + `</path>`
   })
-  const foam = (y: number, dx: number, dy: number, dur: number) =>
-    `<path d="${lineX(-6, W + 6, y)}" stroke="#F4FBFF" stroke-width="2.5" opacity=".85"><animateTransform attributeName="transform" type="translate" values="0 0;${dx} ${dy};0 0" dur="${dur}s" repeatCount="indefinite"/></path>`
-  s += foam(H + 2.52, 3.6, -1.8, 4) + foam(far0 - 0.27, -3.6, 1.8, 4.6)
+  // the swash: foam runs up the beach with an ease, lingers, slides back; the wet sand it leaves darkens and dries in step
+  const SWASH = 5.2
+  const foam = (y: number, dir: 1 | -1, off: number, width: number) => {
+    const [dx, dy] = [r(dir * 4.3), r(-dir * 2.15)]
+    return `<path d="${lineX(-6, W + 6, y)}" stroke="#F4FBFF" stroke-width="${width}" stroke-linecap="round" opacity=".85">` +
+      `<animateTransform attributeName="transform" type="translate" values="0 0;${dx} ${dy};${dx} ${dy};0 0" keyTimes="0;.38;.5;1" dur="${SWASH}s" ${begin(SWASH, off)}${eased(3)} repeatCount="indefinite"/>` +
+      anim('opacity', '.9;.95;.5;.9', SWASH, off, ' keyTimes="0;.38;.75;1"') + `</path>`
+  }
+  const wash = (y0: number, y1: number, off: number) =>
+    `<polygon points="${pts([iso(-8, y0), iso(W + 8, y0), iso(W + 8, y1), iso(-8, y1)])}" fill="#B89A66" opacity="0">${anim('opacity', '0;0;.55;0', SWASH, off, ' keyTimes="0;.4;.5;1"')}</polygon>`
+  s += wash(H + 2.2, H + 2.42, 0) + wash(far0 - 0.2, far0 - 0.05, 1.7)
+  s += foam(H + 2.52, 1, 0, 2.5) + foam(H + 2.62, 1, SWASH / 2, 1.4) + foam(far0 - 0.27, -1, 1.7, 2.5)
   for (let i = 0; i < 12; i++) {
     const [gx, gy] = iso(-3 + rnd(2300 + i) * (W + 6), H + 2.6 + rnd(2400 + i) * 1.4)
-    s += `<rect x="${r(gx)}" y="${r(gy)}" width="3" height="1.5" fill="#FFF" opacity="0"><animate attributeName="opacity" values="0;.9;0" dur="${r(1.5 + rnd(2500 + i) * 2)}s" begin="${r(rnd(2600 + i) * 2)}s" repeatCount="indefinite"/></rect>`
+    const dur = r(1.8 + rnd(2500 + i) * 2.4)
+    s += `<rect x="${r(gx)}" y="${r(gy)}" width="3" height="1.5" fill="#FFF" opacity="0">${anim('opacity', '0;0;.9;0', dur, rnd(2600 + i) * dur, ' keyTimes="0;.6;.75;1"')}</rect>`
   }
   return frame(W, sand, '#9C7E52', s)
 }
@@ -281,10 +353,16 @@ function palm(sx: number, sy: number, s = 1) {
   const tx = sx + 7.7 * s
   const ty = sy - 57 * s
   const fronds: [number, number, number, number][] = [[-24, 8, -12, -10], [24, 9, 12, -11], [-18, -6, -9, -14], [19, -7, 9, -15], [-4, 14, -8, 2], [6, 15, 8, 3]]
+  let d = ''
+  let lit = ''
   for (const [ex, ey, cx, cy] of fronds) {
-    g += `<path d="M${r(tx)} ${r(ty)}Q${r(tx + cx * s)} ${r(ty + cy * s)} ${r(tx + ex * s)} ${r(ty + ey * s)}" stroke="#3E8E4A" stroke-width="${r(4.5 * s)}" fill="none" stroke-linecap="round"/>`
+    d += `M${r(tx)} ${r(ty)}Q${r(tx + cx * s)} ${r(ty + cy * s)} ${r(tx + ex * s)} ${r(ty + ey * s)}`
+    if (cy < -5) lit += `M${r(tx)} ${r(ty - 1)}Q${r(tx + cx * s)} ${r(ty + (cy - 1.5) * s)} ${r(tx + ex * s * 0.8)} ${r(ty + (ey - 2) * s * 0.8)}`
   }
-  return g + `<circle cx="${r(tx - 2)}" cy="${r(ty + 3)}" r="2.6" fill="#6A4A2A"/><circle cx="${r(tx + 2.5)}" cy="${r(ty + 3.5)}" r="2.6" fill="#7A5631"/>`
+  // fronds flutter about the crown, faster than a tree's crown
+  return g + `<g><path d="${d}" stroke="#3E8E4A" stroke-width="${r(4.5 * s)}" fill="none" stroke-linecap="round"/><path d="${lit}" stroke="#5DAA5A" stroke-width="${r(1.4 * s)}" fill="none" stroke-linecap="round"/>` +
+    `${sway(3, tx, ty, r(gust(sx) * 0.7), -sx / 90)}</g>` +
+    `<circle cx="${r(tx - 2)}" cy="${r(ty + 3)}" r="2.6" fill="#6A4A2A"/><circle cx="${r(tx + 2.5)}" cy="${r(ty + 3.5)}" r="2.6" fill="#7A5631"/>`
 }
 
 function umbrella(sx: number, sy: number, color: string) {
@@ -319,14 +397,23 @@ function beachProps(W: number): Props {
     const [ux, uy] = iso(x, far0 + 0.35)
     svg += umbrella(ux, uy, c)
   })
-  // a rowing boat bobbing on the water
+  // a rowing boat moored on the water: it heaves and rolls on two different periods, with a ring of ripples
   {
     const bx = W * 0.28
     const by = H + 3.2
     const hull = box(bx - 0.9, by - 0.3, 0, 1.8, 0.6, 5, '#B5653F') + poly([iso(bx - 0.8, by - 0.22, 5), iso(bx + 0.8, by - 0.22, 5), iso(bx + 0.8, by + 0.22, 5), iso(bx - 0.8, by + 0.22, 5)], '#7A4A30')
     const [ox, oy] = iso(bx, by, 6)
-    svg += `<g>${hull}<path d="M${r(ox - 22)} ${r(oy + 4)}L${r(ox + 14)} ${r(oy - 6)}" stroke="#D9B98A" stroke-width="1.6"/>` +
-      `<animateTransform attributeName="transform" type="translate" values="0 0;0 -1.6;0 0" dur="3s" repeatCount="indefinite"/></g>`
+    const [cx, cy] = iso(bx, by)
+    svg += `<ellipse cx="${r(cx)}" cy="${r(cy + 2)}" rx="30" ry="9" fill="none" stroke="#E8F7FF" stroke-width="1.2">${anim('rx', '26;36', 3.4)}${anim('ry', '8;12', 3.4)}${anim('stroke-opacity', '.6;0', 3.4)}</ellipse>`
+    svg += `<g><g>${hull}<path d="M${r(ox - 22)} ${r(oy + 4)}L${r(ox + 14)} ${r(oy - 6)}" stroke="#D9B98A" stroke-width="1.6"/>${sway(2.2, cx, cy, 4.2, 0)}</g>` +
+      `<animateTransform attributeName="transform" type="translate" values="0 0;0 -1.6;0 0" dur="3.4s" ${begin(3.4)}${eased(2)} repeatCount="indefinite"/></g>`
+  }
+  // a sailing boat crossing the bay from one end of the island to the other
+  {
+    const body =
+      `<path d="M-14 -4h28l-5 5h-18z" fill="#F4F1EA"/><path d="M-14 -4h28l-1 1.4h-26z" fill="#2F6DB5"/><rect x="-.6" y="-30" width="1.2" height="26" fill="#8C6440"/>` +
+      `<path d="M.8 -29q9 12 10 23h-10z" fill="#FFFDF6"/><path d="M-.8 -26q-6 10 -9 20h9z" fill="#E9E2D4"/><path d="M.6 -30h5l-5 2z" fill="#E05A4E"/>`
+    svg += crossing(W, H + 3.55, body + '<path d="M-14 1h-18" stroke="#FFF" stroke-opacity=".6" stroke-width="1.2" stroke-dasharray="4 3"/>', 0.45, 13, -1, 0.15)[0]
   }
   // the lifeguard tower by the side of the building
   {
@@ -335,7 +422,10 @@ function beachProps(W: number): Props {
     for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]] as const) svg += box(lx + dx * 1.1, ly + dy * 1.1, 0, 0.12, 0.12, 30, '#D8D2C4')
     svg += box(lx - 0.1, ly - 0.1, 30, 1.45, 1.45, 3, '#F2EEE6') + box(lx + 0.1, ly + 0.1, 33, 1.05, 1.05, 13, '#E25B45') + box(lx, ly, 46, 1.25, 1.25, 3, '#F2EEE6')
     const [fx, fy] = iso(lx + 1.25, ly, 49)
-    svg += `<rect x="${r(fx)}" y="${r(fy - 16)}" width="1.4" height="16" fill="#6B6F76"/><path d="M${r(fx + 1.4)} ${r(fy - 16)}h11l-3 4l3 4h-11z" fill="#E25B45"><animate attributeName="d" values="M${r(fx + 1.4)} ${r(fy - 16)}h11l-3 4l3 4h-11z;M${r(fx + 1.4)} ${r(fy - 16)}h10l-1 4l1 4h-10z;M${r(fx + 1.4)} ${r(fy - 16)}h11l-3 4l3 4h-11z" dur="1.2s" repeatCount="indefinite"/></path>`
+    // the flag ripples: a wave runs from the pole to the tip, every frame with the same commands so it morphs smoothly
+    const flag = (a: number, b: number, tip: number) => `M${r(fx + 1.4)} ${r(fy - 16)}q5 ${a} 11 ${tip}l-3 4l3 4q-6 ${b} -11 ${-tip}z`
+    svg += `<rect x="${r(fx)}" y="${r(fy - 16)}" width="1.4" height="16" fill="#6B6F76"/><path d="${flag(-2, 2, 0)}" fill="#E25B45">` +
+      anim('d', [flag(-2, 2, 0), flag(1.5, -1.5, 1), flag(-1, 1, -0.5), flag(2, -2, 0.8), flag(-2, 2, 0)].join(';'), 1.1, 0, eased(4)) + `</path>`
   }
   // a sandcastle past the end of the walk
   {
@@ -345,13 +435,21 @@ function beachProps(W: number): Props {
   return { svg, lamps }
 }
 
+// Gulls cross the sky from one edge of the view to the other: a few wingbeats, then a long glide on a wavy line.
 function gulls(viewW: number) {
+  const up = 'M-7 0q3 -5 7 0q4 -5 7 0'
+  const down = 'M-7 2q3 1 7 -2q4 1 7 2'
+  const level = 'M-7 -1q3 -2 7 1q4 -2 7 -1'
   let s = ''
-  for (let i = 0; i < 2; i++) {
-    const y = 40 + i * 28
-    s += `<path d="M-6 0q3 -4 6 0q3 -4 6 0" stroke="#FFF" stroke-width="1.6" fill="none"><animateMotion path="M${-40 - i * 60} ${y} Q${viewW / 2} ${y - 30} ${viewW + 60} ${y + 10}" dur="${26 + i * 9}s" begin="${-i * 11}s" repeatCount="indefinite"/></path>`
+  for (let i = 0; i < 3; i++) {
+    const y = 34 + i * 22
+    const dur = 30 + i * 8
+    const flap = r(1.8 + i * 0.3)
+    s += `<g><path d="${level}" stroke="${i === 1 ? '#F4F1EA' : '#FFF'}" stroke-width="1.6" fill="none" stroke-linecap="round">` +
+      anim('d', [up, down, up, down, level, level].join(';'), flap, i * 0.7, ' keyTimes="0;.12;.24;.36;.5;1"') + `</path>` +
+      `<animateMotion path="M-60 ${y}C${r(viewW * 0.3)} ${y - 26} ${r(viewW * 0.6)} ${y + 22} ${viewW + 60} ${y - 6}" dur="${dur}s" ${begin(dur, i * 13)} repeatCount="indefinite"/></g>`
   }
-  return `<g pointer-events="none" opacity=".85">${s}</g>`
+  return `<g pointer-events="none" opacity=".9">${s}</g>`
 }
 
 // ---------- forest ----------
@@ -427,6 +525,16 @@ function forestProps(W: number): Props {
   })
   const [ex, ey] = iso(-3.6, H + 0.5)
   svg += pine(ex, ey, 1.1)
+  // fireflies over the meadow at night: each drifts on a small loop and glows in short pulses
+  let flies = ''
+  for (let i = 0; i < 12; i++) {
+    const [fx, fy] = iso(rnd(3300 + i) * W, H + 2.2 + rnd(3400 + i) * 2, 6 + rnd(3500 + i) * 14)
+    const a = r(6 + rnd(3600 + i) * 8)
+    const dur = r(5 + rnd(3700 + i) * 4)
+    flies += `<circle r="1.3" fill="#E9FF8A" opacity="0">${anim('opacity', '0;0;1;.2;1;0', r(2.2 + rnd(3800 + i) * 1.6), i * 0.9, ' keyTimes="0;.4;.55;.7;.8;1"')}` +
+      `<animateMotion path="M${r(fx)} ${r(fy)}c${a} -6 ${a} 8 0 6c-${a} -2 -${a} -10 0 -6z" dur="${dur}s" ${begin(dur, i)} repeatCount="indefinite"/></circle>`
+  }
+  lamps.push(`<g class="lamp-light" pointer-events="none">${flies}</g>`)
   return { svg, lamps }
 }
 
@@ -488,15 +596,20 @@ function snowProps(W: number): Props {
   return { svg, lamps }
 }
 
+// Three depths of flakes: far ones small, faint and slow, near ones big and quick; each sways on an S-curve with its own drift.
 function snowfall(viewW: number, viewH: number) {
   let s = ''
-  for (let i = 0; i < 48; i++) {
-    const x = rnd(4100 + i) * viewW
-    const dur = 7 + rnd(4200 + i) * 7
-    const drift = (rnd(4300 + i) - 0.5) * 40
-    s += `<circle cx="${r(x)}" cy="-10" r="${r(1 + rnd(4400 + i) * 1.3)}" fill="#FFF" opacity="${r(0.6 + rnd(4500 + i) * 0.4)}">` +
-      `<animate attributeName="cy" from="-10" to="${viewH + 10}" dur="${r(dur)}s" begin="${r(-rnd(4600 + i) * dur)}s" repeatCount="indefinite"/>` +
-      `<animate attributeName="cx" values="${r(x)};${r(x + drift)};${r(x)}" dur="${r(dur / 2)}s" repeatCount="indefinite"/></circle>`
+  const layers = [[26, 0.9, 15, 0.5], [18, 1.5, 10, 0.75], [8, 2.3, 6.5, 0.95]] as const
+  let i = 0
+  for (const [n, size, slow, alpha] of layers) {
+    for (let k = 0; k < n; k++, i++) {
+      const x = rnd(4100 + i) * viewW
+      const dur = r(slow * (0.85 + rnd(4200 + i) * 0.3))
+      const drift = (rnd(4300 + i) - 0.5) * 50
+      const wob = (8 + rnd(4400 + i) * 14) * (rnd(4500 + i) < 0.5 ? 1 : -1)
+      const path = `M${r(x)} -12C${r(x + wob)} ${r(viewH * 0.3)} ${r(x - wob + drift)} ${r(viewH * 0.65)} ${r(x + drift)} ${viewH + 12}`
+      s += `<circle r="${r(size * (0.8 + rnd(4600 + i) * 0.4))}" fill="#FFF" opacity="${alpha}"><animateMotion path="${path}" dur="${dur}s" ${begin(dur, rnd(4700 + i) * dur)} repeatCount="indefinite"/></circle>`
+    }
   }
   return `<g pointer-events="none">${s}</g>`
 }
@@ -518,11 +631,12 @@ function moonGround(W: number) {
   let s = speckles(51, 170, -5, -3, W + 5, Y_MAX + 1.2, ['#8A8A92', '#B0B0B7', '#7C7C84'])
   // smoother regolith where the walkers go, with tyre tracks
   s += band(W, H + 0.8, H + 1.8, '#A7A7AE') + band(W, H + 4.8, Y_MAX + 0.05, '#A7A7AE') + floorQuad(W, D, W + 2.4, D + 1, '#A7A7AE') + floorQuad(W + 1, D, W + 2.2, H + 0.85, '#A7A7AE')
-  s += `<path d="${lineX(-5, W + 5, H + 3.0)}${lineX(-5, W + 5, H + 3.25)}" stroke="#86868E" stroke-width="2" stroke-dasharray="3 2"/>`
+  s += `<path d="${lineX(-5, W + 5, roverY() - 0.14)}${lineX(-5, W + 5, roverY() + 0.14)}" stroke="#86868E" stroke-width="2" stroke-dasharray="3 2"/>`
   for (let i = 0; i < 16; i++) {
     const x = -1 + rnd(5100 + i) * (W + 1)
     if (Math.abs(x - binX(W)) < 2) continue
-    s += crater(x, i % 3 === 0 ? far0 - 0.75 : near1 + 0.55 + rnd(5200 + i) * 0.5, 0.5 + rnd(5300 + i) * 0.5)
+    // kept off the rover lane, so it never drives through a rim
+    s += crater(x, i % 3 === 0 ? far0 - 0.45 : near1 + 0.5 + rnd(5200 + i) * 0.2, 0.4 + rnd(5300 + i) * 0.3)
   }
   s += crater(W + 3.5, 2.5, 1) + crater(W + 3.3, 11.5, 0.7) + crater(W + 3.7, 15, 0.45) + crater(-3, H + 0.6, 0.5) + crater(W * 0.3, Y_MAX + 0.6, 0.45) + crater(W * 0.8, Y_MAX + 0.7, 0.4)
   const glow = (id: string, c: string, o: number) => `<radialGradient id="${id}"><stop offset="0" stop-color="${c}" stop-opacity="${o}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>`
@@ -548,7 +662,8 @@ function antenna(sx: number, sy: number, tall: number, delay: number): [string, 
   const top = sy - tall
   let lattice = ''
   for (let y = sy - 8; y > top + 6; y -= 8) lattice += `M${r(sx - 3)} ${r(y)}L${r(sx + 3)} ${r(y - 8)}`
-  const blink = `<animate attributeName="opacity" values="1;1;.15;.15" dur="1.6s" begin="${delay}s" repeatCount="indefinite"/>`
+  // an aviation beacon: a quick flash, then dark
+  const blink = anim('opacity', '.15;1;1;.15;.15', 1.8, delay, ' keyTimes="0;.06;.2;.32;1"')
   const svg =
     shadow(sx, sy, 7) + `<path d="M${r(sx - 3.5)} ${sy}L${r(sx - 1)} ${top}M${r(sx + 3.5)} ${sy}L${r(sx + 1)} ${top}${lattice}" stroke="#C9CCD2" stroke-width="1.4" fill="none"/>` +
     `<path d="M${r(sx - 9)} ${r(top + 18)}q9 8 18 0z" fill="#E6E8EC" stroke="#9EA2AA"/><circle cx="${r(sx)}" cy="${r(top - 1)}" r="2.6" fill="#FF3B30">${blink}</circle>`
@@ -583,7 +698,7 @@ function moonProps(W: number): Props {
     const [wx, wy] = iso(mx + 0.05, my + 0.45, 31)
     svg += `<rect x="${r(wx - 4)}" y="${r(wy - 3)}" width="7" height="5" fill="#2B3445"/>`
     const [tx, ty] = iso(mx, my, 37)
-    svg += `<path d="M${r(tx)} ${r(ty)}v-10" stroke="#9EA2AA" stroke-width="1.2"/><circle cx="${r(tx)}" cy="${r(ty - 11)}" r="2" fill="#FFF"><animate attributeName="opacity" values="1;.2;1" dur="2.4s" repeatCount="indefinite"/></circle>`
+    svg += `<path d="M${r(tx)} ${r(ty)}v-10" stroke="#9EA2AA" stroke-width="1.2"/><circle cx="${r(tx)}" cy="${r(ty - 11)}" r="2" fill="#FFF">${anim('opacity', '1;.2;1', 2.4)}</circle>`
     lamps.push(`<g class="lamp-light" pointer-events="none"><rect x="${r(wx - 4)}" y="${r(wy - 3)}" width="7" height="5" fill="#FFE6A0"/><circle cx="${r(wx)}" cy="${r(wy)}" r="16" fill="url(#lamp)"/></g>`)
     // the flag planted next to it
     const [fx, fy] = iso(W + 2.4, my + 3.2)
@@ -596,24 +711,43 @@ function moonProps(W: number): Props {
     svg += mast
     lamps.push(light)
   }
-  // the rover crawling up and down between the paths (low, the near walkers pass just behind)
+  // the rover drives along its tracks, stops, turns round and comes back; low, so the near walkers stay clear above it
   {
-    const [ax, ay] = iso(3, H + 3.1)
-    const [bx, by] = iso(W - 3, H + 3.1)
+    const [ax, ay] = iso(3, roverY())
+    const [bx, by] = iso(W - 3, roverY())
+    const go = (W - 6) / 0.5
+    const stop = 4
+    const dur = r(2 * (go + stop))
+    const k = (t: number) => r(t / dur * 1000) / 1000
+    const turns = 360 * Math.round(((W - 6) * Math.hypot(TW_, TH_)) / (Math.PI * 2 * 3))
+    const wheel = (x: number) =>
+      `<g><circle cx="${x}" cy="-3" r="3" fill="#3B3F46"/><path d="M${x - 2} -3h4M${x} -5v4" stroke="#8D9098" stroke-width="1"/>` +
+      `<animateTransform attributeName="transform" type="rotate" values="0 ${x} -3;${turns} ${x} -3;${turns} ${x} -3;${2 * turns} ${x} -3;${2 * turns} ${x} -3" keyTimes="0;${k(go)};${k(go + stop)};${k(2 * go + stop)};1" dur="${dur}s" ${begin(dur)} repeatCount="indefinite"/></g>`
+    const body =
+      `<rect x="-12" y="-11" width="24" height="5" fill="#D8D8DC"/><rect x="-12" y="-7.5" width="24" height="1.5" fill="#A4A6AE"/><rect x="-10" y="-13.5" width="20" height="2.5" fill="#2E4C8C"/>` +
+      `<path d="M-10 -12.3h20" stroke="#5B7CC0" stroke-width=".6"/><path d="M8 -13.5v-4" stroke="#9EA2AA" stroke-width="1.2"/><path d="M5 -18.5q3 3 6 0z" fill="#E6E8EC"/>` +
+      wheel(-9) + wheel(0) + wheel(9)
     svg +=
-      `<g><animateMotion path="M${r(ax)} ${r(ay)}L${r(bx)} ${r(by)}L${r(ax)} ${r(ay)}" dur="90s" repeatCount="indefinite"/>` + shadow(0, 0, 14) +
-      `<rect x="-12" y="-13" width="24" height="6" fill="#D8D8DC"/><rect x="-12" y="-9" width="24" height="2" fill="#A4A6AE"/><rect x="-10" y="-16" width="20" height="3" fill="#2E4C8C"/>` +
-      `<path d="M8 -16v-8" stroke="#9EA2AA" stroke-width="1.2"/><path d="M4 -26q4 4 8 0z" fill="#E6E8EC"/>` +
-      `<circle cx="-9" cy="-4" r="3.5" fill="#3B3F46"/><circle cx="0" cy="-4" r="3.5" fill="#3B3F46"/><circle cx="9" cy="-4" r="3.5" fill="#3B3F46"/></g>`
+      `<g><animateMotion path="M${r(ax)} ${r(ay)}L${r(bx)} ${r(by)}" keyPoints="0;1;1;0;0" keyTimes="0;${k(go)};${k(go + stop)};${k(2 * go + stop)};1" calcMode="linear" dur="${dur}s" ${begin(dur)} repeatCount="indefinite"/>` +
+      shadow(0, 0, 14) + `<g transform="matrix(1,.5,0,1,0,0)"><g>${body}` +
+      `<animateTransform attributeName="transform" type="scale" values="1 1;-1 1;1 1" keyTimes="0;${k(go + stop / 2)};${k(2 * go + 1.5 * stop)}" calcMode="discrete" dur="${dur}s" ${begin(dur)} repeatCount="indefinite"/></g></g></g>`
   }
   return { svg, lamps }
 }
 
+// the rover lane, between the crater fields
+const roverY = () => H + 3.15
+const [TW_, TH_] = [18, 9]
+
+// Two shooting stars on unrelated periods, so they seldom streak together.
 function shootingStar(viewW: number) {
-  const x = viewW * 0.25
-  return (
-    `<g pointer-events="none" opacity="0"><path d="M0 0l-34 -12" stroke="#FFF8E0" stroke-width="1.6" stroke-linecap="round"/>` +
-    `<animateMotion path="M${r(x)} 30L${r(x + 220)} 110" dur="9s" keyTimes="0;.12;1" keyPoints="0;1;1" calcMode="linear" repeatCount="indefinite"/>` +
-    `<animate attributeName="opacity" values="0;1;0;0" keyTimes="0;.06;.12;1" dur="9s" repeatCount="indefinite"/></g>`
-  )
+  let s = ''
+  for (let i = 0; i < 2; i++) {
+    const x = r(viewW * (0.2 + i * 0.4))
+    const dur = 11 + i * 6
+    s += `<g opacity="0"><path d="M0 0l-34 -12" stroke="#FFF8E0" stroke-width="1.6" stroke-linecap="round"/><circle r="1.4" fill="#FFF"/>` +
+      `<animateMotion path="M${x} ${30 + i * 20}l220 80" keyTimes="0;.1;1" keyPoints="0;1;1" calcMode="spline" keySplines=".3 0 .7 1;0 0 1 1" dur="${dur}s" ${begin(dur, i * 5)} repeatCount="indefinite"/>` +
+      anim('opacity', '0;1;0;0', dur, i * 5, ' keyTimes="0;.04;.1;1"') + `</g>`
+  }
+  return `<g pointer-events="none">${s}</g>`
 }
