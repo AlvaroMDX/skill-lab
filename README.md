@@ -14,7 +14,7 @@
 - **Temporadas.** Halloween, Navidad, Nochevieja, Reyes, Carnaval, San Valentín, San Fermín, las cuatro estaciones… se ponen solas según la fecha, o eliges una.
 - **Disfraces y colores.** Pirata, alien, astronauta, mago, vaquero, ninja, chef o vikingo, por separado para los muñecos, los robots y los drones. Seis paletas para los carteles: cálidos, pasteles, multicolor, fríos, neón y tierra.
 - **Día y noche, avisos y gatos.** La luz sigue la hora real, suena un aviso cuando Claude termina o espera permiso, y los gatos reaccionan a cada sala en la que los sueltes.
-- **56 medallas** escondidas para quien las encuentre. Pistas: en el casino hay tragaperras de verdad, Wally sale a pasear algunas horas, en Navidad Papá Noel cruza el cielo de noche y quien lo consigue todo encuentra algo rojo al final del camino de la puerta lateral, con su propia tienda para pulsar sin parar.
+- **58 medallas** escondidas para quien las encuentre. Pistas: en el casino hay tragaperras de verdad, Wally sale a pasear algunas horas, en Navidad Papá Noel cruza el cielo de noche y quien lo consigue todo encuentra algo rojo al final del camino de la puerta lateral, con su propia tienda para pulsar sin parar hasta los mil millones.
 
 ![El mismo laboratorio de noche](images/night.png)
 

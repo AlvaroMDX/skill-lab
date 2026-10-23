@@ -1,5 +1,10 @@
 # Cambios
 
+## 1.1.8 — 2026-10-23
+- El juego del botón rojo termina al llegar a 1.000.000.000 pulsaciones: fuegos, botón con bandera de meta y una tarjeta final con pulsaciones, clics a mano, tiempo y mejoras al máximo, con opción de volver a empezar (las medallas se quedan).
+- Medallas nuevas: Tienda al máximo y Mil millones (58 en total).
+- Los ayudantes suben de precio más despacio (×1,08 por nivel) para que dé tiempo a maxear la tienda (unos 866 millones) antes del final.
+
 ## 1.1.7 — 2026-10-23
 - Botón «Reiniciar a cero» en Ajustes: borra solo el progreso (medallas, botón rojo y su tienda, bolsas, vista) o deja Skill Lab como recién instalado (también puestos y ajustes del panel, con copia de config.json).
 - Tienda del botón con patrón incremental: nivel máximo por mejora (dedo 50, ayudantes 100, botón dorado 5), cada ayudante duplica lo que produce en los niveles 10, 25, 50, 75 y 100, y cada mejora se descubre al comprar la anterior.
