@@ -382,7 +382,7 @@
       })
       overlay.appendChild(btn)
     }
-    const p = iso(geo.W + 1.7, geo.D + 3.2)
+    const p = iso(geo.W + 1.7, geo.H - 0.6)
     btn.setAttribute('transform', `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`)
     btn.querySelector('.presses').textContent = (medals['~red'] || 0).toLocaleString('es-ES')
   }
@@ -396,7 +396,7 @@
     beep([RED_STEPS.some(([k]) => k === n) ? 880 : 196], 0.03)
     for (const [k, id] of RED_STEPS) if (n >= k) unlock(id)
     if (n === 77777) {
-      const p = iso(geo.W + 1.7, geo.D + 3.2)
+      const p = iso(geo.W + 1.7, geo.H - 0.6)
       floatText({ x: p.x, y: p.y - 40 }, '🎆 ¡77.777!', 'big')
       coinRain(p.x, p.y + 10)
     }

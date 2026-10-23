@@ -1,5 +1,8 @@
 # Cambios
 
+## 1.1.4 — 2026-10-23
+- El botón rojo se pasa al final del camino de la puerta lateral, junto a la calle, donde ya no lo pisan árboles, la torre del socorrista ni la bandera de la Luna.
+
 ## 1.1.3 — 2026-10-23
 - Easter egg final: con todas las medallas aparece un botón rojo junto a la puerta lateral, con cinco medallas por pulsarlo 10, 100, 1.000, 10.000 y 77.777 veces.
 - La medalla Coleccionista pasa a llamarse «¡Platinéalo!» y exige también las del botón rojo. Se quita «Hora bruja» (53 medallas en total).
