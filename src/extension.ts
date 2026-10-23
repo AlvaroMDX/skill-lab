@@ -502,6 +502,34 @@ class LabView implements vscode.WebviewViewProvider {
         if (ok) writeConfig(cfg => Object.assign(cfg, defaultConfig()))
         return this.refreshAll()
       }
+      case 'resetAll': {
+        const PROGRESS = 'Solo el progreso'
+        const ALL = 'Todo, como recién instalado'
+        const pick = await vscode.window.showWarningMessage(
+          '¿Dejar Skill Lab a cero?',
+          { modal: true, detail: 'Solo el progreso: medallas, botón rojo y su tienda, bolsas y vista del mapa.\nTodo: además los puestos, sus servicios y los ajustes del panel, y vuelve a salir el asistente (config.json se guarda antes como copia).' },
+          PROGRESS,
+          ALL,
+        )
+        if (!pick) return
+        await this.ctx.globalState.update(MEDALS_KEY, undefined)
+        if (pick === ALL) {
+          if (fs.existsSync(CONFIG_FILE)) {
+            const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')
+            fs.copyFileSync(CONFIG_FILE, path.join(LAB_DIR, `config.backup-${stamp}-reset.json`))
+            fs.unlinkSync(CONFIG_FILE)
+          }
+          for (const key of PANEL_PREFS) await this.ctx.globalState.update(`pref.${key}`, undefined)
+          await this.ctx.globalState.update(SETUP_KEY, undefined)
+          freshInstall = true
+          applyConfig(readConfig())
+          this.tracker.relocate(Date.now())
+        }
+        // the panel clears its own state first, so the model that follows can't bring old medals back
+        await this.view?.webview.postMessage({ type: 'reset', all: pick === ALL })
+        void vscode.window.showInformationMessage(pick === ALL ? 'Skill Lab está a cero, como recién instalado.' : 'Progreso de Skill Lab a cero.')
+        return this.refreshAll()
+      }
       case 'session': {
         const cwd = this.tracker.sessionCwd(String(msg.session))
         const pick = await vscode.window.showQuickPick(['Abrir transcripción', 'Lanzar otro Claude en esta carpeta'], { title: `Sesión en ${cwd ?? '?'}` })

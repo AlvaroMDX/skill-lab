@@ -395,15 +395,19 @@
     startRedTicker()
   }
   // the incremental side game: presses are also coins to spend on helpers that keep pressing on their own
-  // [id, icon, name, what it does, base cost, cost growth, effect]
+  // [id, icon, name, what it does, base cost, cost growth, effect, max level]; each one shows up once the previous is bought
   const RED_UPS = [
-    ['finger', '👆', 'Dedo extra', '+1 por pulsación', 15, 1.6, { click: 1 }],
-    ['cat', '🐱', 'Gato pulsador', '0,5 pulsaciones/s', 40, 1.15, { rate: 0.5 }],
-    ['skill', '🧪', 'Skill becaria', '3 pulsaciones/s', 300, 1.15, { rate: 3 }],
-    ['robot', '🤖', 'Robot de turno', '15 pulsaciones/s', 2500, 1.15, { rate: 15 }],
-    ['drone', '🛸', 'Escuadrón de drones', '80 pulsaciones/s', 20000, 1.15, { rate: 80 }],
-    ['gold', '✨', 'Botón dorado', '×2 a todo', 50000, 8, { mult: 2 }],
+    ['finger', '👆', 'Dedo extra', '+1 por pulsación', 15, 1.25, { click: 1 }, 50],
+    ['cat', '🐱', 'Gato pulsador', '0,5/s cada uno', 40, 1.15, { rate: 0.5 }, 100],
+    ['skill', '🧪', 'Skill becaria', '3/s cada una', 300, 1.15, { rate: 3 }, 100],
+    ['robot', '🤖', 'Robot de turno', '15/s cada uno', 2500, 1.15, { rate: 15 }, 100],
+    ['drone', '🛸', 'Escuadrón de drones', '80/s cada uno', 20000, 1.15, { rate: 80 }, 100],
+    ['gold', '✨', 'Botón dorado', '×2 a todo', 50000, 8, { mult: 2 }, 5],
   ]
+  // milestones: every helper doubles its own output at these levels
+  const RED_MILESTONES = [10, 25, 50, 75, 100]
+  const tierMult = n => 2 ** RED_MILESTONES.filter(m => n >= m).length
+  const nextMilestone = (u, n) => RED_MILESTONES.find(m => m > n && m <= u[7])
   const OFFLINE_MAX_S = 8 * 3600
   const fmt = n => (n < 1e9 ? Math.floor(n).toLocaleString('es-ES') : new Intl.NumberFormat('es-ES', { notation: 'compact', maximumFractionDigits: 1 }).format(n))
   const redLevels = () => {
@@ -415,8 +419,9 @@
   }
   const upCost = (u, lv) => Math.ceil(u[4] * u[5] ** (lv[u[0]] || 0))
   const redMult = lv => 2 ** (lv.gold || 0)
-  const redClick = lv => (1 + (lv.finger || 0)) * redMult(lv)
-  const redRate = lv => RED_UPS.reduce((sum, u) => sum + (u[6].rate || 0) * (lv[u[0]] || 0), 0) * redMult(lv)
+  const redClick = lv => (1 + (lv.finger || 0) * tierMult(lv.finger || 0)) * redMult(lv)
+  const redRate = lv => RED_UPS.reduce((sum, u) => sum + (u[6].rate || 0) * (lv[u[0]] || 0) * tierMult(lv[u[0]] || 0), 0) * redMult(lv)
+  const upShown = (u, lv) => u === RED_UPS[0] || lv[u[0]] > 0 || lv[RED_UPS[RED_UPS.indexOf(u) - 1][0]] > 0
   // coins start as the presses already made, for whoever pressed before the shop existed
   const redCoins = () => medals['~redc'] ?? (medals['~red'] || 0)
 
@@ -507,7 +512,7 @@
     shop.innerHTML =
       '<header><b>🔴 Tienda del botón</b><button class="close" title="Cerrar">✕</button></header>' +
       '<p class="coins"></p><p class="rates"></p>' +
-      RED_UPS.map(u => `<button class="up" data-up="${u[0]}"><span class="ic">${u[1]}</span><span class="tx"><b>${esc(u[2])} <i class="lv"></i></b><small>${esc(u[3])}</small></span><span class="cost"></span></button>`).join('')
+      RED_UPS.map(u => `<button class="up" data-up="${u[0]}"><span class="ic">${u[1]}</span><span class="tx"><b><span></span> <i class="lv"></i></b><small></small></span><span class="cost"></span></button>`).join('')
     shop.addEventListener('pointerdown', e => e.stopPropagation())
     shop.querySelector('.close').addEventListener('click', toggleShop)
     shop.querySelectorAll('[data-up]').forEach(b => b.addEventListener('click', () => buyRed(b.dataset.up)))
@@ -522,18 +527,30 @@
     shop.querySelector('.rates').textContent = `Por clic: ${fmt(redClick(lv))} · por segundo: ${redRate(lv).toLocaleString('es-ES', { maximumFractionDigits: 1 })}`
     for (const u of RED_UPS) {
       const b = shop.querySelector(`[data-up="${u[0]}"]`)
+      const n = lv[u[0]] || 0
+      const shown = upShown(u, lv)
+      const maxed = n >= u[7]
       const cost = upCost(u, lv)
-      b.disabled = coins < cost
-      b.querySelector('.lv').textContent = lv[u[0]] ? `nv. ${lv[u[0]]}` : ''
-      b.querySelector('.cost').textContent = fmt(cost)
+      const next = u[6].mult ? 0 : nextMilestone(u, n)
+      b.disabled = !shown || maxed || coins < cost
+      b.classList.toggle('hidden', !shown)
+      b.querySelector('.ic').textContent = shown ? u[1] : '❔'
+      b.querySelector('b span').textContent = shown ? u[2] : '???'
+      b.querySelector('.lv').textContent = shown ? `nv. ${n}/${u[7]}` : ''
+      b.querySelector('small').textContent = !shown ? `Compra ${RED_UPS[RED_UPS.indexOf(u) - 1][2].toLowerCase()} para descubrirlo` : maxed ? `${u[3]} · al máximo` : next ? `${u[3]} · ×2 en el nv. ${next}` : u[3]
+      b.querySelector('.cost').textContent = !shown ? '' : maxed ? 'MÁX' : fmt(cost)
     }
   }
   function buyRed(id) {
     const u = RED_UPS.find(x => x[0] === id)
     const lv = redLevels()
-    if (!u || redCoins() < upCost(u, lv)) return
+    if (!u || !upShown(u, lv) || (lv[id] || 0) >= u[7] || redCoins() < upCost(u, lv)) return
     const cost = upCost(u, lv)
     lv[id] = (lv[id] || 0) + 1
+    if (RED_MILESTONES.includes(lv[id]) && !u[6].mult && geo) {
+      const p = iso(geo.W + 1.7, geo.H - 0.6)
+      floatText({ x: p.x, y: p.y - 44 }, `${u[1]} ×2 · nv. ${lv[id]}`, 'big')
+    }
     medals = { ...medals, '~redc': redCoins() - cost, '~redup': JSON.stringify(lv) }
     persist()
     beep([523, 784], 0.06)
@@ -2158,7 +2175,8 @@
         <button data-msg="exportLayout">Exportar layout</button><button data-msg="importLayout">Importar</button>
         <button data-msg="openJson">Editar JSON</button><button data-msg="vscodeSettings" title="Ajustes de la extensión en VS Code">VS Code</button>
         <button class="danger" data-msg="resetLayout">Restablecer</button>
-      </div>`
+      </div>
+      <button class="danger wide" data-msg="resetAll" title="Borra medallas, juego del botón y, si quieres, también los puestos">🧹 Reiniciar a cero</button>`
     const delay = $('delay')
     delay.addEventListener('input', () => {
       $('delayVal').textContent = `${delay.value} s`
@@ -2358,6 +2376,26 @@
       updateSky()
       renderBags()
       renderRedButton()
+    } else if (msg.type === 'reset') {
+      clearInterval(redTicker)
+      redTicker = 0
+      if (shop) toggleShop()
+      medals = {}
+      bags = []
+      thrown = 0
+      view = null
+      autoFit = true
+      if (msg.all) {
+        tab = 'labs'
+        setupSeen = false
+        drawer.classList.remove('open')
+      }
+      persist()
+      renderBags()
+      renderRedButton()
+      updateMedalButton()
+      fit()
+      if (drawer.classList.contains('open')) renderDrawer()
     } else if (msg.type === 'gift') {
       for (const [key, add] of Object.entries(msg.counters || {})) if (Number.isFinite(add)) key === 'red' ? addPresses(add) : tally(key, add)
       renderRedButton()
