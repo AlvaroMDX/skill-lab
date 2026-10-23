@@ -1,5 +1,12 @@
 # Cambios
 
+## 1.1.3 — 2026-10-23
+- Easter egg final: con todas las medallas aparece un botón rojo junto a la puerta lateral, con cinco medallas por pulsarlo 10, 100, 1.000, 10.000 y 77.777 veces.
+- La medalla Coleccionista pasa a llamarse «¡Platinéalo!» y exige también las del botón rojo. Se quita «Hora bruja» (53 medallas en total).
+- Arreglo: las medallas de zoom al máximo y al mínimo se desbloquean bien con el zoom suave.
+- El arcade de la fila de abajo separa sus filas de máquinas para que se vean los jugadores y los servidores.
+- Wally sale a pasear menos a menudo.
+
 ## 1.1.2 — 2026-10-22
 - Los coches que circulan por la ciudad son ahora sólidos en isometría (carrocería, cabina con ventanillas, ruedas, faros y pilotos) en vez de un perfil plano.
 

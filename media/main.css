@@ -434,3 +434,10 @@ button.palette .chips i { flex: 1; }
 
 /* Santa only shows at night: by day he cannot be clicked either */
 #world:not(.night) #scene [data-egg="santa"] { pointer-events: none; }
+
+/* the red button easter egg */
+#overlay [data-redbutton] { pointer-events: auto; }
+#overlay [data-redbutton] .cap.down { animation: redpress .14s ease-out; }
+@keyframes redpress { 40% { transform: translateY(3px); } 100% { transform: none; } }
+#overlay [data-redbutton] .presses { font: 900 10px Verdana, sans-serif; fill: #FFE34F; stroke: #2a211c; stroke-width: 3px; paint-order: stroke; }
+#overlay [data-redbutton]:hover .cap { filter: brightness(1.15); }

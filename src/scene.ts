@@ -701,7 +701,7 @@ function furnishClassic(room: RoomGeom, theme: Theme, lab: Lab, active: boolean)
   if (theme === 'arcade') {
     const neon = ['#FF4FD8', '#4FE3FF', '#FFE34F', '#7CFF6B', '#FF8A4F']
     // a top puesto backs its first row on the far wall; a bottom one keeps clear of the door aisle
-    for (const c of room.top ? [0.2, 3.6] : [1.75, 4.6]) {
+    for (const c of room.top ? [0.2, 3.6] : [2.6, 5.2]) {
       columns(room, 1.2, 0.9, 1.3).forEach((x, k) => {
         const color = neon[k % neon.length]!
         s += box(x - 0.4, Y(c), 0, 0.8, 0.7, 42, '#2B2840')
@@ -1543,9 +1543,9 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     // the steps are in the strolling sprites (cp, ap); here only the motion and the turns at each end
     return { motion: `<animateMotion path="${sp.d}" ${timing}/>`, sprite: (inner: string) => turning(path, timing, inner) }
   }
-  // Where's Wally? About one daytime hour in three, one of the strollers goes out in his costume
+  // Where's Wally? About one daytime hour in six, one of the strollers goes out in his costume
   const hour = Math.floor(now / 3_600_000)
-  const wally = strollers.length && hash(`wally${dayIndex}:${hour}`) % 3 === 0 ? strollers[hash(`${hour}`) % strollers.length] : undefined
+  const wally = strollers.length && hash(`wally${dayIndex}:${hour}`) % 6 === 0 ? strollers[hash(`${hour}`) % strollers.length] : undefined
   if (wally) out.push(`<defs>${wallyDef(STROLL_STEP)}</defs>`)
   strollers.forEach((skill, i) => {
     const p = stroll(skill, STREET_NEAR, i)

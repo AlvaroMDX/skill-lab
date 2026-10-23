@@ -359,6 +359,49 @@
     }
   }
 
+  // the red button: it appears in the middle of nowhere (the path out of the side door) once every other medal is earned
+  const RED_STEPS = [[10, 'red10'], [100, 'red100'], [1000, 'red1000'], [10000, 'red10000'], [77777, 'red77777']]
+  // every medal but the button's own and the platinum one, which needs them
+  const earnedAll = () => MEDALS.every(m => m[4] === 'button' || m[0] === 'all' || medals[m[0]])
+  function renderRedButton() {
+    let btn = overlay.querySelector('[data-redbutton]')
+    if (!geo || !earnedAll()) return btn?.remove()
+    if (!btn) {
+      btn = document.createElementNS(SVG_NS, 'g')
+      btn.setAttribute('data-redbutton', '1')
+      btn.style.cursor = 'pointer'
+      btn.innerHTML =
+        '<title>No lo pulses</title><ellipse rx="15" ry="7" fill="#000" opacity=".28"/>' +
+        '<path d="M-12 -1 v-5 a12 6 0 0 0 24 0 v5 a12 6 0 0 1 -24 0z" fill="#2E3238"/><ellipse cy="-6" rx="12" ry="6" fill="#4A4F57"/>' +
+        '<g class="cap"><path d="M-8 -7 v-4 a8 4 0 0 0 16 0 v4 a8 4 0 0 1 -16 0z" fill="#9E1C1C"/><ellipse cy="-11" rx="8" ry="4" fill="#E23B3B"/><ellipse cx="-3" cy="-12" rx="3" ry="1.2" fill="#FFF" opacity=".55"/></g>' +
+        '<text class="presses" y="-22" text-anchor="middle"></text>'
+      // its own pointer handling: a press must not start a pan of the map
+      btn.addEventListener('pointerdown', e => {
+        e.stopPropagation()
+        pressRed(btn)
+      })
+      overlay.appendChild(btn)
+    }
+    const p = iso(geo.W + 1.7, geo.D + 3.2)
+    btn.setAttribute('transform', `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`)
+    btn.querySelector('.presses').textContent = (medals['~red'] || 0).toLocaleString('es-ES')
+  }
+  function pressRed(btn) {
+    const n = tally('red')
+    btn.querySelector('.presses').textContent = n.toLocaleString('es-ES')
+    const cap = btn.querySelector('.cap')
+    cap.classList.remove('down')
+    void cap.getBoundingClientRect()
+    cap.classList.add('down')
+    beep([RED_STEPS.some(([k]) => k === n) ? 880 : 196], 0.03)
+    for (const [k, id] of RED_STEPS) if (n >= k) unlock(id)
+    if (n === 77777) {
+      const p = iso(geo.W + 1.7, geo.D + 3.2)
+      floatText({ x: p.x, y: p.y - 40 }, '🎆 ¡77.777!', 'big')
+      coinRain(p.x, p.y + 10)
+    }
+  }
+
   // casino slot machines: a click spins three reels over the machine; 777 is the jackpot (1 in 27)
   const REEL = ['🍒', '★', 'BAR', '🍋', '🔔']
   const spinning = new Set()
@@ -1731,6 +1774,7 @@
     ['eggs', '🥚 Easter eggs'],
     ['world', '🌍 Mundo y estilo'],
     ['chores', '🧹 Faenas y manías'],
+    ['button', '🔴 El botón rojo'],
   ]
   const MEDALS = [
     ['pet', '💕', 'Mimos', 'Doble clic a un gato', 'eggs'],
@@ -1766,7 +1810,6 @@
     ['cats3', '😼', 'Gatocalipsis', 'Echa 3 gatos a la papelera en menos de 20 s', 'eggs'],
     ['pet20', '🧶', 'Rascador oficial', 'Haz 20 mimos a los gatos', 'eggs'],
     ['night', '🌙', 'Noctámbulo', 'Haz que sea de noche con el reloj', 'chores'],
-    ['witching', '🦉', 'Hora bruja', 'Abre el laboratorio entre las 3 y las 4 de la madrugada', 'chores'],
     ['zoom-max', '🔍', 'Lupa de Sherlock', 'Acerca el zoom al máximo', 'chores'],
     ['zoom-min', '🦅', 'Vista de pájaro', 'Aleja el zoom al mínimo', 'chores'],
     ['robots5', '🤖', 'Granja de robots', 'Ten 5 sesiones de Claude abiertas a la vez', 'chores'],
@@ -1781,7 +1824,12 @@
     ['slot50', '🪙', 'Ludópata', 'Juega 50 tiradas en la tragaperras', 'eggs'],
     ['wally', '🔍', '¿Dónde está Wally?', 'Encuentra a Wally entre los paseantes y pínchale', 'eggs'],
     ['santa', '🎅', 'Jo, jo, jo', 'Pincha a Papá Noel cuando cruce el cielo en Navidad', 'eggs'],
-    ['all', '🏆', 'Coleccionista', 'Consigue todas las demás medallas', 'eggs'],
+    ['all', '🏆', '¡Platinéalo!', 'Consigue todas las demás medallas, botón rojo incluido', 'eggs'],
+    ['red10', '🔴', 'Curiosidad', 'Pulsa 10 veces el botón que no se debe pulsar', 'button'],
+    ['red100', '👆', 'Insistente', '100 pulsaciones', 'button'],
+    ['red1000', '💪', 'Dedo de hierro', '1.000 pulsaciones', 'button'],
+    ['red10000', '🦾', 'Leyenda del botón', '10.000 pulsaciones', 'button'],
+    ['red77777', '🎆', '77.777', 'Llega a 77.777 pulsaciones', 'button'],
   ]
 
   // counters and sets behind the medals that need more than one go, kept with the medals as '~' keys
@@ -1821,14 +1869,15 @@
   on('service-down', () => unlock('down'))
   new MutationObserver(() => {
     if (!view) return
-    if (view.scale >= MAX) unlock('zoom-max')
-    if (view.scale <= MIN) unlock('zoom-min')
+    // the eased zoom reaches the limit after the shown % stops changing: compare the rounded value
+    const pct = Math.round(view.scale * 100)
+    if (pct >= Math.round(MAX * 100)) unlock('zoom-max')
+    if (pct <= Math.round(MIN * 100)) unlock('zoom-min')
   }).observe($('zoomLevel'), { childList: true, characterData: true, subtree: true })
   window.addEventListener('message', e => {
     if (e.data && e.data.type === 'scene' && e.data.stats && e.data.stats.sessions >= 5) unlock('robots5')
   })
   setInterval(() => bags.length >= MAX_BAGS && unlock('diogenes'), 20_000)
-  if (new Date().getHours() === 3) setTimeout(() => unlock('witching'), 1500)
 
   function unlock(id) {
     emit('act', id)
@@ -1841,6 +1890,7 @@
     medalToast(def)
     updateMedalButton()
     if (id !== 'all' && MEDALS.every(m => m[0] === 'all' || medals[m[0]])) setTimeout(() => unlock('all'), 1800)
+    renderRedButton()
     if (drawer.classList.contains('open') && tab === 'medals') renderDrawer()
   }
 
@@ -2162,6 +2212,7 @@
       updateStats()
       updateSky()
       renderBags()
+      renderRedButton()
     } else if (msg.type === 'model') {
       model = msg.model
       if (model.needsSetup && !setupSeen && !setup) {
@@ -2171,6 +2222,7 @@
       if (model.medals) {
         medals = { ...model.medals, ...medals }
         updateMedalButton()
+        renderRedButton()
       }
       soundOn = model.settings.sound
       const typing = document.activeElement && drawer.contains(document.activeElement) && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) && !['checkbox', 'range', 'color'].includes(document.activeElement.type)
