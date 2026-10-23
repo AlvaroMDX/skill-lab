@@ -1,5 +1,8 @@
 # Cambios
 
+## 1.1.9 — 2026-10-23
+- Wally tiene un sitio fijo: en una combinación concreta de mundo y temporada sale a pasear siempre de día; en el resto sigue apareciendo al azar.
+
 ## 1.1.8 — 2026-10-23
 - El juego del botón rojo termina al llegar a 1.000.000.000 pulsaciones: fuegos, botón con bandera de meta y una tarjeta final con pulsaciones, clics a mano, tiempo y mejoras al máximo, con opción de volver a empezar (las medallas se quedan).
 - Medallas nuevas: Tienda al máximo y Mil millones (58 en total).

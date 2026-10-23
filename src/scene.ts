@@ -1,9 +1,9 @@
-import { LABS, ROOM_ORDER } from './labs'
+import { LABS, ROOM_ORDER, WORLD } from './labs'
 import type { Lab, Theme } from './labs'
 import { worldGround, worldOverlay, worldProps } from './world'
 import { floorDecor, wallDecor } from './decor'
 import { racks } from './racks'
-import { seasonDecor, seasonLights } from './season'
+import { activeSeason, seasonDecor, seasonLights } from './season'
 import { greenhouse } from './themes/greenhouse'
 import { music } from './themes/music'
 import { space } from './themes/space'
@@ -1543,9 +1543,10 @@ export function renderScene({ roster, crew, agents, now, pet = true, cats = [{ n
     // the steps are in the strolling sprites (cp, ap); here only the motion and the turns at each end
     return { motion: `<animateMotion path="${sp.d}" ${timing}/>`, sprite: (inner: string) => turning(path, timing, inner) }
   }
-  // Where's Wally? About one daytime hour in six, one of the strollers goes out in his costume
+  // Where's Wally? Always out for a walk in the autumn forest; anywhere else, about one daytime hour in six
   const hour = Math.floor(now / 3_600_000)
-  const wally = strollers.length && hash(`wally${dayIndex}:${hour}`) % 6 === 0 ? strollers[hash(`${hour}`) % strollers.length] : undefined
+  const wallyHome = WORLD === 'forest' && activeSeason(season, now) === 'otono'
+  const wally = strollers.length && (wallyHome || hash(`wally${dayIndex}:${hour}`) % 6 === 0) ? strollers[hash(`${hour}`) % strollers.length] : undefined
   if (wally) out.push(`<defs>${wallyDef(STROLL_STEP)}</defs>`)
   strollers.forEach((skill, i) => {
     const p = stroll(skill, STREET_NEAR, i)
