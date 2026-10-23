@@ -2213,6 +2213,11 @@
       updateSky()
       renderBags()
       renderRedButton()
+    } else if (msg.type === 'gift') {
+      for (const [key, add] of Object.entries(msg.counters || {})) if (Number.isFinite(add)) tally(key, add)
+      const n = medals['~red'] || 0
+      for (const [k, id] of RED_STEPS) if (n >= k) unlock(id)
+      renderRedButton()
     } else if (msg.type === 'model') {
       model = msg.model
       if (model.needsSetup && !setupSeen && !setup) {

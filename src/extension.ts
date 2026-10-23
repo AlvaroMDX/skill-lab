@@ -236,6 +236,20 @@ class LabView implements vscode.WebviewViewProvider {
       },
     }
     void this.view.webview.postMessage({ type: 'model', model })
+    this.deliverGift()
+  }
+
+  // a one-off gift.json in the lab folder ({"red": 1000}) adds to the panel's counters once and is removed
+  deliverGift() {
+    const file = path.join(LAB_DIR, 'gift.json')
+    if (!this.view || !fs.existsSync(file)) return
+    try {
+      const counters = JSON.parse(fs.readFileSync(file, 'utf8'))
+      fs.unlinkSync(file)
+      void this.view.webview.postMessage({ type: 'gift', counters })
+    } catch (err) {
+      console.error('[skill-lab] gift', err)
+    }
   }
 
   private async trash(kind: string, id: string) {
@@ -657,6 +671,7 @@ export function activate(ctx: vscode.ExtensionContext) {
 
   fs.mkdirSync(LAB_DIR, { recursive: true })
   const watcher = fs.watch(LAB_DIR, (_e, file) => {
+    if (file === 'gift.json') return view?.deliverGift()
     if (file !== 'config.json') return
     applyConfig(readConfig())
     tracker.relocate(Date.now())

@@ -1,5 +1,8 @@
 # Cambios
 
+## 1.1.5 — 2026-10-23
+- Contadores de regalo: un gift.json en ~/.claude/skill-lab (por ejemplo {"red": 1000}) suma una vez a los contadores de las medallas y se borra.
+
 ## 1.1.4 — 2026-10-23
 - El botón rojo se pasa al final del camino de la puerta lateral, junto a la calle, donde ya no lo pisan árboles, la torre del socorrista ni la bandera de la Luna.
 
