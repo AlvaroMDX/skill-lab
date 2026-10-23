@@ -1,5 +1,9 @@
 # Cambios
 
+## 1.1.6 — 2026-10-23
+- Microjuego incremental en el botón rojo: con el carrito 🛒 se abre una tienda donde las pulsaciones se gastan en dedos extra, gatos, skills, robots y drones que pulsan solos, y en el botón dorado (×2 a todo). Sigue sumando a la mitad mientras el panel está cerrado (hasta 8 h).
+- Tres medallas nuevas: Primera compra, Fábrica de pulsar (100 por segundo) y Botón dorado (56 en total).
+
 ## 1.1.5 — 2026-10-23
 - Contadores de regalo: un gift.json en ~/.claude/skill-lab (por ejemplo {"red": 1000}) suma una vez a los contadores de las medallas y se borra.
 
