@@ -219,3 +219,19 @@
 @media (prefers-reduced-motion: reduce) {
   #rg *, .rg-intro * { animation: none !important; }
 }
+/* 3D stage */
+#rg .rg-stage canvas.rg-3d { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: auto; z-index: 0; }
+#rg.rg-3dmode .rg-arena { visibility: hidden; }
+#rg.rg-3dmode .rg-stage.frenzy { animation: none; }
+#rg .rg-hint3 { position: absolute; left: 0; top: 0; z-index: 5; pointer-events: none; margin: -14px 0 0 -40px; width: 80px; text-align: center; font: 900 14px Verdana, sans-serif; color: #FFE34F; text-shadow: 0 2px 0 #1a1310, 0 0 8px #1a1310; animation: rg-bob 1s ease-in-out infinite; }
+#rg .rg-bubble3 { position: absolute; left: 0; top: 0; z-index: 5; pointer-events: none; opacity: 0; translate: calc(-100% - 30px) -50%; max-width: 240px; padding: 7px 12px; border-radius: 12px; background: #fff; color: #1a1310; border: 2px solid #1a1310; font: 700 12px Verdana, sans-serif; box-shadow: 0 4px 0 rgba(0,0,0,.35); }
+#rg .rg-bubble3::after { content: ''; position: absolute; right: -11px; top: 50%; margin-top: -7px; border: 7px solid transparent; border-left: 10px solid #1a1310; }
+/* tree: wallet in sight, nodes and buttons you can't pay look switched off */
+#rg .rg-tree-wallet { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 2; padding: 6px 16px; background: var(--panel); border: 2px solid #FFB02A; box-shadow: var(--px), 0 0 14px #ffb02a55; font: 900 16px Verdana, sans-serif; color: #FFE34F; white-space: pre; pointer-events: none; }
+#rg .rg-node .cost { font: 700 11px Verdana, sans-serif; fill: #FFE34F; pointer-events: none; }
+#rg .rg-node.poor .disc, #rg .rg-node.poor .ic, #rg .rg-node.poor .prog { filter: grayscale(1) brightness(.55); }
+#rg .rg-node.poor .ic { opacity: .5; }
+#rg .rg-node.poor .cost { fill: #8a8f99; }
+#rg .rg-node.poor .lv { fill: #7a7f88; }
+#rg button:disabled { opacity: .4; filter: grayscale(1); cursor: not-allowed; box-shadow: none; animation: none; }
+#rg .rg-art.owned:disabled { filter: none; }

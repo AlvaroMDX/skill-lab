@@ -145,6 +145,7 @@ class LabView implements vscode.WebviewViewProvider {
     const js = view.webview.asWebviewUri(vscode.Uri.joinPath(media, 'main.js'))
     const css = view.webview.asWebviewUri(vscode.Uri.joinPath(media, 'main.css'))
     const gameJs = view.webview.asWebviewUri(vscode.Uri.joinPath(media, 'clicker.js'))
+    const arenaJs = view.webview.asWebviewUri(vscode.Uri.joinPath(media, 'arena3d.js'))
     const gameCss = view.webview.asWebviewUri(vscode.Uri.joinPath(media, 'clicker.css'))
     view.webview.html = `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${view.webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
@@ -169,7 +170,7 @@ class LabView implements vscode.WebviewViewProvider {
   <nav><button data-tab="labs">Labs</button><button data-tab="skills">Skills</button><button data-tab="medals">Medallas</button><button data-tab="settings">Ajustes</button></nav>
   <div id="drawerBody"></div>
 </aside>
-<script nonce="${nonce}" src="${gameJs}"></script><script nonce="${nonce}" src="${js}"></script></body></html>`
+<script nonce="${nonce}" src="${arenaJs}"></script><script nonce="${nonce}" src="${gameJs}"></script><script nonce="${nonce}" src="${js}"></script></body></html>`
     view.webview.onDidReceiveMessage(msg => this.onMessage(msg))
     view.onDidChangeVisibility(() => view.visible && this.push(true))
   }

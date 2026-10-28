@@ -454,6 +454,35 @@
       ledG.appendChild(c)
       ui.leds.push(c)
     }
+    // the 3D stage when WebGL is there; the SVG arena stays as the fallback
+    const c3 = document.createElement('canvas')
+    c3.className = 'rg-3d'
+    ui.stage.prepend(c3)
+    ui.g3 = window.RG3D?.create(c3, { calm }) || null
+    if (ui.g3) {
+      ui.c3 = c3
+      root.classList.add('rg-3dmode')
+      ui.hint = document.createElement('div')
+      ui.hint.className = 'rg-hint3'
+      ui.hint.textContent = '¡Púlsame!'
+      ui.hint.style.display = G.clicks >= 5 ? 'none' : ''
+      ui.bubble = document.createElement('div')
+      ui.bubble.className = 'rg-bubble3'
+      root.append(ui.hint, ui.bubble)
+      c3.addEventListener('pointerdown', e => {
+        const r = c3.getBoundingClientRect()
+        const hit = ui.g3.pick(e.clientX - r.left, e.clientY - r.top)
+        if (hit === 'chest') openChest()
+        else if (hit === 'button') {
+          e.preventDefault()
+          press(e)
+        }
+      })
+      c3.addEventListener('pointermove', e => {
+        const r = c3.getBoundingClientRect()
+        c3.style.cursor = ui.g3.pick(e.clientX - r.left, e.clientY - r.top) ? 'pointer' : ''
+      })
+    } else c3.remove()
     root.addEventListener('pointerdown', e => e.stopPropagation())
     root.addEventListener('wheel', e => e.stopPropagation(), { passive: true })
     ui.button.addEventListener('pointerdown', e => {
@@ -506,6 +535,7 @@
     if (fight) loseFight(true)
     cancelAnimationFrame(ui.raf)
     clearInterval(ui.newsTimer)
+    ui.g3?.dispose()
     ui.ro.disconnect()
     document.removeEventListener('keydown', onKey)
     const r = root
@@ -529,9 +559,17 @@
       c.height = Math.round(root.clientHeight * dpr)
       c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0)
     }
+    ui.g3?.resize(ui.c3.clientWidth, ui.c3.clientHeight)
+  }
+  // pixels on the 3D canvas → pixels on the overlay canvases
+  function g3px(p) {
+    const r = ui.c3.getBoundingClientRect()
+    const box = root.getBoundingClientRect()
+    return { x: p.x + r.left - box.left, y: p.y + r.top - box.top }
   }
   // arena coordinates → pixels on the canvases
   function toScreen(x, y) {
+    if (ui.g3) return g3px(ui.g3.arena(x, y))
     const pt = ui.arena.createSVGPoint()
     pt.x = x
     pt.y = y
@@ -543,6 +581,21 @@
   // ---------- helpers around the button ----------
 
   function buildSprites() {
+    if (ui.g3) {
+      ui.g3.clearCrew()
+      ui.sprites = []
+      for (const h of HELPERS) {
+        const n = shownOf(count(G, h))
+        const [a0, a1] = ARCS[h.id]
+        for (let i = 0; i < n; i++) {
+          const a = ((a0 + ((a1 - a0) * (i + 0.5)) / n) * Math.PI) / 180
+          const c = ui.g3.addHelper(h.id, a, SL().catCoat())
+          ui.sprites.push({ h, c, x: Math.cos(a) * 205, y: 30 + Math.sin(a) * 92, next: performance.now() + rnd(200, h.every * 1000) })
+        }
+      }
+      ui.g3.setArts(Object.keys(G.arts || {}))
+      return
+    }
     ui.back.innerHTML = ''
     ui.front.innerHTML = ''
     ui.sprites = []
@@ -581,24 +634,26 @@
     const back = x > 0 ? 1 : -1
     const body = s.body
     const dur = Math.min(720, h.every * 520)
-    const impact = toScreen(x * 0.3, 4 + (y - 20) * 0.18)
-    const hit = () => {
+    const hitAt = (impact, head, muzzle) => {
       if (!ui) return
       const share = (helperRate(G, h, fx) * h.every) / Math.max(1, shownOf(count(G, h)))
       capHit(h.id === 'claude' ? 0.7 : 0.35)
       ledPulse(0.35)
-      flash(impact.x, impact.y, h.id === 'claude' ? 46 : 24, h.id === 'claude' ? '255,220,90' : '255,190,120')
+      if (!ui.g3 || h.id === 'claude') flash(impact.x, impact.y, h.id === 'claude' ? 46 : 24, h.id === 'claude' ? '255,220,90' : '255,190,120')
       sparks(impact.x, impact.y, h.id === 'claude' ? 16 : 8, h.id === 'claude' ? '#FFD84F' : '#FFB35A', 3)
-      floatNum(toScreen(x * 0.85, y - 54), `+${fmtRate(share)}`, '#FFF4C8', 13)
+      floatNum(head, `+${fmtRate(share)}`, '#FFF4C8', 13)
       if (lvl(G, 'k4')) chestTick()
       if (h.id === 'cat') slash(impact.x, impact.y, back)
       if (h.id === 'skill') for (let i = 0; i < 4; i++) puff(impact.x + rnd(-16, 16), impact.y + rnd(0, 6), 'rgba(230,220,210,', 0.6)
-      if (h.id === 'robot') {
-        const vent = toScreen(x + back * 14, y - 34)
-        for (let i = 0; i < 3; i++) puff(vent.x, vent.y, 'rgba(255,255,255,', 0.5)
+      if (h.id === 'robot') for (let i = 0; i < 3; i++) puff(head.x + back * 10, head.y + 20, 'rgba(255,255,255,', 0.5)
+      if (h.id === 'claude') {
+        if (muzzle) bolt(muzzle.x, muzzle.y, impact.x, impact.y)
+        shake(4)
       }
-      if (h.id === 'claude') shake(4)
     }
+    if (ui.g3) return ui.g3.helperPress(s.c, Math.min(720, h.every * 520), (impact, head, muzzle) => hitAt(g3px(impact), g3px(head), muzzle && g3px(muzzle)))
+    const impact = toScreen(x * 0.3, 4 + (y - 20) * 0.18)
+    const hit = () => hitAt(impact, toScreen(x * 0.85, y - 54))
     if (calm()) return hit()
     const spring = 'cubic-bezier(.25,.9,.3,1.25)'
     if (h.id === 'cat') {
@@ -676,6 +731,7 @@
     chestTick()
     const p = e ? pointer(e) : toScreen(rnd(-30, 30), rnd(-30, -5))
     capHit(1)
+    ui?.g3?.playerPress(crit)
     ledPulse(1)
     rayBoost = Math.min(1, rayBoost + 0.18)
     const base = toScreen(0, 20)
@@ -707,6 +763,7 @@
   // the cap sinks into the base, squashes, springs back past its rest and settles; its top flashes white
   function capHit(force) {
     if (!ui || calm()) return
+    if (ui.g3) return ui.g3.capHit(force)
     ui.cap.animate(
       [
         { transform: 'none' },
@@ -722,11 +779,13 @@
   function shake(px) {
     if (!ui || calm() || px < 2) return
     const k = Math.min(px, 16)
+    if (ui.g3) return ui.g3.shake(k)
     ui.stage.animate([0, 1, 2, 3, 4, 5].map(i => ({ transform: i === 5 ? 'none' : `translate(${rnd(-k, k) * (1 - i / 6)}px,${rnd(-k, k) * 0.6 * (1 - i / 6)}px) rotate(${rnd(-k, k) * 0.05}deg)` })), { duration: 220 })
   }
   // camera punch: a quick zoom in and out of the stage
   function punch(k) {
     if (!ui || calm()) return
+    if (ui.g3) return ui.g3.punch(k)
     ui.stage.animate([{ transform: 'none' }, { transform: `scale(${k})`, offset: 0.25 }, { transform: 'none' }], { duration: 320, easing: 'cubic-bezier(.2,.8,.3,1)' })
   }
   function whiteFlash(a) {
@@ -888,6 +947,17 @@
       }
       led.setAttribute('fill', gold ? `rgba(255,216,79,${(0.25 + b * 0.75).toFixed(2)})` : `rgba(255,${Math.round(80 + b * 150)},${Math.round(60 + b * 120)},${(0.25 + b * 0.75).toFixed(2)})`)
     })
+    if (ui.g3) {
+      ui.g3.frame({ heat, gold, rayBoost, ledFlash, speed, frozen })
+      const hp = toScreen(0, -66)
+      ui.hint.style.left = `${hp.x}px`
+      ui.hint.style.top = `${hp.y}px`
+      const bh = ui.g3.bossHead()
+      if (bh) {
+        const p = g3px(bh)
+        ui.bubble.style.transform = `translate(${p.x}px,${p.y}px)`
+      }
+    }
     // embers rise off the button while the combo is full
     if (fx.comboFull && !frozen) embers(c.x, c.y - 10, gold ? 3 : 2)
     if (golden && !calm()) {
@@ -1242,6 +1312,17 @@
   }
   function showChest() {
     if (!ui) return
+    if (ui.g3) {
+      ui.g3.chestShow()
+      setTimeout(() => {
+        if (!ui) return
+        shake(5)
+        const p = toScreen(0, 140)
+        for (let i = 0; i < 8; i++) puff(p.x + rnd(-40, 40), p.y, 'rgba(200,180,150,', 0.5)
+      }, 440)
+      if (lvl(G, 'k4')) setTimeout(() => chestReady && openChest(), 2500)
+      return
+    }
     const c = ui.chest
     c.style.display = ''
     c.setAttribute('transform', 'translate(0,128)')
@@ -1286,7 +1367,8 @@
       whiteFlash(0.25 * tier)
       punch(1 + 0.02 * tier)
     }
-    const lid = ui.chest.querySelector('.rg-lid')
+    if (ui.g3) ui.g3.chestOpen(rar.color, tier)
+    const lid = ui.g3 ? null : ui.chest.querySelector('.rg-lid')
     lid?.animate([{ transform: 'none' }, { transform: 'translate(-20px,-60px) rotate(-70deg)', opacity: 1, offset: 0.6 }, { transform: 'translate(-34px,-30px) rotate(-120deg)', opacity: 0 }], { duration: 500, easing: 'ease-out', fill: 'forwards' })
     if (tier === 3) {
       SL().unlock('redchest')
@@ -1295,7 +1377,7 @@
     bigText(`${rar.name}: +${fmt(reward)}`, rar.color)
     SL().beep([523, 659, 784, 1047].slice(0, 2 + tier), 0.07)
     const c = ui.chest
-    c.firstChild.animate([{ transform: 'none' }, { transform: 'scale(1.25,.8)', offset: 0.15 }, { transform: 'scale(1.1) translateY(-6px)', offset: 0.5 }, { transform: 'scale(0) rotate(20deg)', opacity: 0 }], { duration: 900, easing: 'ease-in' }).onfinish = () => {
+    if (!ui.g3) c.firstChild.animate([{ transform: 'none' }, { transform: 'scale(1.25,.8)', offset: 0.15 }, { transform: 'scale(1.1) translateY(-6px)', offset: 0.5 }, { transform: 'scale(0) rotate(20deg)', opacity: 0 }], { duration: 900, easing: 'ease-in' }).onfinish = () => {
       c.style.display = 'none'
     }
     refresh()
@@ -1434,6 +1516,30 @@
     const a = ARTS.find(x => x.id === id)
     if (!buyArt(G, a)) return
     SL().unlock('redshop')
+    if (ui.g3) {
+      // in 3D the artifact appears over the button, spins in a burst of light and flies to its place on the stage
+      ui.g3.setArts(Object.keys(G.arts), id, land => {
+        if (!ui) return
+        const q = g3px(land)
+        flash(q.x, q.y, 70, '160,230,255')
+        sparks(q.x, q.y, 24, '#9FE8FF', 4)
+        ring(q, '#9FE8FF', 5, 0.05)
+        SL().beep([1047, 1319], 0.05)
+      })
+      const p = g3px(ui.g3.point(0, 1.5, 1.6))
+      hitstop(90)
+      beams(p.x, p.y, '#9FE8FF')
+      flash(p.x, p.y, 160, '160,230,255')
+      sparks(p.x, p.y, 50, '#9FE8FF', 7)
+      confetti(p.x, p.y, 40)
+      whiteFlash(0.3)
+      shake(8)
+      bigText(`¡${a.name}!`, '#9FE8FF')
+      SL().beep([392, 523, 659, 784, 1047], 0.07)
+      save(true)
+      refresh()
+      return
+    }
     // the relic rises to the middle of the screen, glowing, and settles into the list
     const b = ui.arts.querySelector(`[data-art="${id}"]`)
     const r = b.getBoundingClientRect()
@@ -1517,18 +1623,14 @@
     const b = BOSSES[i]
     const hp = bossHp(G, b)
     fight = { i, b, hp, max: hp, until: Date.now() + b.seconds * 1000, nextTaunt: Date.now() + 3000 }
-    ui.boss.innerHTML = drawBoss(i)
-    ui.boss.style.display = ''
-    ui.boss.setAttribute('transform', `translate(${BX},${BY}) scale(.8)`)
-    const body = ui.boss.querySelector('.rg-boss-body')
-    // he crashes down from the sky
-    body.animate([{ transform: 'translateY(-260px) rotate(-20deg)' }, { transform: 'translateY(0) scale(1.25,.75)', offset: 0.7 }, { transform: 'translateY(-16px) scale(.95,1.05)', offset: 0.85 }, { transform: 'none' }], { duration: 800, easing: 'ease-in' })
+    if (ui.g3) ui.g3.bossShow(i)
+    else bossSvg(i)
     setTimeout(() => {
       if (!ui) return
       shake(14)
       punch(1.04)
-      const p = toScreen(BX, BY + 30)
-      for (let k = 0; k < 10; k++) puff(p.x + rnd(-50, 50), p.y + 20, 'rgba(120,90,110,', 0.6)
+      const p = toScreen(BX, BY + 60)
+      for (let k = 0; k < 14; k++) puff(p.x + rnd(-60, 60), p.y + 20, 'rgba(120,90,110,', 0.6)
     }, 560)
     ui.bossHud.hidden = false
     ui.bossHud.querySelector('.name').textContent = `😼 ${b.name}`
@@ -1540,7 +1642,20 @@
     refresh()
     updateBossHud()
   }
+  function bossSvg(i) {
+    ui.boss.innerHTML = drawBoss(i)
+    ui.boss.style.display = ''
+    ui.boss.setAttribute('transform', `translate(${BX},${BY}) scale(.8)`)
+    const body = ui.boss.querySelector('.rg-boss-body')
+    // he crashes down from the sky
+    body.animate([{ transform: 'translateY(-260px) rotate(-20deg)' }, { transform: 'translateY(0) scale(1.25,.75)', offset: 0.7 }, { transform: 'translateY(-16px) scale(.95,1.05)', offset: 0.85 }, { transform: 'none' }], { duration: 800, easing: 'ease-in' })
+  }
   function taunt(text) {
+    if (ui?.g3) {
+      ui.bubble.textContent = text
+      ui.bubble.animate([{ opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1.08, offset: 0.08 }, { opacity: 1, scale: 1, offset: 0.14 }, { opacity: 1, offset: 0.85 }, { opacity: 0, scale: 0.9 }], { duration: 2600, easing: 'ease-out' })
+      return
+    }
     const bub = ui?.boss.querySelector('.rg-boss-bubble')
     if (!bub) return
     bub.querySelector('text').textContent = text
@@ -1550,10 +1665,10 @@
     if (!fight) return
     fight.hp -= n
     if (ui) {
-      const body = ui.boss.querySelector('.rg-boss-body')
       if (!calm() && performance.now() - (fight.hitAt || 0) > 90) {
         fight.hitAt = performance.now()
-        body.animate([{ transform: 'none', filter: 'brightness(3)' }, { transform: `translate(${crit ? 10 : 4}px,-2px) rotate(${crit ? 6 : 2}deg)`, filter: 'brightness(1.6)' }, { transform: 'none', filter: 'none' }], { duration: 180 })
+        if (ui.g3) ui.g3.bossHurt(crit)
+        else ui.boss.querySelector('.rg-boss-body').animate([{ transform: 'none', filter: 'brightness(3)' }, { transform: `translate(${crit ? 10 : 4}px,-2px) rotate(${crit ? 6 : 2}deg)`, filter: 'brightness(1.6)' }, { transform: 'none', filter: 'none' }], { duration: 180 })
         const p = toScreen(BX + rnd(-34, 34), BY - 10 + rnd(-14, 14))
         floatNum(p, `-${fmt(n)}`, crit ? '#FFD84F' : '#FF6A7A', crit ? 22 : 15, crit)
         sparks(p.x, p.y, crit ? 18 : 5, '#FF4A5A', 3.5)
@@ -1578,6 +1693,7 @@
         combo = 0
         updateCombo()
         bigText('¡Zarpazo! Combo perdido', '#FF8A7A')
+        ui.g3?.bossSwipe()
         const p = toScreen(60, -10)
         slash(p.x, p.y, -1)
         shake(10)
@@ -1601,7 +1717,8 @@
     confetti(p.x, p.y, 120)
     coinsBurst(p.x, p.y, 24)
     // he spins away into the sky, shrinking
-    ui.boss.querySelector('.rg-boss-body').animate([{ transform: 'none' }, { transform: 'translate(40px,-80px) rotate(200deg) scale(.7)', offset: 0.5 }, { transform: 'translate(200px,-400px) rotate(720deg) scale(.1)', opacity: 0 }], { duration: 1300, easing: 'ease-in' }).onfinish = () => {
+    if (ui.g3) ui.g3.bossGone('win')
+    else ui.boss.querySelector('.rg-boss-body').animate([{ transform: 'none' }, { transform: 'translate(40px,-80px) rotate(200deg) scale(.7)', offset: 0.5 }, { transform: 'translate(200px,-400px) rotate(720deg) scale(.1)', opacity: 0 }], { duration: 1300, easing: 'ease-in' }).onfinish = () => {
       if (ui) ui.boss.style.display = 'none'
     }
     endFightHud()
@@ -1616,7 +1733,8 @@
     fightCooldown = Date.now() + 20000
     if (!ui || quiet) return
     taunt('¡Miau-ja-ja-ja! ¡Demasiado lento!')
-    ui.boss.querySelector('.rg-boss-body').animate([{ transform: 'none' }, { transform: 'translateY(-20px) rotate(-8deg)', offset: 0.3 }, { transform: 'translate(320px,-60px)', opacity: 0 }], { duration: 1500, easing: 'ease-in', delay: 900 }).onfinish = () => {
+    if (ui.g3) ui.g3.bossGone('flee')
+    else ui.boss.querySelector('.rg-boss-body').animate([{ transform: 'none' }, { transform: 'translateY(-20px) rotate(-8deg)', offset: 0.3 }, { transform: 'translate(320px,-60px)', opacity: 0 }], { duration: 1500, easing: 'ease-in', delay: 900 }).onfinish = () => {
       if (ui) ui.boss.style.display = 'none'
     }
     endFightHud()
@@ -1744,8 +1862,14 @@
     const link = cls => TREE.flatMap(n => n.req.map(r => `<line class="${cls}" data-from="${r}" data-to="${n.id}" x1="${TREE_BY_ID[r].x * UNIT}" y1="${TREE_BY_ID[r].y * UNIT}" x2="${n.x * UNIT}" y2="${n.y * UNIT}"/>`)).join('')
     links.innerHTML = link('cable') + link('flow')
     nodes.innerHTML = TREE.map(
-      n => `<g class="rg-node" data-node="${n.id}" transform="translate(${n.x * UNIT},${n.y * UNIT})"><circle class="glow" r="40"/><circle class="disc" r="30"/><circle class="prog" r="34" transform="rotate(-90)"/><text class="ic" y="11" text-anchor="middle">${n.icon}</text><text class="lv" y="52" text-anchor="middle"></text></g>`,
+      n => `<g class="rg-node" data-node="${n.id}" transform="translate(${n.x * UNIT},${n.y * UNIT})"><circle class="glow" r="40"/><circle class="disc" r="30"/><circle class="prog" r="34" transform="rotate(-90)"/><text class="ic" y="11" text-anchor="middle">${n.icon}</text><text class="lv" y="52" text-anchor="middle"></text><text class="cost" y="67" text-anchor="middle"></text></g>`,
     ).join('')
+    // the wallet stays in sight while you shop in the tree
+    if (!ui.tree.querySelector('.rg-tree-wallet')) {
+      const w = document.createElement('div')
+      w.className = 'rg-tree-wallet'
+      ui.tree.appendChild(w)
+    }
     nodes.querySelectorAll('.rg-node').forEach(g =>
       g.addEventListener('click', () => {
         selected = g.dataset.node
@@ -1809,9 +1933,13 @@
       g.style.display = shown ? '' : 'none'
       g.classList.toggle('owned', l > 0)
       g.classList.toggle('maxed', l >= n.max)
-      g.classList.toggle('afford', shown && l < n.max && G.coins >= nodeCost(G, n))
+      const afford = G.coins >= nodeCost(G, n)
+      g.classList.toggle('afford', shown && l < n.max && afford)
+      // what you can't pay for yet looks switched off
+      g.classList.toggle('poor', l < n.max && !afford)
       g.classList.toggle('sel', n.id === selected)
       g.querySelector('.lv').textContent = n.max > 1 ? `${l}/${n.max}` : l ? '✓' : ''
+      g.querySelector('.cost').textContent = l < n.max && n.id !== 'core' ? `🪙 ${fmt(nodeCost(G, n))}` : ''
       const C = 2 * Math.PI * 34
       const prog = g.querySelector('.prog')
       prog.setAttribute('stroke-dasharray', `${((C * l) / n.max).toFixed(1)} ${C.toFixed(1)}`)
@@ -1820,6 +1948,11 @@
       const to = TREE_BY_ID[line.dataset.to]
       line.style.display = nodeShown(G, to) ? '' : 'none'
       line.classList.toggle('lit', lvl(G, line.dataset.to) > 0)
+    }
+    const wallet = ui.tree.querySelector('.rg-tree-wallet')
+    if (wallet) {
+      const txt = `🪙 ${fmt(G.coins)}  ·  +${fmtRate(rate(G, fx))}/s`
+      if (wallet.textContent !== txt) wallet.textContent = txt
     }
     const n = TREE_BY_ID[selected]
     const l = lvl(G, n.id)
