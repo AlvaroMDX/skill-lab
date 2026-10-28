@@ -144,9 +144,11 @@ class LabView implements vscode.WebviewViewProvider {
     const nonce = Math.random().toString(36).slice(2)
     const js = view.webview.asWebviewUri(vscode.Uri.joinPath(media, 'main.js'))
     const css = view.webview.asWebviewUri(vscode.Uri.joinPath(media, 'main.css'))
+    const gameJs = view.webview.asWebviewUri(vscode.Uri.joinPath(media, 'clicker.js'))
+    const gameCss = view.webview.asWebviewUri(vscode.Uri.joinPath(media, 'clicker.css'))
     view.webview.html = `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${view.webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
-<link rel="stylesheet" href="${css}"></head><body>
+<link rel="stylesheet" href="${css}"><link rel="stylesheet" href="${gameCss}"></head><body>
 <div id="viewport"><div id="world"><div id="scene"><p class="wait">Esperando a Claude Code…</p></div><svg id="overlay" viewBox="0 0 850 530" width="850" height="530"></svg></div></div>
 <div id="clock" class="panel" title="Reloj · clic: automático → siempre de día → siempre de noche"><svg viewBox="-24 -24 48 48"><g id="clockDisc"><path d="M-20 0 A20 20 0 0 1 20 0 Z" fill="#7CC6F2"/><path d="M-20 0 A20 20 0 0 0 20 0 Z" fill="#1B2350"/><path d="M-20 0 H20" stroke="#E8DFA8" stroke-width="1"/><circle cx="0" cy="-12" r="5" fill="#FFD84F"/><path d="M0 -19.5v2M0 -6.5v2M-7.5 -12h2M5.5 -12h2" stroke="#FFD84F" stroke-width="1.2"/><circle cx="0" cy="12" r="4.5" fill="#E8ECF5"/><circle cx="2.2" cy="10.8" r="3.8" fill="#1B2350"/><circle cx="-11" cy="6" r=".8" fill="#fff"/><circle cx="10" cy="5" r=".8" fill="#fff"/><circle cx="-7" cy="15" r=".7" fill="#fff"/><circle cx="12" cy="13" r=".6" fill="#fff"/></g><circle r="21" fill="none" stroke="#14110F" stroke-width="3"/><circle r="22.5" fill="none" stroke="#8C857C" stroke-width="1"/><path d="M-3.5 -24 L3.5 -24 L0 -17.5 Z" fill="#D97757" stroke="#14110F" stroke-width=".8"/></svg><span id="clockLabel">auto</span></div>
 <div id="stats" class="chip"></div>
@@ -160,14 +162,14 @@ class LabView implements vscode.WebviewViewProvider {
   <button class="primary" data-act="newAgent" title="Lanzar Claude Code en una carpeta"><svg viewBox="0 0 16 16"><path d="M7 2h2v5h5v2H9v5H7V9H2V7h5z"/></svg>Agent</button>
   <button data-act="layout" data-tab="labs" title="Editar labs y skills"><svg viewBox="0 0 16 16"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>Layout</button>
   <button data-act="layout" data-tab="settings" title="Ajustes"><svg viewBox="0 0 16 16"><path d="M7 1h2v2h2v2h2v2h2v2h-2v2h-2v2H9v2H7v-2H5v-2H3V9H1V7h2V5h2V3h2zm0 5v4h2V6z"/></svg>Settings</button>
-  <button data-act="layout" data-tab="medals" title="Medallas: los easter eggs que has encontrado">🏅 <span class="count">0/58</span></button>
+  <button data-act="layout" data-tab="medals" title="Medallas: los easter eggs que has encontrado">🏅 <span class="count">0/60</span></button>
 </div>
 <aside id="drawer" class="panel" aria-hidden="true">
   <header><h2>Layout</h2><button class="icon ghost" data-act="close" title="Cerrar"><svg viewBox="0 0 16 16"><path d="M3 3h2v2h2v2h2V5h2V3h2v2h-2v2h-2v2h2v2h2v2h-2v-2h-2V9H7v2H5v2H3v-2h2V9h2V7H5V5H3z"/></svg></button></header>
   <nav><button data-tab="labs">Labs</button><button data-tab="skills">Skills</button><button data-tab="medals">Medallas</button><button data-tab="settings">Ajustes</button></nav>
   <div id="drawerBody"></div>
 </aside>
-<script nonce="${nonce}" src="${js}"></script></body></html>`
+<script nonce="${nonce}" src="${gameJs}"></script><script nonce="${nonce}" src="${js}"></script></body></html>`
     view.webview.onDidReceiveMessage(msg => this.onMessage(msg))
     view.onDidChangeVisibility(() => view.visible && this.push(true))
   }

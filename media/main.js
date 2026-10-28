@@ -359,10 +359,26 @@
     }
   }
 
-  // the red button: it appears in the middle of nowhere (the path out of the side door) once every other medal is earned
-  const RED_STEPS = [[10, 'red10'], [100, 'red100'], [1000, 'red1000'], [10000, 'red10000'], [77777, 'red77777']]
+  // the red button: it appears on the path out of the side door once every other medal is earned, and opens the button game (clicker.js)
   // every medal but the button's own and the platinum one, which needs them
   const earnedAll = () => MEDALS.every(m => m[4] === 'button' || m[0] === 'all' || medals[m[0]])
+  window.SL = {
+    get medals() {
+      return medals
+    },
+    setMedals(m) {
+      medals = m
+      persist()
+    },
+    unlock: id => unlock(id),
+    beep: (f, s) => beep(f, s),
+    calm: () => calm(),
+    catCoat: () => model?.settings?.cats?.[0]?.coat || 'gris',
+    mapLabel: () => {
+      const t = overlay.querySelector('[data-redbutton] .presses')
+      if (t) t.textContent = window.RedGame.label()
+    },
+  }
   function renderRedButton() {
     let btn = overlay.querySelector('[data-redbutton]')
     if (!geo || !earnedAll()) return btn?.remove()
@@ -374,252 +390,24 @@
         '<title>No lo pulses</title><ellipse rx="15" ry="7" fill="#000" opacity=".28"/>' +
         '<path d="M-12 -1 v-5 a12 6 0 0 0 24 0 v5 a12 6 0 0 1 -24 0z" fill="#2E3238"/><ellipse cy="-6" rx="12" ry="6" fill="#4A4F57"/>' +
         '<g class="cap"><path d="M-8 -7 v-4 a8 4 0 0 0 16 0 v4 a8 4 0 0 1 -16 0z" fill="#9E1C1C"/><ellipse cy="-11" rx="8" ry="4" fill="#E23B3B"/><ellipse cx="-3" cy="-12" rx="3" ry="1.2" fill="#FFF" opacity=".55"/></g>' +
-        '<text class="presses" y="-22" text-anchor="middle"></text>' +
-        '<g class="shop" transform="translate(22,-8)"><title>Tienda del botón</title><circle r="8" fill="#2b2622" stroke="#FFE34F" stroke-width="1.5"/><text y="3.5" text-anchor="middle" font-size="10">🛒</text></g>' +
-        '<text class="helpers" y="16" text-anchor="middle"></text>'
+        '<text class="presses" y="-22" text-anchor="middle"></text>'
       // its own pointer handling: a press must not start a pan of the map
       btn.addEventListener('pointerdown', e => {
         e.stopPropagation()
-        if (e.target.closest('.shop')) toggleShop()
-        else pressRed(btn)
+        const cap = btn.querySelector('.cap')
+        cap.classList.remove('down')
+        void cap.getBoundingClientRect()
+        cap.classList.add('down')
+        window.RedGame.open()
       })
       overlay.appendChild(btn)
     }
     const p = iso(geo.W + 1.7, geo.H - 0.6)
     btn.setAttribute('transform', `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`)
-    btn.querySelector('.presses').textContent = (redEnded() ? '🏁 ' : '') + fmt(medals['~red'] || 0)
-    const lv = redLevels()
-    btn.querySelector('.cap ellipse').setAttribute('fill', lv.gold ? '#F2C230' : '#E23B3B')
-    btn.querySelector('.cap path').setAttribute('fill', lv.gold ? '#B8860B' : '#9E1C1C')
-    btn.querySelector('.helpers').textContent = RED_UPS.filter(u => u[6].rate && lv[u[0]]).map(u => `${u[1]}${lv[u[0]]}`).join(' ')
-    startRedTicker()
-  }
-  // the incremental side game: presses are also coins to spend on helpers that keep pressing on their own
-  // [id, icon, name, what it does, base cost, cost growth, effect, max level]; each one shows up once the previous is bought
-  const RED_UPS = [
-    ['finger', '👆', 'Dedo extra', '+1 por pulsación', 15, 1.25, { click: 1 }, 50],
-    ['cat', '🐱', 'Gato pulsador', '0,5/s cada uno', 40, 1.08, { rate: 0.5 }, 100],
-    ['skill', '🧪', 'Skill becaria', '3/s cada una', 300, 1.08, { rate: 3 }, 100],
-    ['robot', '🤖', 'Robot de turno', '15/s cada uno', 2500, 1.08, { rate: 15 }, 100],
-    ['drone', '🛸', 'Escuadrón de drones', '80/s cada uno', 20000, 1.08, { rate: 80 }, 100],
-    ['gold', '✨', 'Botón dorado', '×2 a todo', 50000, 8, { mult: 2 }, 5],
-  ]
-  // milestones: every helper doubles its own output at these levels
-  const RED_MILESTONES = [10, 25, 50, 75, 100]
-  const tierMult = n => 2 ** RED_MILESTONES.filter(m => n >= m).length
-  const nextMilestone = (u, n) => RED_MILESTONES.find(m => m > n && m <= u[7])
-  const OFFLINE_MAX_S = 8 * 3600
-  // the game ends at a thousand million presses
-  const RED_GOAL = 1e9
-  const redEnded = () => !!medals['~redend']
-  const fmt = n => (n < 1e10 ? Math.floor(n).toLocaleString('es-ES') : new Intl.NumberFormat('es-ES', { notation: 'compact', maximumFractionDigits: 1 }).format(n))
-  const redLevels = () => {
-    try {
-      return JSON.parse(medals['~redup'] || '{}')
-    } catch {
-      return {}
-    }
-  }
-  const upCost = (u, lv) => Math.ceil(u[4] * u[5] ** (lv[u[0]] || 0))
-  const redMult = lv => 2 ** (lv.gold || 0)
-  const redClick = lv => (1 + (lv.finger || 0) * tierMult(lv.finger || 0)) * redMult(lv)
-  const redRate = lv => RED_UPS.reduce((sum, u) => sum + (u[6].rate || 0) * (lv[u[0]] || 0) * tierMult(lv[u[0]] || 0), 0) * redMult(lv)
-  const upShown = (u, lv) => u === RED_UPS[0] || lv[u[0]] > 0 || lv[RED_UPS[RED_UPS.indexOf(u) - 1][0]] > 0
-  // coins start as the presses already made, for whoever pressed before the shop existed
-  const redCoins = () => medals['~redc'] ?? (medals['~red'] || 0)
-
-  function addPresses(n) {
-    const before = medals['~red'] || 0
-    if (redEnded()) return before
-    n = Math.min(n, RED_GOAL - before)
-    medals = { ...medals, '~red': before + n, '~redc': redCoins() + n, '~redstart': medals['~redstart'] || Date.now() }
-    persist()
-    const after = medals['~red']
-    if (after >= RED_GOAL) endRedGame()
-    for (const [k, id] of RED_STEPS) if (after >= k) unlock(id)
-    if (redRate(redLevels()) >= 100) unlock('redrate')
-    if (before < 77777 && after >= 77777 && geo) {
-      const p = iso(geo.W + 1.7, geo.H - 0.6)
-      floatText({ x: p.x, y: p.y - 40 }, '🎆 ¡77.777!', 'big')
-      coinRain(p.x, p.y + 10)
-    }
-    return after
-  }
-  function bumpCap(btn) {
-    const cap = btn.querySelector('.cap')
-    cap.classList.remove('down')
-    void cap.getBoundingClientRect()
-    cap.classList.add('down')
-  }
-  function pressRed(btn) {
-    if (redEnded()) {
-      bumpCap(btn)
-      const p = iso(geo.W + 1.7, geo.H - 0.6)
-      if (!calm()) floatText({ x: p.x + (Math.random() - 0.5) * 20, y: p.y - 30 }, ['🎉', '🏁', '👑', '✨'][Math.floor(Math.random() * 4)])
-      return
-    }
-    medals = { ...medals, '~redclicks': (medals['~redclicks'] || 0) + 1 }
-    const add = redClick(redLevels())
-    const before = medals['~red'] || 0
-    const n = addPresses(add)
-    btn.querySelector('.presses').textContent = fmt(n)
-    bumpCap(btn)
-    beep([RED_STEPS.some(([k]) => before < k && n >= k) ? 880 : 196], 0.03)
-    if (add > 1 && !calm()) {
-      const p = iso(geo.W + 1.7, geo.H - 0.6)
-      floatText({ x: p.x + (Math.random() - 0.5) * 16, y: p.y - 30 }, `+${fmt(add)}`)
-    }
-    updateShop()
-  }
-
-  // helpers press once a second; a gap longer than a few seconds (panel hidden or closed) pays half, up to 8 h
-  let redTicker = 0
-  function startRedTicker() {
-    if (redTicker || redEnded()) return
-    const lv = redLevels()
-    const at = medals['~redat']
-    if (at && redRate(lv) > 0) {
-      const gap = Math.min((Date.now() - at) / 1000, OFFLINE_MAX_S)
-      const earned = Math.floor(redRate(lv) * gap * 0.5)
-      if (gap > 30 && earned > 0) {
-        addPresses(earned)
-        const p = iso(geo.W + 1.7, geo.H - 0.6)
-        setTimeout(() => floatText({ x: p.x, y: p.y - 44 }, `Mientras no estabas: +${fmt(earned)}`, 'big'), 600)
-      }
-    }
-    medals = { ...medals, '~redat': Date.now() }
-    let carry = 0
-    redTicker = setInterval(() => {
-      const btn = overlay.querySelector('[data-redbutton]')
-      if (!btn) return
-      const now = Date.now()
-      const gap = Math.min((now - (medals['~redat'] || now)) / 1000, OFFLINE_MAX_S)
-      medals = { ...medals, '~redat': now }
-      const rate = redRate(redLevels())
-      if (!rate) return persist()
-      carry += rate * (gap <= 5 ? gap : 5 + (gap - 5) * 0.5)
-      const whole = Math.floor(carry)
-      carry -= whole
-      if (!whole) return persist()
-      const total = addPresses(whole)
-      btn.querySelector('.presses').textContent = (redEnded() ? '🏁 ' : '') + fmt(total)
-      bumpCap(btn)
-      if (!calm()) {
-        const p = iso(geo.W + 1.7, geo.H - 0.6)
-        floatText({ x: p.x + 14, y: p.y - 26 }, `+${fmt(whole)}`)
-      }
-      updateShop()
-    }, 1000)
-  }
-
-  // the shop: built once when opened, then only its numbers and buttons change, so clicks are never lost
-  let shop = null
-  function toggleShop() {
-    if (shop) {
-      shop.remove()
-      shop = null
-      return
-    }
-    if (redEnded()) return showRedEnd()
-    shop = document.createElement('div')
-    shop.id = 'redshop'
-    shop.className = 'panel'
-    shop.innerHTML =
-      '<header><b>🔴 Tienda del botón</b><button class="close" title="Cerrar">✕</button></header>' +
-      '<p class="coins"></p><p class="rates"></p>' +
-      RED_UPS.map(u => `<button class="up" data-up="${u[0]}"><span class="ic">${u[1]}</span><span class="tx"><b><span></span> <i class="lv"></i></b><small></small></span><span class="cost"></span></button>`).join('')
-    shop.addEventListener('pointerdown', e => e.stopPropagation())
-    shop.querySelector('.close').addEventListener('click', toggleShop)
-    shop.querySelectorAll('[data-up]').forEach(b => b.addEventListener('click', () => buyRed(b.dataset.up)))
-    document.body.appendChild(shop)
-    updateShop()
-  }
-  function updateShop() {
-    if (!shop) return
-    const lv = redLevels()
-    const coins = redCoins()
-    shop.querySelector('.coins').textContent = `${fmt(coins)} pulsaciones para gastar`
-    shop.querySelector('.rates').textContent = `Por clic: ${fmt(redClick(lv))} · por segundo: ${redRate(lv).toLocaleString('es-ES', { maximumFractionDigits: 1 })}`
-    for (const u of RED_UPS) {
-      const b = shop.querySelector(`[data-up="${u[0]}"]`)
-      const n = lv[u[0]] || 0
-      const shown = upShown(u, lv)
-      const maxed = n >= u[7]
-      const cost = upCost(u, lv)
-      const next = u[6].mult ? 0 : nextMilestone(u, n)
-      b.disabled = !shown || maxed || coins < cost
-      b.classList.toggle('hidden', !shown)
-      b.querySelector('.ic').textContent = shown ? u[1] : '❔'
-      b.querySelector('b span').textContent = shown ? u[2] : '???'
-      b.querySelector('.lv').textContent = shown ? `nv. ${n}/${u[7]}` : ''
-      b.querySelector('small').textContent = !shown ? `Compra ${RED_UPS[RED_UPS.indexOf(u) - 1][2].toLowerCase()} para descubrirlo` : maxed ? `${u[3]} · al máximo` : next ? `${u[3]} · ×2 en el nv. ${next}` : u[3]
-      b.querySelector('.cost').textContent = !shown ? '' : maxed ? 'MÁX' : fmt(cost)
-    }
-  }
-  function buyRed(id) {
-    const u = RED_UPS.find(x => x[0] === id)
-    const lv = redLevels()
-    if (!u || !upShown(u, lv) || (lv[id] || 0) >= u[7] || redCoins() < upCost(u, lv)) return
-    const cost = upCost(u, lv)
-    lv[id] = (lv[id] || 0) + 1
-    if (RED_MILESTONES.includes(lv[id]) && !u[6].mult && geo) {
-      const p = iso(geo.W + 1.7, geo.H - 0.6)
-      floatText({ x: p.x, y: p.y - 44 }, `${u[1]} ×2 · nv. ${lv[id]}`, 'big')
-    }
-    medals = { ...medals, '~redc': redCoins() - cost, '~redup': JSON.stringify(lv) }
-    persist()
-    beep([523, 784], 0.06)
-    unlock('redshop')
-    if (id === 'gold') unlock('redgold')
-    if (RED_UPS.every(x => (lv[x[0]] || 0) >= x[7])) unlock('redmax')
-    if (redRate(lv) >= 100) unlock('redrate')
-    renderRedButton()
-    updateShop()
-  }
-
-  function endRedGame() {
-    if (redEnded()) return
-    medals = { ...medals, '~red': RED_GOAL, '~redend': Date.now() }
-    persist()
-    clearInterval(redTicker)
-    redTicker = 0
-    if (shop) toggleShop()
-    unlock('redend')
-    beep([523, 659, 784, 1047, 1319, 1568], 0.12)
-    if (geo) {
-      const p = iso(geo.W + 1.7, geo.H - 0.6)
-      floatText({ x: p.x, y: p.y - 50 }, '🏁 ¡MIL MILLONES!', 'big')
-      coinRain(p.x, p.y + 10)
-      setTimeout(() => coinRain(p.x - 30, p.y), 700)
-      setTimeout(() => coinRain(p.x + 30, p.y), 1400)
-    }
-    renderRedButton()
-    setTimeout(showRedEnd, 2200)
-  }
-  // the end card: what it took, and a way to play again (the medals stay)
-  function showRedEnd() {
-    document.getElementById('redend')?.remove()
-    const lv = redLevels()
-    const mins = Math.max(1, Math.round(((medals['~redend'] || Date.now()) - (medals['~redstart'] || Date.now())) / 60000))
-    const took = mins < 60 ? `${mins} min` : mins < 1440 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${Math.floor(mins / 1440)} d ${Math.floor((mins % 1440) / 60)} h`
-    const card = document.createElement('div')
-    card.id = 'redend'
-    card.className = 'panel'
-    card.innerHTML = `<div class="big">🏁</div><h3>¡Mil millones!</h3><p>Has terminado el juego del botón rojo.</p>
-      <ul><li><span>Pulsaciones</span><b>${fmt(RED_GOAL)}</b></li><li><span>Clics a mano</span><b>${fmt(medals['~redclicks'] || 0)}</b></li>
-      <li><span>Tiempo</span><b>${took}</b></li><li><span>Mejoras al máximo</span><b>${RED_UPS.filter(u => (lv[u[0]] || 0) >= u[7]).length}/${RED_UPS.length}</b></li></ul>
-      <div class="row"><button class="again">🔁 Volver a empezar</button><button class="primary close">Cerrar</button></div>`
-    card.addEventListener('pointerdown', e => e.stopPropagation())
-    card.querySelector('.close').addEventListener('click', () => card.remove())
-    card.querySelector('.again').addEventListener('click', () => {
-      const rest = { ...medals }
-      for (const k of ['~red', '~redc', '~redup', '~redat', '~redend', '~redstart', '~redclicks']) delete rest[k]
-      medals = rest
-      persist()
-      card.remove()
-      renderRedButton()
-    })
-    document.body.appendChild(card)
+    btn.querySelector('.presses').textContent = window.RedGame.label()
+    window.RedGame.start()
+    // the first time everything is earned, the lab gives way to the game
+    if (!medals['~rgintro'] && !window.RedGame.isOpen()) window.RedGame.intro()
   }
 
   // casino slot machines: a click spins three reels over the machine; 777 is the jackpot (1 in 27)
@@ -2050,10 +1838,12 @@
     ['red1000', '💪', 'Dedo de hierro', '1.000 pulsaciones', 'button'],
     ['red10000', '🦾', 'Leyenda del botón', '10.000 pulsaciones', 'button'],
     ['red77777', '🎆', '77.777', 'Llega a 77.777 pulsaciones', 'button'],
-    ['redshop', '🛒', 'Primera compra', 'Compra una mejora en la tienda del botón', 'button'],
+    ['redshop', '🛒', 'Primera compra', 'Compra un ayudante o una mejora del árbol', 'button'],
     ['redrate', '⚙️', 'Fábrica de pulsar', 'Llega a 100 pulsaciones por segundo', 'button'],
-    ['redgold', '✨', 'Botón dorado', 'Compra el botón dorado', 'button'],
-    ['redmax', '🏪', 'Tienda al máximo', 'Sube todas las mejoras de la tienda a su nivel máximo', 'button'],
+    ['redgold', '✨', 'Botón dorado', 'Atrapa un botón dorado al vuelo', 'button'],
+    ['redcombo', '🔥', 'En racha', 'Llena el combo al máximo (×3)', 'button'],
+    ['redchest', '🧰', 'Botín legendario', 'Abre un cofre legendario', 'button'],
+    ['redmax', '🏪', 'Todo al máximo', 'Completa el árbol y todos los ayudantes', 'button'],
     ['redend', '🏁', 'Mil millones', 'Llega a 1.000.000.000 pulsaciones y termina el juego', 'button'],
   ]
 
@@ -2440,9 +2230,8 @@
       renderBags()
       renderRedButton()
     } else if (msg.type === 'reset') {
-      clearInterval(redTicker)
-      redTicker = 0
-      if (shop) toggleShop()
+      window.RedGame.reset()
+      document.querySelector('.rg-intro')?.remove()
       medals = {}
       bags = []
       thrown = 0
@@ -2460,7 +2249,7 @@
       fit()
       if (drawer.classList.contains('open')) renderDrawer()
     } else if (msg.type === 'gift') {
-      for (const [key, add] of Object.entries(msg.counters || {})) if (Number.isFinite(add)) key === 'red' ? addPresses(add) : tally(key, add)
+      for (const [key, add] of Object.entries(msg.counters || {})) if (Number.isFinite(add)) key === 'red' ? window.RedGame.addPresses(add) : tally(key, add)
       renderRedButton()
     } else if (msg.type === 'model') {
       model = msg.model

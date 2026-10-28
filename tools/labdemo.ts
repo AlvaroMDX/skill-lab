@@ -36,7 +36,7 @@ const agents = [
 ]
 const cats = [{ name: 'Michi', coat: 'naranja' }, { name: 'Luna', coat: 'siames' }]
 const media = 'file:///' + require('path').resolve(__dirname, '../media').split('\\').join('/') + '/'
-const head = fs.readFileSync(__dirname + '/body.html', 'utf8').replace('{{MEDIA}}', media)
+const head = fs.readFileSync(__dirname + '/body.html', 'utf8').replaceAll('{{MEDIA}}', media)
 const oldModel = JSON.parse(fs.readFileSync(__dirname + '/settings.json', 'utf8'))
 const model = {
   ...oldModel,
@@ -61,6 +61,6 @@ for (const night of [false, true]) {
   const msg = { type: 'scene', svg: r.svg, geo: r.geo, clockMode: night ? 'night' : 'day', stats: { asleep: r.asleep, working: r.working, strolling: r.strolling, sessions: r.sessions } }
   const extra = night ? '' : `setTimeout(()=>{const t=location.hash.slice(1);if(t)document.querySelector('[data-act=layout][data-tab=labs]').click();if(t&&t!=='layout')setTimeout(()=>document.querySelector('#drawer nav [data-tab='+t+']').click(),200)},800);`
   fs.writeFileSync(`${out}/${night ? 'night' : 'day'}.html`, `${head}
-<script>window.__model=${JSON.stringify(model)};window.__msgs=[];const reply=()=>setTimeout(()=>window.postMessage({type:"model",model:JSON.parse(JSON.stringify(window.__model))},"*"),0);window.acquireVsCodeApi=()=>({getState:()=>null,setState:()=>{},postMessage:m=>{window.__msgs.push(m);if(m.type==="model")reply()}})</script><script src="${media}main.js"></script><script>window.postMessage(${JSON.stringify(msg)},"*");${extra}</script></body></html>`)
+<script>window.__model=${JSON.stringify(model)};window.__msgs=[];const reply=()=>setTimeout(()=>window.postMessage({type:"model",model:JSON.parse(JSON.stringify(window.__model))},"*"),0);window.acquireVsCodeApi=()=>({getState:()=>null,setState:()=>{},postMessage:m=>{window.__msgs.push(m);if(m.type==="model")reply()}})</script><script src="${media}clicker.js"></script><script src="${media}main.js"></script><script>window.postMessage(${JSON.stringify(msg)},"*");${extra}</script></body></html>`)
 }
 console.log('ok', LABS.length)

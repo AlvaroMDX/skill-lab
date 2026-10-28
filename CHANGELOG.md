@@ -1,5 +1,13 @@
 # Cambios
 
+## 1.2.0 — 2026-10-28
+- El botón rojo pasa a ser un juego incremental a pantalla completa: al completar todas las demás medallas se abre solo, como easter egg, y después se entra desde el botón del mapa.
+- Ayudantes que se ven pulsar: gatos con zarpazo, skills que saltan encima, robots con pistón, drones con láser y el nuevo Claude en bucle; cada «+N» sale del que pulsa.
+- Árbol de mejoras con 27 nodos en ramas (dedo, combo, suerte, cofres, cada ayudante y la Singularidad) que se descubren al comprar el anterior, con líneas que se encienden.
+- Combo al pulsar rápido, críticos, doble toque, botones dorados que cruzan la pantalla (frenesí o premio) y cofres con rareza común, rara, épica y legendaria.
+- Mucho ruido visual: rayos girando, partículas, ondas, temblor de pantalla, números flotantes y teletipo de noticias. Respeta reducir movimiento.
+- Medallas nuevas: En racha y Botín legendario (60 en total). Tu partida anterior se conserva.
+
 ## 1.1.9 — 2026-10-23
 - Wally tiene un sitio fijo: en una combinación concreta de mundo y temporada sale a pasear siempre de día; en el resto sigue apareciendo al azar.
 
