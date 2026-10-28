@@ -994,8 +994,9 @@ export function create(canvas, opts) {
   // ---------- the cap: a spring, so hits pile up ----------
 
   const cap = { y: 0, v: 0, flash: 0 }
+  // the player's press sinks the cap; a helper's only nudges it, so a big crew doesn't keep it bouncing
   function capHit(force) {
-    cap.v -= 0.05 * force
+    cap.v = Math.max(-0.08, cap.v - 0.05 * force * (force < 0.9 ? 0.25 : 1))
     cap.flash = Math.min(1, cap.flash + force * force * 0.6)
   }
 
@@ -1269,9 +1270,16 @@ export function create(canvas, opts) {
     last = now
     const still = calm()
     // the cap spring
+    // fixed small steps: one long frame (a busy editor) must not blow the spring up
     if (!st.frozen) {
-      cap.v += (-cap.y * 0.28 - cap.v * 0.32) * dt
-      cap.y = Math.max(-0.2, cap.y + cap.v * dt)
+      for (let left = dt; left > 0; left -= 0.5) {
+        const h = Math.min(0.5, left)
+        cap.v += (-cap.y * 0.28 - cap.v * 0.32) * h
+        cap.y += cap.v * h
+      }
+      cap.y = Math.max(-0.16, Math.min(0.04, cap.y))
+      cap.v = Math.max(-0.08, Math.min(0.08, cap.v))
+      if (Math.abs(cap.y) < 0.0005 && Math.abs(cap.v) < 0.0005) cap.y = cap.v = 0
     }
     const sq = -cap.y
     capPivot.position.y = 0.34 + cap.y

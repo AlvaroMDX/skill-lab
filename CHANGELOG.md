@@ -1,5 +1,10 @@
 # Cambios
 
+## 1.5.1 — 2026-10-28
+- Botón 🔁 en la cabecera del juego para empezar de cero: borra la partida (las medallas se quedan) y vuelve a la pantalla negra con el botón rojo.
+- La tapa del botón ya no se queda botando sola: muelle estable aunque el editor vaya a tirones y golpes de los ayudantes más suaves.
+- Los ayudantes y artefactos del Acto II ya no salen como «???» antes de tiempo.
+
 ## 1.5.0 — 2026-10-28
 - Acto II: los mil millones cierran el Acto I y el juego sigue hasta **un octillón** (un 1 con 48 ceros). Si ya habías terminado, continúas desde ahí.
 - 7 ayudantes nuevos en un anillo exterior que aparece con el Acto II: Fábrica de gatos, Mecha pulsador, Satélite, Portal dimensional, Agujero negro, Galaxia de botones y Gato cósmico.

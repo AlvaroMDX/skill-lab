@@ -514,6 +514,7 @@
         <div class="rg-combo" title="Combo: pulsa rápido para llenarlo"><i></i><span>×1</span></div>
         <span class="rg-spacer"></span>
         <button class="rg-treebtn" title="Árbol de mejoras">🌳 Árbol</button>
+        <button class="rg-restart" title="Empezar el juego de cero">🔁</button>
         <button class="rg-close" title="Volver al mapa (Esc)">✕</button>
       </header>
       <section class="rg-mission"></section>
@@ -649,6 +650,7 @@
       press(e)
     })
     root.querySelector('.rg-close').addEventListener('click', close)
+    root.querySelector('.rg-restart').addEventListener('click', askRestart)
     root.querySelector('.rg-treebtn').addEventListener('click', () => toggleTree(true))
     root.querySelector('.rg-tree-close').addEventListener('click', () => toggleTree(false))
     ui.chest.addEventListener('pointerdown', e => {
@@ -723,6 +725,8 @@
   }
   // pixels on the 3D canvas → pixels on the overlay canvases
   function g3px(p) {
+    // a press still in flight when the game closes lands nowhere
+    if (!ui?.c3) return p
     const r = ui.c3.getBoundingClientRect()
     const box = root.getBoundingClientRect()
     return { x: p.x + r.left - box.left, y: p.y + r.top - box.top }
@@ -2317,6 +2321,33 @@
     })
     root.appendChild(card)
     card.animate([{ opacity: 0, transform: 'translate(-50%,-46%) scale(.9)' }, { opacity: 1, transform: 'translate(-50%,-50%)' }], { duration: 400, easing: 'cubic-bezier(.2,.9,.3,1)' })
+  }
+
+  // starting over from nothing: the whole game is wiped and the black screen with the red button comes back
+  function askRestart() {
+    if (!ui || root.querySelector('.rg-end')) return
+    const card = document.createElement('div')
+    card.className = 'rg-end'
+    card.innerHTML = `<div class="big">🔁</div><h3>¿Empezar de cero?</h3><p>Se borra toda la partida del botón: pulsaciones, ayudantes, árbol, artefactos e historia. Las medallas que ya tienes se quedan.</p>
+      <div class="row"><button class="done">Cancelar</button><button class="primary again">Empezar de cero</button></div>`
+    card.querySelector('.done').addEventListener('click', () => card.remove())
+    card.querySelector('.again').addEventListener('click', () => {
+      G = fresh()
+      combo = 0
+      chestReady = 0
+      frenzyUntil = 0
+      frenzyMult = 1
+      carry = 0
+      fight = null
+      talks.length = 0
+      save(true)
+      SL().setMedals({ ...SL().medals, '~rgintro': 0 })
+      SL().mapLabel()
+      close()
+      setTimeout(intro, 450)
+    })
+    root.appendChild(card)
+    card.animate([{ opacity: 0, transform: 'translate(-50%,-46%) scale(.9)' }, { opacity: 1, transform: 'translate(-50%,-50%)' }], { duration: 300, easing: 'cubic-bezier(.2,.9,.3,1)' })
   }
 
   // ---------- the way in: once every other medal is earned, the lab gives way to the game ----------
