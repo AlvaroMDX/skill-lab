@@ -3,15 +3,18 @@
 ;(() => {
   const HELPERS = [
     // rate: presses per second each; every: seconds between the visible presses of one sprite
-    { id: 'cat', icon: '🐱', name: 'Gato pulsador', verb: 'da un zarpazo', rate: 0.1, base: 40, growth: 1.15, max: 50, every: 2.2 },
-    { id: 'skill', icon: '🧪', name: 'Skill becaria', verb: 'salta encima', rate: 0.8, base: 500, growth: 1.15, max: 50, every: 1.7 },
-    { id: 'robot', icon: '🤖', name: 'Robot de turno', verb: 'pistón hidráulico', rate: 5, base: 6000, growth: 1.15, max: 50, every: 1.25 },
-    { id: 'drone', icon: '🛸', name: 'Escuadrón de drones', verb: 'láser de precisión', rate: 30, base: 60000, growth: 1.15, max: 40, every: 0.95 },
-    { id: 'claude', icon: '✴️', name: 'Claude en bucle', verb: 'pulsa sin descanso', rate: 200, base: 800000, growth: 1.15, max: 25, every: 0.6 },
+    { id: 'cat', icon: '🐱', name: 'Gato pulsador', verb: 'da un zarpazo', rate: 0.1, base: 50, growth: 1.15, max: 50, every: 2.2 },
+    { id: 'skill', icon: '🧪', name: 'Skill becaria', verb: 'salta encima', rate: 0.8, base: 700, growth: 1.15, max: 50, every: 1.7 },
+    { id: 'robot', icon: '🤖', name: 'Robot de turno', verb: 'pistón hidráulico', rate: 5, base: 8500, growth: 1.15, max: 50, every: 1.25 },
+    { id: 'drone', icon: '🛸', name: 'Escuadrón de drones', verb: 'láser de precisión', rate: 30, base: 85000, growth: 1.15, max: 40, every: 0.95 },
+    { id: 'claude', icon: '✴️', name: 'Claude en bucle', verb: 'pulsa sin descanso', rate: 200, base: 1100000, growth: 1.15, max: 25, every: 0.6 },
   ]
   const MILESTONES = [10, 25, 50]
   const GOAL = 1e9
   const OFFLINE_MAX_S = 8 * 3600
+  // simulated with tools: about 35 min on average from the first press to the end, 12–19 min playing hard
+  const SPEEDRUN_MS = 20 * 60000
+  const AVERAGE_MIN = 35
 
   // the upgrade tree: each node appears once all the nodes it needs are bought
   const NODE = (id, icon, name, max, base, growth, req, x, y, desc) => ({ id, icon, name, max, base, growth, req, x, y, desc })
@@ -19,9 +22,9 @@
   const TREE = [
     NODE('core', '🔴', 'El botón', 1, 0, 1, [], 0, 0, () => 'Donde empieza todo.'),
     NODE('f1', '👆', 'Dedo fuerte', 25, 50, 1.35, ['core'], -1.2, 0, l => `+1 por clic por nivel (ahora +${l})`),
-    NODE('f2', '🦾', 'Dedo de acero', 10, 5000, 2, ['f1'], -2.3, -0.7, l => `Cada clic suma además el ${l} % de lo que haces por segundo`),
+    NODE('f2', '🦾', 'Dedo de acero', 10, 5000, 2, ['f1'], -2.3, -0.7, l => `Cada clic suma además el ${(l * 0.5).toLocaleString('es-ES')} % de lo que haces por segundo`),
     NODE('f3', '💥', 'Crítico', 10, 2000, 1.8, ['f1'], -2.3, 0.7, l => `${pct(0.03 * l)} de clics críticos`),
-    NODE('f4', '☄️', 'Crítico demoledor', 5, 50000, 3, ['f3'], -3.4, 1.1, l => `Los críticos valen ×${10 + 5 * l}`),
+    NODE('f4', '☄️', 'Crítico demoledor', 5, 50000, 3, ['f3'], -3.4, 1.1, l => `Los críticos valen ×${10 + 3 * l}`),
     NODE('f5', '✌️', 'Doble toque', 5, 20000, 2.5, ['f2'], -3.4, -1.1, l => `${pct(0.1 * l)} de que un clic cuente doble`),
     NODE('c1', '🔥', 'Combo', 4, 500, 4, ['core'], -0.9, -1.3, l => (l ? `Pulsar rápido llena el combo hasta ×${1 + 0.5 * l}` : 'Pulsar rápido multiplica tus clics')),
     NODE('c2', '⏳', 'Combo largo', 3, 10000, 4, ['c1'], -1.6, -2.3, l => `El combo tarda un ${25 * l} % más en enfriarse`),
@@ -53,30 +56,130 @@
     { id: 'legendario', name: 'Legendario', color: '#FFB020' },
   ]
 
-  const fresh = () => ({ life: 0, coins: 0, helpers: {}, tree: { core: 1 }, at: 0, start: 0, clicks: 0, chestClicks: 0, golden: 0, chests: 0, bestCombo: 1, ended: 0 })
+  // artifacts: one-off relics bought with shards (💠) from rare chests, golden buttons and goals
+  const ARTS = [
+    { id: 'pillow', icon: '🛏️', name: 'Almohada viscoelástica', desc: 'Mientras no estás, los ayudantes pulsan a ritmo completo (no a la mitad)', cost: 2 },
+    { id: 'glove', icon: '🧤', name: 'Guante de seda', desc: 'Tus clics valen ×1,5', cost: 3 },
+    { id: 'hourglass', icon: '⌛', name: 'Reloj de arena roto', desc: 'El combo tarda el doble en enfriarse', cost: 3 },
+    { id: 'tuna', icon: '🐟', name: 'Lata de atún eterna', desc: 'Gatos ×3', cost: 4 },
+    { id: 'magnet', icon: '🧲', name: 'Imán de oro', desc: 'Los botones dorados salen un 30 % más a menudo', cost: 4 },
+    { id: 'clover', icon: '🍀', name: 'Trébol de cuatro hojas', desc: '+5 % de probabilidad de crítico', cost: 5 },
+    { id: 'key', icon: '🗝️', name: 'Llave maestra', desc: 'Los cofres necesitan un 40 % menos de clics', cost: 5 },
+    { id: 'scroll', icon: '📜', name: 'Pergamino del prompt perfecto', desc: 'Skills ×3', cost: 6 },
+    { id: 'oil', icon: '🛢️', name: 'Aceite de motor premium', desc: 'Robots ×3', cost: 8 },
+    { id: 'battery', icon: '🔋', name: 'Batería de grafeno', desc: 'Drones ×3', cost: 10 },
+    { id: 'crown', icon: '👑', name: 'Corona del botón', desc: 'Cada clic suma además el 2 % de lo que haces por segundo', cost: 10 },
+    { id: 'chip', icon: '💾', name: 'Chip de contexto de 1M', desc: 'Claude ×3', cost: 12 },
+    { id: 'relic', icon: '🪐', name: 'Fragmento de singularidad', desc: 'Todo ×1,5', cost: 18 },
+  ]
+  const ART_OF = { cat: 'tuna', skill: 'scroll', robot: 'oil', drone: 'battery', claude: 'chip' }
+
+  const fresh = () => ({ life: 0, coins: 0, helpers: {}, tree: { core: 1 }, arts: {}, shards: 0, chapter: 0, beaten: {}, at: 0, start: 0, clicks: 0, chestClicks: 0, golden: 0, chests: 0, bestCombo: 1, ended: 0 })
   const lvl = (G, id) => G.tree[id] || 0
   const count = (G, h) => G.helpers[h.id] || 0
+  const art = (G, id) => !!(G.arts && G.arts[id])
   const milestoneMult = n => 2 ** MILESTONES.filter(m => n >= m).length
-  const helperMult = (G, h) => milestoneMult(count(G, h)) * 2 ** lvl(G, `${h.id}U`)
+  const helperMult = (G, h) => milestoneMult(count(G, h)) * 2 ** lvl(G, `${h.id}U`) * (art(G, ART_OF[h.id]) ? 3 : 1)
   const helperCost = (G, h) => Math.ceil(h.base * h.growth ** count(G, h) * 0.95 ** lvl(G, `${h.id}C`))
   const nodeCost = (G, n) => Math.ceil(n.base * n.growth ** lvl(G, n.id))
   const nodeShown = (G, n) => n.req.every(r => lvl(G, r) > 0)
   const helperShown = (G, i) => i === 0 || count(G, HELPERS[i - 1]) > 0 || count(G, HELPERS[i]) > 0
   const comboMax = G => 1 + 0.5 * lvl(G, 'c1')
   // fx: the moment's boosts that the screen owns (frenzy, combo heat)
-  const globalMult = (G, fx) => 2 ** lvl(G, 'sing') * (fx.frenzy || 1)
+  const globalMult = (G, fx) => 2 ** lvl(G, 'sing') * (art(G, 'relic') ? 1.5 : 1) * (fx.frenzy || 1)
   const fever = (G, fx) => (fx.comboFull && lvl(G, 'c3') ? 1 + lvl(G, 'c3') : 1)
   const helperRate = (G, h, fx) => h.rate * count(G, h) * helperMult(G, h) * globalMult(G, fx) * fever(G, fx)
   const rate = (G, fx = {}) => HELPERS.reduce((sum, h) => sum + helperRate(G, h, fx), 0)
-  const clickValue = (G, fx = {}) => (1 + lvl(G, 'f1') + rate(G, fx) * 0.01 * lvl(G, 'f2')) * (fx.combo || 1) * globalMult(G, fx)
-  const chestEvery = G => Math.round(200 * 0.85 ** lvl(G, 'k2'))
-  const goldenEvery = G => 90 * 0.85 ** lvl(G, 'l2')
+  const clickValue = (G, fx = {}) => (1 + lvl(G, 'f1') + rate(G, fx) * (0.005 * lvl(G, 'f2') + (art(G, 'crown') ? 0.02 : 0))) * (art(G, 'glove') ? 1.5 : 1) * (fx.combo || 1) * globalMult(G, fx)
+  const critChance = G => 0.03 * lvl(G, 'f3') + (art(G, 'clover') ? 0.05 : 0)
+  const critMult = G => 10 + 3 * lvl(G, 'f4')
+  const comboCool = G => 1.2 * (1 + 0.25 * lvl(G, 'c2')) * (art(G, 'hourglass') ? 2 : 1)
+  const chestEvery = G => Math.round(200 * 0.85 ** lvl(G, 'k2') * (art(G, 'key') ? 0.6 : 1))
+  const goldenEvery = G => 90 * 0.85 ** lvl(G, 'l2') * (art(G, 'magnet') ? 0.7 : 1)
+  const offlineShare = G => (art(G, 'pillow') ? 1 : 0.5)
   const frenzySeconds = G => 10 + 3 * lvl(G, 'l3')
   const rarityWeights = G => {
     const k = lvl(G, 'k3')
     return [Math.max(20, 60 - 6.5 * k), 28 + 2 * k, 10 + 3 * k, 2 + 1.5 * k]
   }
+  const CHEST_SHARDS = [0, 1, 3, 8]
+  const treeLevels = G => TREE.reduce((sum, n) => sum + (n.id === 'core' ? 0 : lvl(G, n.id)), 0)
+  const artCount = G => ARTS.filter(a => art(G, a.id)).length
   const maxedAll = G => HELPERS.every(h => count(G, h) >= h.max) && TREE.every(n => lvl(G, n.id) >= n.max)
+
+  // the story: chapters of three clear objectives; some end in a fight against Doctor Zarpas, the evil cat
+  const OBJ = (text, target, cur) => ({ text, target, cur })
+  const helperCount = id => G => G.helpers[id] || 0
+  const CHAPTERS = [
+    {
+      title: 'El botón despierta',
+      intro: 'Un botón rojo en mitad de la nada. Nadie sabe qué hace. Dicen que quien lo pulse mil millones de veces… Bueno, nadie lo ha conseguido. Empieza tú.',
+      objs: [OBJ('Pulsa el botón 50 veces', 50, G => G.clicks), OBJ('Contrata a tu primer gato pulsador', 1, helperCount('cat')), OBJ('Reúne 500 pulsaciones', 500, G => G.life)],
+      shards: 1,
+    },
+    {
+      title: 'Ojos rojos entre los arbustos',
+      intro: 'Algo se mueve en el patio. Un gato negro con monóculo vigila el botón: el Doctor Zarpas. Quiere el botón para él. Reúne a tu equipo.',
+      objs: [OBJ('Ten 10 gatos pulsadores', 10, helperCount('cat')), OBJ('Contrata 3 skills becarias', 3, helperCount('skill')), OBJ('Compra 3 mejoras del árbol', 3, G => treeLevels(G))],
+      shards: 2,
+      boss: 0,
+    },
+    {
+      title: 'El mapa del tesoro',
+      intro: 'Zarpas huyó, pero se le cayó un mapa: cofres, botones dorados y artefactos antiguos escondidos por el laboratorio.',
+      objs: [OBJ('Abre 3 cofres', 3, G => G.chests || 0), OBJ('Atrapa un botón dorado', 1, G => G.golden || 0), OBJ('Consigue un artefacto', 1, G => artCount(G))],
+      shards: 3,
+    },
+    {
+      title: 'La fábrica de pulsar',
+      intro: 'Zarpas vuelve con armadura de lata. Para atravesarla hace falta producción industrial… y dedos rápidos.',
+      objs: [OBJ('Llega a 1.000 pulsaciones por segundo', 1000, G => rate(G)), OBJ('Ten 10 robots de turno', 10, helperCount('robot')), OBJ('Llena el combo hasta ×1,5', 1.5, G => G.bestCombo || 1)],
+      shards: 4,
+      boss: 1,
+    },
+    {
+      title: 'Asalto aéreo',
+      intro: 'Zarpas se ha subido a un dirigible con forma de ovillo. Que despeguen los drones.',
+      objs: [OBJ('Ten 5 drones', 5, helperCount('drone')), OBJ('Consigue 4 artefactos', 4, G => artCount(G)), OBJ('Reúne 20 millones', 2e7, G => G.life)],
+      shards: 5,
+    },
+    {
+      title: 'Contexto infinito',
+      intro: 'Zarpas Omega ha fusionado todos los gatos callejeros en uno. Solo Claude, con su contexto infinito, puede con él.',
+      objs: [OBJ('Contrata a Claude en bucle', 1, helperCount('claude')), OBJ('Compra «Contexto infinito» en el árbol', 1, G => lvl(G, 'claudeU')), OBJ('Reúne 200 millones', 2e8, G => G.life)],
+      shards: 6,
+      boss: 2,
+    },
+    {
+      title: 'Mil millones',
+      intro: 'Zarpas está vencido y se ha quedado a vivir en el patio (le gusta el atún). Solo queda una cosa: llevar el botón a los mil millones.',
+      objs: [OBJ('Llega a 1.000 millones de pulsaciones', GOAL, G => G.life)],
+      shards: 0,
+    },
+  ]
+  const BOSSES = [
+    { name: 'Doctor Zarpas', seconds: 30, k: 0.5, floor: 2000, shards: 3, taunts: ['¡Ese botón es MÍO!', '¡Miaaau-ja-ja!', '¿Eso es todo lo que pulsas?'], lose: '¡Volveré con armadura!' },
+    { name: 'Zarpas Acorazado', seconds: 35, k: 0.6, floor: 200000, shards: 5, taunts: ['¡Mi armadura es de lata de atún premium!', '¡Pulsa, pulsa, que no me haces nada!', '¡Bola de pelo va!'], lose: '¡Esto no ha terminado, humano!' },
+    { name: 'Zarpas Omega', seconds: 45, k: 0.7, floor: 2e7, shards: 10, taunts: ['¡SOY TODOS LOS GATOS!', '¡El botón será mi rascador!', '¡Siete vidas, siete botones!'], lose: 'Vale, vale… ¿me dejas quedarme si me das atún?' },
+  ]
+  // a fight scales with how hard you hit right now: beatable by pressing hard, not by idling
+  const bossHp = (G, b) => Math.max(b.floor, Math.round((rate(G) + clickValue(G, { combo: comboMax(G) }) * 5) * b.seconds * b.k))
+  const chapter = G => CHAPTERS[Math.min(G.chapter || 0, CHAPTERS.length - 1)]
+  const chapterDone = G => chapter(G).objs.every(o => o.cur(G) >= o.target)
+  // moves on to the next chapter once its objectives (and its fight) are done; returns the shards it paid
+  function advance(G) {
+    const ch = chapter(G)
+    if (!chapterDone(G) || (ch.boss !== undefined && !(G.beaten || {})[ch.boss]) || (G.chapter || 0) >= CHAPTERS.length - 1) return 0
+    G.chapter = (G.chapter || 0) + 1
+    G.shards = (G.shards || 0) + ch.shards
+    return ch.shards
+  }
+  function buyArt(G, a) {
+    if (art(G, a.id) || (G.shards || 0) < a.cost) return false
+    G.shards -= a.cost
+    G.arts = { ...G.arts, [a.id]: Date.now() }
+    return true
+  }
 
   function buyHelper(G, h, n = 1) {
     let bought = 0
@@ -93,17 +196,19 @@
     G.tree[n.id] = lvl(G, n.id) + 1
     return true
   }
+  const storyCap = G => ((G.chapter || 0) >= CHAPTERS.length - 1 ? GOAL : GOAL / 2)
   // presses count up to the goal and are spent as coins; returns what actually counted
   function earn(G, n) {
     if (G.ended) return 0
-    n = Math.max(0, Math.min(n, GOAL - G.life))
+    // until Zarpas Omega is beaten the button stalls at half the goal: the story comes first
+    n = Math.max(0, Math.min(n, storyCap(G) - G.life))
     G.life += n
     G.coins += n
     if (!G.start && n) G.start = Date.now()
     return n
   }
 
-  const ECON = { HELPERS, TREE, TREE_BY_ID, MILESTONES, GOAL, RARITIES, fresh, lvl, count, milestoneMult, helperMult, helperCost, nodeCost, nodeShown, helperShown, comboMax, rate, helperRate, clickValue, chestEvery, goldenEvery, frenzySeconds, rarityWeights, maxedAll, buyHelper, buyNode, earn }
+  const ECON = { HELPERS, TREE, TREE_BY_ID, ARTS, CHAPTERS, BOSSES, MILESTONES, GOAL, RARITIES, CHEST_SHARDS, fresh, lvl, count, art, milestoneMult, helperMult, helperCost, nodeCost, nodeShown, helperShown, comboMax, rate, helperRate, clickValue, critChance, critMult, comboCool, chestEvery, goldenEvery, offlineShare, frenzySeconds, rarityWeights, treeLevels, artCount, maxedAll, chapter, chapterDone, bossHp, advance, storyCap, buyArt, buyHelper, buyNode, earn }
   if (typeof module !== 'undefined') module.exports = ECON
   if (typeof window === 'undefined') return
 
@@ -183,7 +288,7 @@
     if (ticker || G.ended) return
     if (G.at) {
       const gap = Math.min((Date.now() - G.at) / 1000, OFFLINE_MAX_S)
-      const away = Math.floor(rate(G) * gap * 0.5)
+      const away = Math.floor(rate(G) * gap * offlineShare(G))
       if (gap > 30 && away > 0) {
         earn(G, away)
         G.away = away
@@ -203,13 +308,14 @@
     }
     fx.frenzy = frenzyMult
     // the combo cools down when the clicks stop
-    const cool = 1.2 * (1 + 0.25 * lvl(G, 'c2'))
-    if (combo > 0 && now - lastClick > cool * 1000) combo = Math.max(0, combo - 60 * dt)
+    if (combo > 0 && now - lastClick > comboCool(G) * 1000) combo = Math.max(0, combo - 60 * dt)
     updateCombo()
-    carry += rate(G, fx) * (dt <= 5 ? dt : 5 + (dt - 5) * 0.5)
+    carry += rate(G, fx) * (dt <= 5 ? dt : 5 + (dt - 5) * offlineShare(G))
     const whole = Math.floor(carry)
     carry -= whole
     if (whole) earn(G, whole)
+    if (fight && whole) hurtBoss(whole, false)
+    if (fight && now > fight.until) loseFight(false)
     if (G.life >= GOAL) return finish()
     checkMedals()
     save()
@@ -230,7 +336,7 @@
   const SPRITES = { cat: () => `#pt-${SL().catCoat()}`, skill: () => '#ca', robot: () => '#ag', drone: () => '#sd0', claude: () => '#ag' }
   const COLORS = { skill: '#D97757', robot: '#3D85C6', drone: '#3D85C6', claude: '#F2C230' }
   // each kind stands on its own arc around the button (angles in degrees, 0 = right, 90 = down)
-  const ARCS = { cat: [105, 160], skill: [165, 215], robot: [220, 290], drone: [295, 355], claude: [15, 75] }
+  const ARCS = { cat: [105, 160], skill: [165, 215], robot: [220, 290], drone: [285, 335], claude: [15, 75] }
   // a few sprites stand for the whole crew: more of them as the crew grows
   const SHOWN = 6
   const shownOf = n => (n ? Math.min(SHOWN, Math.ceil(Math.sqrt(n))) : 0)
@@ -258,27 +364,41 @@
             <ellipse cx="0" cy="52" rx="92" ry="34" fill="#000" opacity=".35"/>
             <path d="M-88 20 v20 a88 32 0 0 0 176 0 v-20 z" fill="url(#rg-base)"/>
             <ellipse cx="0" cy="20" rx="88" ry="32" fill="#646B77"/>
-            <ellipse cx="0" cy="20" rx="74" ry="26" fill="#1E2126"/>
+            <g class="rg-leds"></g>
+            <ellipse cx="0" cy="20" rx="66" ry="23.5" fill="#1E2126"/>
             <g class="rg-cap">
               <path d="M-62 -14 v30 a62 22 0 0 0 124 0 v-30 z" fill="#8E1414" class="rg-cap-side"/>
               <ellipse cx="0" cy="-14" rx="62" ry="22" fill="url(#rg-cap)" class="rg-cap-top"/>
-              <ellipse cx="-20" cy="-22" rx="22" ry="7" fill="#FFF" opacity=".45"/>
+              <ellipse cx="-20" cy="-22" rx="22" ry="7" fill="#FFF" opacity=".45" class="rg-shine"/>
+              <ellipse cx="0" cy="-14" rx="62" ry="22" fill="#FFF" opacity="0" class="rg-cap-flash"/>
             </g>
           </g>
           <g class="rg-front"></g>
           <g class="rg-chest" style="display:none"></g>
+          <g class="rg-boss" style="display:none"></g>
+          <g class="rg-hint" style="display:none"><text text-anchor="middle" y="-62">¡Púlsame!</text><path d="M-8 -54 L8 -54 L0 -42 Z"/></g>
         </svg>
       </div>
       <canvas class="rg-fx"></canvas>
+      <div class="rg-vignette"></div>
+      <div class="rg-white"></div>
       <header class="rg-top">
-        <div class="rg-count"><b class="rg-life">0</b><small>pulsaciones</small></div>
-        <div class="rg-meta"><span class="rg-coins"></span><span class="rg-rates"></span></div>
-        <div class="rg-combo" title="Combo"><i></i><span>×1</span></div>
-        <div class="rg-goal" title="Meta: mil millones"><i></i></div>
-        <button class="rg-treebtn">🌳 Árbol</button>
+        <div class="rg-count"><b class="rg-life">0</b><small class="rg-rates"></small></div>
+        <div class="rg-wallet"><span class="rg-coins" title="Pulsaciones para gastar en ayudantes y en el árbol"></span><span class="rg-shards" title="Fragmentos: se gastan en artefactos"></span></div>
+        <div class="rg-combo" title="Combo: pulsa rápido para llenarlo"><i></i><span>×1</span></div>
+        <span class="rg-spacer"></span>
+        <button class="rg-treebtn" title="Árbol de mejoras">🌳 Árbol</button>
         <button class="rg-close" title="Volver al mapa (Esc)">✕</button>
       </header>
-      <aside class="rg-side"><h4>Ayudantes</h4><div class="rg-helpers"></div></aside>
+      <section class="rg-mission"></section>
+      <div class="rg-bosshud" hidden><b class="name"></b><div class="hp"><i></i><span></span></div><div class="time"></div></div>
+      <div class="rg-talk" hidden><div class="who"></div><p></p><button>Continuar ▸</button></div>
+      <aside class="rg-side">
+        <nav class="rg-tabs"><button data-tab="helpers" class="on">🐾 Ayudantes</button><button data-tab="arts">🏺 Artefactos</button><button data-tab="story">📖 Historia</button></nav>
+        <div class="rg-pane rg-helpers" data-pane="helpers"></div>
+        <div class="rg-pane rg-arts" data-pane="arts" hidden></div>
+        <div class="rg-pane rg-story" data-pane="story" hidden></div>
+      </aside>
       <footer class="rg-news"><span></span></footer>
       <div class="rg-tree" hidden>
         <svg class="rg-tree-svg"><g class="rg-tree-view"><g class="rg-links"></g><g class="rg-nodes"></g></g></svg>
@@ -302,14 +422,37 @@
       rates: root.querySelector('.rg-rates'),
       comboBar: root.querySelector('.rg-combo i'),
       comboTxt: root.querySelector('.rg-combo span'),
-      goal: root.querySelector('.rg-goal i'),
+      shards: root.querySelector('.rg-shards'),
+      mission: root.querySelector('.rg-mission'),
+      bossHud: root.querySelector('.rg-bosshud'),
+      boss: root.querySelector('.rg-boss'),
+      hint: root.querySelector('.rg-hint'),
+      talk: root.querySelector('.rg-talk'),
+      arts: root.querySelector('.rg-arts'),
+      story: root.querySelector('.rg-story'),
       helpers: root.querySelector('.rg-helpers'),
       news: root.querySelector('.rg-news span'),
       tree: root.querySelector('.rg-tree'),
       chest: root.querySelector('.rg-chest'),
+      capFlash: root.querySelector('.rg-cap-flash'),
+      vignette: root.querySelector('.rg-vignette'),
+      white: root.querySelector('.rg-white'),
       sprites: [],
+      leds: [],
       lastLife: -1,
+      shownLife: G.life,
       bumpAt: 0,
+    }
+    // the ring of lights round the base: a chase that speeds up with production, all lit on a press
+    const ledG = root.querySelector('.rg-leds')
+    for (let i = 0; i < 28; i++) {
+      const a = (i / 28) * Math.PI * 2
+      const c = document.createElementNS(SVG, 'circle')
+      c.setAttribute('cx', (Math.cos(a) * 77).toFixed(1))
+      c.setAttribute('cy', (20 + Math.sin(a) * 27.5).toFixed(1))
+      c.setAttribute('r', '2.6')
+      ledG.appendChild(c)
+      ui.leds.push(c)
     }
     root.addEventListener('pointerdown', e => e.stopPropagation())
     root.addEventListener('wheel', e => e.stopPropagation(), { passive: true })
@@ -325,7 +468,18 @@
       openChest()
     })
     document.addEventListener('keydown', onKey)
+    root.querySelectorAll('.rg-tabs button').forEach(b =>
+      b.addEventListener('click', () => {
+        root.querySelectorAll('.rg-tabs button').forEach(x => x.classList.toggle('on', x === b))
+        root.querySelectorAll('.rg-pane').forEach(p => (p.hidden = p.dataset.pane !== b.dataset.tab))
+        const pane = root.querySelector(`.rg-pane[data-pane="${b.dataset.tab}"]`)
+        pane.animate([{ opacity: 0, transform: 'translateX(12px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'ease-out' })
+        refresh()
+      }),
+    )
+    ui.talk.querySelector('button').addEventListener('click', () => nextTalk())
     buildHelpers()
+    buildArts()
     buildSprites()
     sizeCanvases()
     ui.ro = new ResizeObserver(sizeCanvases)
@@ -341,9 +495,15 @@
     if (chestReady) showChest()
     refresh()
     if (G.ended) setTimeout(showEnd, 300)
+    // the first time in, the story begins
+    else if (!G.seenIntro) {
+      G.seenIntro = 1
+      setTimeout(() => say(NARRATOR, CHAPTERS[0].intro), 700)
+    }
   }
   function close() {
     if (!root) return
+    if (fight) loseFight(true)
     cancelAnimationFrame(ui.raf)
     clearInterval(ui.newsTimer)
     ui.ro.disconnect()
@@ -355,7 +515,7 @@
     save(true)
   }
   function onKey(e) {
-    if (e.key === 'Escape') return ui && !ui.tree.hidden ? toggleTree(false) : close()
+    if (e.key === 'Escape') return ui && !ui.tree.hidden ? toggleTree(false) : ui && !ui.talk.hidden ? nextTalk() : close()
     if ((e.key === ' ' || e.key === 'Enter') && !e.repeat && ui && ui.tree.hidden && !(e.target instanceof HTMLButtonElement)) {
       e.preventDefault()
       press(null)
@@ -401,48 +561,90 @@
         g.innerHTML =
           (h.id === 'robot' ? '<line class="rg-piston" x1="0" y1="0" x2="0" y2="0" stroke="#9BA6B5" stroke-width="7" stroke-linecap="round"/>' : '') +
           (h.id === 'drone' || h.id === 'claude' ? '<line class="rg-laser" x1="0" y1="0" x2="0" y2="0" stroke-linecap="round"/>' : '') +
-          `<g class="rg-body"><ellipse cx="0" cy="2" rx="${10 * scale}" ry="${3 * scale}" fill="#000" opacity="${h.id === 'drone' ? 0.12 : 0.3}"/>` +
+          `<ellipse class="rg-shadow" cx="0" cy="2" rx="${10 * scale}" ry="${3 * scale}" fill="#000" opacity="${h.id === 'drone' ? 0.12 : 0.3}"/>` +
+          `<g class="rg-body">` +
           (h.id === 'claude' ? `<circle cx="0" cy="-${18 * scale}" r="${22 * scale}" fill="url(#rg-halo)" class="rg-aura"/>` : '') +
-          `<g transform="scale(${flip * scale},${scale})"><use href="${SPRITES[h.id]()}"${color}/></g></g>`
+          // idle breathing lives on its own layer, so the press animations on rg-body never fight it
+          `<g class="rg-idle" style="animation-delay:-${rnd(0, 3).toFixed(2)}s"><g transform="scale(${flip * scale},${scale})"><use href="${SPRITES[h.id]()}"${color}/></g></g></g>`
         g.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)})`)
         ;(y < 30 ? ui.back : ui.front).appendChild(g)
-        ui.sprites.push({ h, g, x, y, body: g.querySelector('.rg-body'), next: performance.now() + rnd(200, h.every * 1000) })
+        ui.sprites.push({ h, g, x, y, scale, body: g.querySelector('.rg-body'), next: performance.now() + rnd(200, h.every * 1000) })
       }
     }
   }
   // one visible press: what the sprite does depends on its kind; the press lands on the button at the end
+  // every press has an anticipation (wind-up), a strike with stretch, a short hold on impact and a springy recovery
   function helperPress(s) {
     const { h, g, x, y } = s
     const toX = -x * 0.6
     const toY = (20 - y) * 0.6
+    const back = x > 0 ? 1 : -1
     const body = s.body
-    const dur = Math.min(600, h.every * 450)
+    const dur = Math.min(720, h.every * 520)
+    const impact = toScreen(x * 0.3, 4 + (y - 20) * 0.18)
     const hit = () => {
       if (!ui) return
       const share = (helperRate(G, h, fx) * h.every) / Math.max(1, shownOf(count(G, h)))
-      capHit(0.35)
-      const p = toScreen(x * 0.25, 10 + (y - 20) * 0.15)
-      sparks(p.x, p.y, 6, h.id === 'claude' ? '#FFD84F' : '#FFB35A', 2.4)
-      floatNum(toScreen(x * 0.85, y - 50), `+${fmtRate(share)}`, '#FFF4C8', 13)
+      capHit(h.id === 'claude' ? 0.7 : 0.35)
+      ledPulse(0.35)
+      flash(impact.x, impact.y, h.id === 'claude' ? 46 : 24, h.id === 'claude' ? '255,220,90' : '255,190,120')
+      sparks(impact.x, impact.y, h.id === 'claude' ? 16 : 8, h.id === 'claude' ? '#FFD84F' : '#FFB35A', 3)
+      floatNum(toScreen(x * 0.85, y - 54), `+${fmtRate(share)}`, '#FFF4C8', 13)
       if (lvl(G, 'k4')) chestTick()
+      if (h.id === 'cat') slash(impact.x, impact.y, back)
+      if (h.id === 'skill') for (let i = 0; i < 4; i++) puff(impact.x + rnd(-16, 16), impact.y + rnd(0, 6), 'rgba(230,220,210,', 0.6)
+      if (h.id === 'robot') {
+        const vent = toScreen(x + back * 14, y - 34)
+        for (let i = 0; i < 3; i++) puff(vent.x, vent.y, 'rgba(255,255,255,', 0.5)
+      }
+      if (h.id === 'claude') shake(4)
     }
     if (calm()) return hit()
+    const spring = 'cubic-bezier(.25,.9,.3,1.25)'
     if (h.id === 'cat') {
-      body.animate([{ transform: 'none' }, { transform: `translate(${toX * 0.35}px,${toY * 0.35}px) rotate(${x > 0 ? 18 : -18}deg)` }, { transform: 'none' }], { duration: dur, easing: 'cubic-bezier(.3,1.6,.5,1)' })
-      setTimeout(hit, dur * 0.45)
+      body.animate(
+        [
+          { transform: 'none' },
+          { transform: `translate(${back * 6}px,1px) scale(1.06,.9) rotate(${-back * 8}deg)`, offset: 0.28 },
+          { transform: `translate(${toX * 0.38}px,${toY * 0.38}px) scale(.94,1.1) rotate(${back * -24}deg)`, offset: 0.46 },
+          { transform: `translate(${toX * 0.36}px,${toY * 0.36}px) scale(1.04,.95) rotate(${back * -20}deg)`, offset: 0.6 },
+          { transform: 'none' },
+        ],
+        { duration: dur, easing: spring },
+      )
+      setTimeout(hit, dur * 0.46)
     } else if (h.id === 'skill') {
-      body.animate([{ transform: 'none' }, { transform: `translate(${toX * 0.4}px,${toY * 0.4 - 46}px) scale(1.1,.9)`, offset: 0.45 }, { transform: `translate(${toX * 0.5}px,${toY * 0.5 - 10}px) scale(1.15,.8)`, offset: 0.6 }, { transform: 'none' }], { duration: dur * 1.3, easing: 'ease-out' })
-      setTimeout(hit, dur * 0.78)
+      body.animate(
+        [
+          { transform: 'none' },
+          { transform: 'translateY(2px) scale(1.25,.72)', offset: 0.16 },
+          { transform: `translate(${toX * 0.25}px,${toY * 0.25 - 70}px) scale(.86,1.2) rotate(${-back * 14}deg)`, offset: 0.42 },
+          { transform: `translate(${toX * 0.5}px,${toY * 0.5 - 6}px) scale(1.35,.66)`, offset: 0.62 },
+          { transform: `translate(${toX * 0.45}px,${toY * 0.45 - 26}px) scale(.95,1.08) rotate(${back * 10}deg)`, offset: 0.78 },
+          { transform: 'translateY(1px) scale(1.12,.9)', offset: 0.92 },
+          { transform: 'none' },
+        ],
+        { duration: dur * 1.35, easing: 'ease-in-out' },
+      )
+      g.querySelector('.rg-shadow').animate([{ transform: 'none' }, { transform: `translate(${toX * 0.25}px,${toY * 0.25}px) scale(.5)`, opacity: 0.1, offset: 0.42 }, { transform: 'none' }], { duration: dur * 1.35 })
+      setTimeout(hit, dur * 1.35 * 0.62)
     } else if (h.id === 'robot') {
       g.querySelector('.rg-piston').setAttribute('y1', '-24')
       // line ends are attributes, not animatable by WAAPI: the frame loop drives the piston
       s.piston = { t0: performance.now(), dur }
-      body.animate([{ transform: 'none' }, { transform: `translate(${x > 0 ? 6 : -6}px,0)` }, { transform: 'none' }], { duration: dur })
-      setTimeout(hit, dur * 0.5)
+      body.animate([{ transform: 'none' }, { transform: `translate(${back * 7}px,0) rotate(${back * 4}deg)`, offset: 0.25 }, { transform: `translate(${-back * 5}px,0) rotate(${-back * 3}deg)`, offset: 0.42 }, { transform: 'none' }], { duration: dur, easing: spring })
+      setTimeout(hit, dur * 0.4)
     } else if (h.id === 'drone' || h.id === 'claude') {
-      s.laser = { t0: performance.now(), dur: dur * 0.9 }
-      body.animate([{ transform: 'none' }, { transform: 'translate(0,-6px) scale(1.06)' }, { transform: 'none' }], { duration: dur })
-      setTimeout(hit, dur * 0.3)
+      // charge first: light gathers at the muzzle, then the beam fires
+      const muzzle = toScreen(x, y + (h.id === 'claude' ? -64 : -34))
+      charge(muzzle.x, muzzle.y, h.id === 'claude' ? '#FFD84F' : '#FF5A7A', h.id === 'claude' ? 14 : 8)
+      body.animate([{ transform: 'none' }, { transform: 'translateY(4px) scale(1.04,.96)', offset: 0.3 }, { transform: 'translateY(-9px) scale(.96,1.06)', offset: 0.4 }, { transform: 'none' }], { duration: dur * 1.2, easing: spring })
+      setTimeout(() => {
+        if (!ui) return
+        s.laser = { t0: performance.now(), dur: dur * 0.6 }
+        if (h.id === 'claude') bolt(muzzle.x, muzzle.y, impact.x, impact.y)
+        hit()
+      }, dur * 0.4)
     }
   }
 
@@ -456,28 +658,43 @@
       return
     }
     const now = Date.now()
-    if (now - lastClick < 1200 * (1 + 0.25 * lvl(G, 'c2'))) combo = Math.min(50, combo + 1)
+    if (now - lastClick < comboCool(G) * 1000) combo = Math.min(50, combo + 1)
     else combo = 1
     lastClick = now
     updateCombo()
     let value = clickValue(G, fx)
-    const crit = Math.random() < 0.03 * lvl(G, 'f3')
+    const crit = Math.random() < critChance(G)
     const dbl = Math.random() < 0.1 * lvl(G, 'f5')
-    if (crit) value *= 10 + 5 * lvl(G, 'f4')
+    if (crit) value *= critMult(G)
     if (dbl) value *= 2
     G.clicks++
-    earn(G, Math.max(1, Math.floor(value)))
+    const got = earn(G, Math.max(1, Math.floor(value)))
+    if (fight) hurtBoss(Math.max(1, Math.floor(value)), crit)
+    else if (!got && G.life >= storyCap(G)) floatNum(toScreen(0, -60), '🔒 Vence a Zarpas Omega', '#FF8A7A', 14)
+    if (G.clicks <= 5 && ui) ui.hint.style.display = G.clicks >= 5 ? 'none' : ''
     if (G.clicks === 1 || G.life >= 10) checkMedals()
     chestTick()
     const p = e ? pointer(e) : toScreen(rnd(-30, 30), rnd(-30, -5))
     capHit(1)
-    ring(toScreen(0, 20), crit ? '#FFD84F' : '#FF6A5A')
-    sparks(p.x, p.y, crit ? 40 : 12 + Math.round(fx.combo * 4), crit ? '#FFD84F' : '#FF8A6A', crit ? 7 : 4.5)
-    floatNum({ x: p.x + rnd(-28, 28), y: p.y - rnd(10, 34) }, `+${fmt(value)}`, crit ? '#FFD84F' : '#FFFFFF', crit ? 26 : 17 + Math.min(8, fx.combo * 2))
+    ledPulse(1)
+    rayBoost = Math.min(1, rayBoost + 0.18)
+    const base = toScreen(0, 20)
+    ring(base, crit ? '#FFD84F' : '#FF6A5A', 7)
+    ring(base, '#FFFFFF', 11, 0.06)
+    flash(p.x, p.y, crit ? 90 : 34, crit ? '255,230,120' : '255,170,140')
+    sparks(p.x, p.y, crit ? 46 : 12 + Math.round(fx.combo * 5), crit ? '#FFD84F' : '#FF8A6A', crit ? 8 : 4.8)
+    floatNum({ x: p.x + rnd(-28, 28), y: p.y - rnd(10, 34) }, `+${fmt(value)}`, crit ? '#FFD84F' : '#FFFFFF', crit ? 28 : 17 + Math.min(8, fx.combo * 2), crit)
     if (crit) {
-      bigText(`¡CRÍTICO ×${10 + 5 * lvl(G, 'f4')}!`, '#FFD84F')
-      shake(10)
-    } else if (dbl) floatNum({ x: p.x, y: p.y - 40 }, '¡DOBLE!', '#7FE3FF', 15)
+      bigText(`¡CRÍTICO ×${critMult(G)}!`, '#FFD84F')
+      hitstop(70)
+      punch(1.05)
+      whiteFlash(0.35)
+      shake(12)
+      coinsBurst(p.x, p.y, 10)
+    } else if (dbl) {
+      floatNum({ x: p.x, y: p.y - 44 }, '¡DOBLE!', '#7FE3FF', 16, true)
+      ring(base, '#7FE3FF', 9)
+    }
     shake(1.5 + fx.combo * 1.2)
     SL().beep([180 + combo * 9 + (crit ? 400 : 0)], 0.02)
     if (G.life >= GOAL) finish()
@@ -487,41 +704,116 @@
     const r = root.getBoundingClientRect()
     return { x: e.clientX - r.left, y: e.clientY - r.top }
   }
+  // the cap sinks into the base, squashes, springs back past its rest and settles; its top flashes white
   function capHit(force) {
     if (!ui || calm()) return
-    ui.cap.animate([{ transform: 'none' }, { transform: `translateY(${10 * force}px) scale(${1 + 0.06 * force},${1 - 0.14 * force})` }, { transform: `translateY(${-3 * force}px) scale(.98,1.04)` }, { transform: 'none' }], { duration: 220 + 80 * force, easing: 'ease-out' })
+    ui.cap.animate(
+      [
+        { transform: 'none' },
+        { transform: `translateY(${13 * force}px) scale(${1 + 0.07 * force},${1 - 0.2 * force})`, offset: 0.22 },
+        { transform: `translateY(${-5 * force}px) scale(${1 - 0.03 * force},${1 + 0.07 * force})`, offset: 0.5 },
+        { transform: `translateY(${1.5 * force}px) scale(1,.99)`, offset: 0.75 },
+        { transform: 'none' },
+      ],
+      { duration: 260 + 120 * force, easing: 'ease-out' },
+    )
+    ui.capFlash.animate([{ opacity: 0.55 * force }, { opacity: 0 }], { duration: 160 + 120 * force, easing: 'ease-out' })
   }
   function shake(px) {
     if (!ui || calm() || px < 2) return
-    const k = Math.min(px, 14)
-    ui.stage.animate([0, 1, 2, 3, 4].map(i => ({ transform: i === 4 ? 'none' : `translate(${rnd(-k, k)}px,${rnd(-k, k) * 0.6}px)` })), { duration: 180 })
+    const k = Math.min(px, 16)
+    ui.stage.animate([0, 1, 2, 3, 4, 5].map(i => ({ transform: i === 5 ? 'none' : `translate(${rnd(-k, k) * (1 - i / 6)}px,${rnd(-k, k) * 0.6 * (1 - i / 6)}px) rotate(${rnd(-k, k) * 0.05}deg)` })), { duration: 220 })
+  }
+  // camera punch: a quick zoom in and out of the stage
+  function punch(k) {
+    if (!ui || calm()) return
+    ui.stage.animate([{ transform: 'none' }, { transform: `scale(${k})`, offset: 0.25 }, { transform: 'none' }], { duration: 320, easing: 'cubic-bezier(.2,.8,.3,1)' })
+  }
+  function whiteFlash(a) {
+    if (!ui || calm()) return
+    ui.white.animate([{ opacity: a }, { opacity: 0 }], { duration: 260, easing: 'ease-out' })
+  }
+  // hitstop: the particles freeze for a beat so the big hits land
+  let freezeUntil = 0
+  function hitstop(ms) {
+    if (!calm()) freezeUntil = performance.now() + ms
+  }
+  let ledFlash = 0
+  function ledPulse(k) {
+    ledFlash = Math.min(1, ledFlash + k)
   }
 
   // ---------- particles, rings and numbers on the canvas ----------
 
   const parts = []
+  const MAX_PARTS = 900
+  const add = p => parts.length < MAX_PARTS && parts.push(p)
   function sparks(x, y, n, color, speed) {
     if (calm()) n = Math.min(n, 4)
-    for (let i = 0; i < n && parts.length < 600; i++) {
+    for (let i = 0; i < n; i++) {
       const a = rnd(0, Math.PI * 2)
       const v = rnd(0.4, 1) * speed
-      parts.push({ kind: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - speed * 0.6, life: 1, decay: rnd(0.018, 0.035), color, size: rnd(1.5, 3.5) })
+      add({ kind: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - speed * 0.6, life: 1, decay: rnd(0.016, 0.032), color, size: rnd(1.4, 3.2) })
     }
   }
   function confetti(x, y, n) {
     const colors = ['#FF5A4A', '#FFD84F', '#4FA3FF', '#7FE37F', '#B46CFF', '#FFFFFF']
-    for (let i = 0; i < n && parts.length < 700; i++) {
+    if (calm()) n = Math.min(n, 10)
+    for (let i = 0; i < n; i++) {
       const a = rnd(-Math.PI, 0)
       const v = rnd(3, 9)
-      parts.push({ kind: 'confetti', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, decay: rnd(0.006, 0.012), color: colors[i % colors.length], size: rnd(3, 6), rot: rnd(0, 6), vr: rnd(-0.3, 0.3) })
+      add({ kind: 'confetti', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, decay: rnd(0.006, 0.012), color: colors[i % colors.length], size: rnd(3, 6), rot: rnd(0, 6), vr: rnd(-0.3, 0.3), flip: rnd(0, 6) })
     }
   }
-  function ring(p, color) {
-    parts.push({ kind: 'ring', x: p.x, y: p.y, r: 30, life: 1, decay: 0.035, color })
+  function ring(p, color, grow = 7, decay = 0.035) {
+    add({ kind: 'ring', x: p.x, y: p.y, r: 30, life: 1, decay, color, grow })
   }
-  function floatNum(p, text, color, size) {
-    if (parts.filter(q => q.kind === 'text').length > 40) return
-    parts.push({ kind: 'text', x: p.x, y: p.y, vx: rnd(-1.1, 1.1), vy: rnd(-2.4, -1.4), life: 1, decay: 0.016, color, size, text })
+  function flash(x, y, r, rgb) {
+    add({ kind: 'flash', x, y, r, life: 1, decay: 0.09, rgb })
+  }
+  function floatNum(p, text, color, size, big = false) {
+    if (parts.filter(q => q.kind === 'text').length > 45) return
+    add({ kind: 'text', x: p.x, y: p.y, vx: rnd(-1.1, 1.1), vy: rnd(-2.6, -1.5), life: 1, decay: big ? 0.011 : 0.016, color, size, text, age: 0, big, spin: big ? rnd(-0.15, 0.15) : 0 })
+  }
+  // coins: spinning discs that either fall with gravity or fly along a curve to a target
+  function coinsBurst(x, y, n) {
+    if (calm()) n = Math.min(n, 3)
+    for (let i = 0; i < n; i++) add({ kind: 'coin', x, y, vx: rnd(-4, 4), vy: rnd(-9, -4), life: 1, decay: 0.012, spin: rnd(0, 6), size: rnd(4, 6.5) })
+  }
+  function coinsFly(from, to, n) {
+    if (calm()) n = Math.min(n, 3)
+    for (let i = 0; i < n; i++) {
+      const cx = (from.x + to.x) / 2 + rnd(-80, 80)
+      const cy = Math.min(from.y, to.y) - rnd(40, 120)
+      add({ kind: 'coin', fly: { from, to, cx, cy, t: -i * 0.06 }, x: from.x, y: from.y, life: 1, decay: 0, spin: rnd(0, 6), size: rnd(4, 6) })
+    }
+  }
+  function bolt(x1, y1, x2, y2) {
+    add({ kind: 'bolt', x: x1, y: y1, x2, y2, life: 1, decay: 0.12 })
+    add({ kind: 'bolt', x: x1, y: y1, x2: x2 + rnd(-20, 20), y2: y2 + rnd(-8, 8), life: 0.7, decay: 0.14 })
+  }
+  // light gathering into a point before a shot
+  function charge(x, y, color, n) {
+    if (calm()) return
+    for (let i = 0; i < n; i++) {
+      const a = rnd(0, Math.PI * 2)
+      const d = rnd(18, 36)
+      add({ kind: 'suck', x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, tx: x, ty: y, life: 1, decay: 0.05, color, size: rnd(1.5, 3) })
+    }
+    add({ kind: 'flash', x, y, r: 14, life: 1, decay: 0.05, rgb: color === '#FFD84F' ? '255,220,90' : '255,90,122', grow: true })
+  }
+  function slash(x, y, dir) {
+    add({ kind: 'slash', x, y, dir, life: 1, decay: 0.07 })
+  }
+  function puff(x, y, rgba, a) {
+    add({ kind: 'puff', x, y, vx: rnd(-0.6, 0.6), vy: rnd(-1.4, -0.4), r: rnd(3, 6), life: 1, decay: rnd(0.025, 0.04), rgba, a })
+  }
+  function embers(x, y, n) {
+    if (calm()) return
+    for (let i = 0; i < n; i++) add({ kind: 'ember', x: x + rnd(-55, 55), y: y + rnd(-6, 10), vx: rnd(-0.4, 0.4), vy: rnd(-2.6, -1.2), life: 1, decay: rnd(0.012, 0.022), size: rnd(1.5, 3.2), wob: rnd(0, 6) })
+  }
+  function beams(x, y, color) {
+    add({ kind: 'beams', x, y, color, life: 1, decay: 0.012, rot: rnd(0, 6) })
   }
   function bigText(text, color) {
     if (!ui) return
@@ -537,92 +829,286 @@
   }
 
   let rayAngle = 0
-  function frame(t) {
+  let rayBoost = 0
+  function frame() {
     if (!ui) return
     ui.raf = requestAnimationFrame(frame)
     const W = root.clientWidth
     const H = root.clientHeight
     const c = toScreen(0, 0)
-    // background: rotating rays and drifting motes, hotter with the combo and gold in a frenzy
+    const now = performance.now()
+    const frozen = now < freezeUntil
+    // background: rotating rays that throb with every press, drifting motes; hotter with the combo, gold in a frenzy
     const bg = ui.bg.getContext('2d')
     bg.clearRect(0, 0, W, H)
     const heat = (fx.combo - 1) / 2
     const gold = frenzyUntil > Date.now()
-    if (!calm()) rayAngle += 0.002 + heat * 0.01 + (gold ? 0.02 : 0)
+    if (!calm()) rayAngle += 0.002 + heat * 0.012 + (gold ? 0.02 : 0) + rayBoost * 0.02
+    rayBoost *= 0.92
     const R = Math.hypot(W, H)
     bg.save()
     bg.translate(c.x, c.y)
     bg.rotate(rayAngle)
-    const rays = 14
+    const rays = 16
     for (let i = 0; i < rays; i++) {
       bg.beginPath()
       bg.moveTo(0, 0)
       bg.arc(0, 0, R, (i * 2 * Math.PI) / rays, ((i + 0.5) * 2 * Math.PI) / rays)
       bg.closePath()
-      bg.fillStyle = gold ? `rgba(255,200,60,${0.1 + heat * 0.05})` : `rgba(255,${90 - heat * 40},${70 - heat * 40},${0.045 + heat * 0.06})`
+      const a = 0.045 + heat * 0.06 + rayBoost * 0.08
+      bg.fillStyle = gold ? `rgba(255,200,60,${a + 0.06})` : `rgba(255,${Math.round(90 - heat * 40)},${Math.round(70 - heat * 40)},${a})`
       bg.fill()
     }
     bg.restore()
-    if (!ui.motes) ui.motes = Array.from({ length: 60 }, () => ({ x: rnd(0, 1), y: rnd(0, 1), v: rnd(0.0004, 0.0016), s: rnd(0.6, 2) }))
-    bg.fillStyle = gold ? 'rgba(255,220,120,.8)' : 'rgba(255,255,255,.45)'
+    // a soft hot core behind the button
+    const core = bg.createRadialGradient(c.x, c.y, 0, c.x, c.y, 260 + rayBoost * 80)
+    core.addColorStop(0, gold ? `rgba(255,210,90,${0.35 + rayBoost * 0.3})` : `rgba(255,80,60,${0.22 + heat * 0.15 + rayBoost * 0.25})`)
+    core.addColorStop(1, 'rgba(0,0,0,0)')
+    bg.fillStyle = core
+    bg.fillRect(0, 0, W, H)
+    if (!ui.motes) ui.motes = Array.from({ length: 80 }, () => ({ x: rnd(0, 1), y: rnd(0, 1), v: rnd(0.0004, 0.0018), s: rnd(0.6, 2.2), tw: rnd(0, 6) }))
     for (const m of ui.motes) {
-      if (!calm()) m.y -= m.v * (1 + heat * 3)
+      if (!calm()) {
+        m.y -= m.v * (1 + heat * 3 + rayBoost * 4)
+        m.tw += 0.05
+      }
       if (m.y < 0) m.y = 1
+      bg.fillStyle = gold ? `rgba(255,220,120,${0.5 + Math.sin(m.tw) * 0.3})` : `rgba(255,255,255,${0.3 + Math.sin(m.tw) * 0.2})`
       bg.fillRect(m.x * W, m.y * H, m.s, m.s)
     }
-    // foreground particles
+    // the ring of lights: three chasers that run faster with production, everything lit on a press
+    const speed = 0.0015 + Math.log10(1 + rate(G, fx)) * 0.0012
+    ledFlash *= 0.9
+    ui.leds.forEach((led, i) => {
+      let b = ledFlash
+      for (let k = 0; k < 3; k++) {
+        const pos = ((now * speed + (k * ui.leds.length) / 3) % ui.leds.length + ui.leds.length) % ui.leds.length
+        const d = Math.min(Math.abs(i - pos), ui.leds.length - Math.abs(i - pos))
+        b = Math.max(b, 1 - d / 3)
+      }
+      led.setAttribute('fill', gold ? `rgba(255,216,79,${(0.25 + b * 0.75).toFixed(2)})` : `rgba(255,${Math.round(80 + b * 150)},${Math.round(60 + b * 120)},${(0.25 + b * 0.75).toFixed(2)})`)
+    })
+    // embers rise off the button while the combo is full
+    if (fx.comboFull && !frozen) embers(c.x, c.y - 10, gold ? 3 : 2)
+    if (golden && !calm()) {
+      const r = golden.getBoundingClientRect()
+      const box = root.getBoundingClientRect()
+      const gx = r.left - box.left + r.width / 2
+      const gy = r.top - box.top + r.height / 2
+      add({ kind: 'spark', x: gx + rnd(-10, 10), y: gy + rnd(-6, 6), vx: rnd(-0.5, 0.5), vy: rnd(0, 1), life: 1, decay: 0.03, color: Math.random() < 0.5 ? '#FFF6C8' : '#FFD84F', size: rnd(1.5, 3) })
+    }
+    // foreground particles: light things add up (lighter), solid things paint over
     const ctx = ui.fxc.getContext('2d')
     ctx.clearRect(0, 0, W, H)
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i]
-      p.life -= p.decay
-      if (p.life <= 0) {
+      if (!frozen) p.life -= p.decay
+      if (p.life <= 0 || (p.fly && p.fly.t >= 1)) {
+        if (p.fly) sparks(p.fly.to.x, p.fly.to.y, 3, '#FFD84F', 2)
         parts.splice(i, 1)
         continue
       }
       ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 1.4))
+      ctx.globalCompositeOperation = 'source-over'
       if (p.kind === 'spark') {
-        p.x += p.vx
-        p.y += p.vy
-        p.vy += 0.18
-        p.vx *= 0.98
-        ctx.fillStyle = p.color
-        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
+        const px = p.x
+        const py = p.y
+        if (!frozen) {
+          p.x += p.vx
+          p.y += p.vy
+          p.vy += 0.18
+          p.vx *= 0.98
+        }
+        ctx.globalCompositeOperation = 'lighter'
+        ctx.strokeStyle = p.color
+        ctx.lineWidth = p.size
+        ctx.lineCap = 'round'
+        ctx.beginPath()
+        ctx.moveTo(px - p.vx * 1.5, py - p.vy * 1.5)
+        ctx.lineTo(p.x, p.y)
+        ctx.stroke()
       } else if (p.kind === 'confetti') {
-        p.x += p.vx
-        p.y += p.vy
-        p.vy += 0.15
-        p.vx *= 0.99
-        p.rot += p.vr
+        if (!frozen) {
+          p.x += p.vx
+          p.y += p.vy
+          p.vy += 0.15
+          p.vx *= 0.99
+          p.rot += p.vr
+          p.flip += 0.2
+        }
         ctx.save()
         ctx.translate(p.x, p.y)
         ctx.rotate(p.rot)
+        ctx.scale(1, Math.cos(p.flip))
         ctx.fillStyle = p.color
         ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2)
         ctx.restore()
       } else if (p.kind === 'ring') {
-        p.r += 7
+        if (!frozen) p.r += p.grow
+        ctx.globalCompositeOperation = 'lighter'
         ctx.strokeStyle = p.color
-        ctx.lineWidth = 4 * p.life
+        ctx.lineWidth = 5 * p.life
         ctx.beginPath()
-        ctx.ellipse(p.x, p.y, p.r, p.r * 0.42, 0, 0, Math.PI * 2)
+        ctx.ellipse(p.x, p.y, p.r, p.r * (p.round ? 1 : 0.42), 0, 0, Math.PI * 2)
         ctx.stroke()
+      } else if (p.kind === 'flash') {
+        const r = p.grow ? p.r * (2 - p.life) : p.r * (1.6 - p.life * 0.6)
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r)
+        g.addColorStop(0, `rgba(255,255,255,${p.life})`)
+        g.addColorStop(0.35, `rgba(${p.rgb},${p.life * 0.8})`)
+        g.addColorStop(1, `rgba(${p.rgb},0)`)
+        ctx.globalCompositeOperation = 'lighter'
+        ctx.fillStyle = g
+        ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2)
       } else if (p.kind === 'text') {
-        p.x += p.vx
-        p.y += p.vy
-        p.vy *= 0.97
+        if (!frozen) {
+          p.x += p.vx
+          p.y += p.vy
+          p.vy *= 0.965
+          p.age++
+        }
+        // pops in big and settles, the important ones keep a wobble
+        const pop = p.age < 8 ? 1.8 - (p.age / 8) * 0.8 : 1
+        ctx.save()
+        ctx.translate(p.x, p.y)
+        ctx.scale(pop, pop)
+        if (p.big) ctx.rotate(Math.sin(p.age * 0.3) * p.spin)
         ctx.font = `900 ${p.size}px Verdana, sans-serif`
         ctx.textAlign = 'center'
-        ctx.lineWidth = 4
+        ctx.lineWidth = 4.5
+        ctx.lineJoin = 'round'
         ctx.strokeStyle = '#1a1310'
-        ctx.strokeText(p.text, p.x, p.y)
+        ctx.strokeText(p.text, 0, 0)
+        if (p.big) {
+          const g = ctx.createLinearGradient(0, -p.size, 0, 0)
+          g.addColorStop(0, '#FFFFFF')
+          g.addColorStop(1, p.color)
+          ctx.fillStyle = g
+        } else ctx.fillStyle = p.color
+        ctx.fillText(p.text, 0, 0)
+        ctx.restore()
+      } else if (p.kind === 'coin') {
+        if (p.fly) {
+          if (!frozen) p.fly.t += 0.028
+          const t = Math.max(0, p.fly.t)
+          const e = t * t * (3 - 2 * t)
+          const { from, to, cx, cy } = p.fly
+          p.x = (1 - e) * (1 - e) * from.x + 2 * (1 - e) * e * cx + e * e * to.x
+          p.y = (1 - e) * (1 - e) * from.y + 2 * (1 - e) * e * cy + e * e * to.y
+          if (p.fly.t < 0) continue
+        } else if (!frozen) {
+          p.x += p.vx
+          p.y += p.vy
+          p.vy += 0.3
+        }
+        if (!frozen) p.spin += 0.25
+        const w = Math.abs(Math.cos(p.spin)) * p.size + 0.8
+        ctx.fillStyle = '#B8860B'
+        ctx.beginPath()
+        ctx.ellipse(p.x, p.y + 1, w, p.size, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#FFD84F'
+        ctx.beginPath()
+        ctx.ellipse(p.x, p.y, w, p.size, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = 'rgba(255,255,255,.7)'
+        ctx.fillRect(p.x - w * 0.4, p.y - p.size * 0.5, Math.max(0.6, w * 0.3), p.size * 0.5)
+      } else if (p.kind === 'bolt') {
+        // a fresh zig-zag every frame: it crackles
+        const pts = [[p.x, p.y]]
+        const n = 9
+        const dx = p.x2 - p.x
+        const dy = p.y2 - p.y
+        const len = Math.hypot(dx, dy) || 1
+        for (let k = 1; k < n; k++) {
+          const off = rnd(-1, 1) * 16 * Math.sin((k / n) * Math.PI)
+          pts.push([p.x + (dx * k) / n + (-dy / len) * off, p.y + (dy * k) / n + (dx / len) * off])
+        }
+        pts.push([p.x2, p.y2])
+        ctx.globalCompositeOperation = 'lighter'
+        for (const [width, color] of [[9, 'rgba(255,200,60,.35)'], [3.5, 'rgba(255,240,170,.9)'], [1.4, '#FFFFFF']]) {
+          ctx.strokeStyle = color
+          ctx.lineWidth = width * p.life
+          ctx.lineJoin = 'round'
+          ctx.beginPath()
+          pts.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
+          ctx.stroke()
+        }
+      } else if (p.kind === 'suck') {
+        if (!frozen) {
+          p.x += (p.tx - p.x) * 0.18
+          p.y += (p.ty - p.y) * 0.18
+        }
+        ctx.globalCompositeOperation = 'lighter'
         ctx.fillStyle = p.color
-        ctx.fillText(p.text, p.x, p.y)
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
+      } else if (p.kind === 'slash') {
+        // three claw marks drawn on and then fading
+        const grow = Math.min(1, (1 - p.life) * 4)
+        ctx.strokeStyle = '#FFFFFF'
+        ctx.lineCap = 'round'
+        for (let k = -1; k <= 1; k++) {
+          ctx.lineWidth = 3 * p.life
+          ctx.beginPath()
+          const sx = p.x + k * 7 - p.dir * 10
+          const sy = p.y - 12 + k * 2
+          ctx.moveTo(sx, sy)
+          ctx.quadraticCurveTo(sx + p.dir * 10 * grow, sy + 8 * grow, sx + p.dir * 18 * grow, sy + 22 * grow)
+          ctx.stroke()
+        }
+      } else if (p.kind === 'puff') {
+        if (!frozen) {
+          p.x += p.vx
+          p.y += p.vy
+          p.r += 0.5
+        }
+        ctx.fillStyle = `${p.rgba}${(p.a * p.life).toFixed(2)})`
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx.fill()
+      } else if (p.kind === 'ember') {
+        if (!frozen) {
+          p.wob += 0.15
+          p.x += p.vx + Math.sin(p.wob) * 0.5
+          p.y += p.vy
+        }
+        ctx.globalCompositeOperation = 'lighter'
+        ctx.fillStyle = p.life > 0.6 ? '#FFE07A' : p.life > 0.3 ? '#FF8A2A' : '#C8321E'
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.size * (0.5 + p.life * 0.5), 0, Math.PI * 2)
+        ctx.fill()
+      } else if (p.kind === 'beams') {
+        if (!frozen) p.rot += 0.02
+        ctx.globalCompositeOperation = 'lighter'
+        ctx.save()
+        ctx.translate(p.x, p.y)
+        ctx.rotate(p.rot)
+        const L = 160 * Math.min(1, (1 - p.life) * 5)
+        for (let k = 0; k < 10; k++) {
+          ctx.rotate((Math.PI * 2) / 10)
+          const g = ctx.createLinearGradient(0, 0, L, 0)
+          g.addColorStop(0, p.color)
+          g.addColorStop(1, 'rgba(0,0,0,0)')
+          ctx.fillStyle = g
+          ctx.globalAlpha = p.life * 0.55
+          ctx.beginPath()
+          ctx.moveTo(0, 0)
+          ctx.lineTo(L, -9)
+          ctx.lineTo(L, 9)
+          ctx.closePath()
+          ctx.fill()
+        }
+        ctx.restore()
       }
     }
     ctx.globalAlpha = 1
+    ctx.globalCompositeOperation = 'source-over'
+    // the shown count rolls towards the real one
+    ui.shownLife += (G.life - ui.shownLife) * 0.22
+    if (Math.abs(G.life - ui.shownLife) < 1) ui.shownLife = G.life
+    const label = fmt(ui.shownLife)
+    if (ui.life.textContent !== label) ui.life.textContent = label
     // helpers: each sprite presses on its own clock
-    const now = performance.now()
     for (const s of ui.sprites) {
       if (!G.ended && now >= s.next) {
         s.next = now + s.h.every * 1000 * rnd(0.85, 1.15)
@@ -631,8 +1117,10 @@
       if (s.piston) piston(s, now)
       if (s.laser) laser(s, now)
     }
-    // the button glows with the combo
-    ui.button.querySelector('.rg-halo').setAttribute('opacity', (0.5 + heat * 0.5 + (gold ? 0.4 : 0)).toFixed(2))
+    // the button glows with the combo and every press
+    ui.button.querySelector('.rg-halo').setAttribute('opacity', (0.5 + heat * 0.5 + (gold ? 0.4 : 0) + rayBoost * 0.6).toFixed(2))
+    root.classList.toggle('rg-hot', fx.comboFull)
+    root.classList.toggle('rg-gold', gold)
     goldenStep(now)
   }
   function piston(s, now) {
@@ -644,7 +1132,10 @@
       s.piston = null
       return
     }
-    const ext = Math.sin(Math.min(1, k) * Math.PI)
+    // shoots out with an overshoot (ease-out-back), holds on the button, then retracts
+    const back = t => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2
+    const ext = k < 0.15 ? -0.08 * (k / 0.15) : k < 0.4 ? back((k - 0.15) / 0.25) : k < 0.55 ? 1 : 1 - ((k - 0.55) / 0.45) ** 2
+    line.setAttribute('stroke-width', (7 + (ext > 0.9 ? 2 : 0)).toString())
     line.setAttribute('x2', (-s.x * 0.72 * ext).toFixed(1))
     line.setAttribute('y2', (-24 + (10 - s.y + 24) * 0.9 * ext).toFixed(1))
   }
@@ -708,13 +1199,22 @@
   }
   function catchGolden(x, y) {
     G.golden = (G.golden || 0) + 1
+    G.shards = (G.shards || 0) + 1
     SL().unlock('redgold')
-    confetti(x, y, 60)
-    sparks(x, y, 50, '#FFD84F', 8)
+    hitstop(110)
+    whiteFlash(0.6)
+    punch(1.07)
+    flash(x, y, 140, '255,220,90')
+    beams(x, y, 'rgba(255,216,79,1)')
+    ring({ x, y }, '#FFD84F', 9, 0.025)
+    confetti(x, y, 70)
+    sparks(x, y, 60, '#FFD84F', 9)
+    coinsBurst(x, y, 16)
+    floatNum({ x, y: y - 30 }, '+1 💠', '#9FE8FF', 18, true)
     SL().beep([784, 988, 1175, 1568], 0.07)
     if (Math.random() < 0.5) frenzy(7, frenzySeconds(G), '¡FRENESÍ ×7!')
     else {
-      const lump = Math.max(rate(G, fx) * 60, clickValue(G, fx) * 50) * 2 ** lvl(G, 'l4')
+      const lump = Math.max(rate(G, fx) * 60, clickValue(G, fx) * 10) * 2 ** lvl(G, 'l4')
       earn(G, Math.floor(lump))
       bigText(`¡PREMIO! +${fmt(lump)}`, '#FFD84F')
     }
@@ -745,8 +1245,18 @@
     const c = ui.chest
     c.style.display = ''
     c.setAttribute('transform', 'translate(0,128)')
-    c.innerHTML = '<g class="rg-chest-body"><ellipse cx="0" cy="22" rx="30" ry="8" fill="#000" opacity=".3"/><rect x="-26" y="-6" width="52" height="28" rx="3" fill="#8A5A2B" stroke="#3B2410" stroke-width="2"/><path d="M-26 -6 q26 -26 52 0z" fill="#A86F35" stroke="#3B2410" stroke-width="2"/><rect x="-4" y="-4" width="8" height="10" fill="#FFD84F" stroke="#3B2410" stroke-width="1.5"/><text y="-30" text-anchor="middle" class="rg-chest-hint">¡Ábreme!</text></g>'
-    if (!calm()) c.firstChild.animate([{ transform: 'translateY(-120px)' }, { transform: 'translateY(0) scale(1.1,.85)', offset: 0.6 }, { transform: 'translateY(-14px)', offset: 0.8 }, { transform: 'none' }], { duration: 700, easing: 'ease-in' })
+    c.innerHTML =
+      '<g class="rg-chest-body"><ellipse cx="0" cy="22" rx="30" ry="8" fill="#000" opacity=".3"/><rect x="-26" y="-6" width="52" height="28" rx="3" fill="#8A5A2B" stroke="#3B2410" stroke-width="2"/><rect x="-26" y="4" width="52" height="4" fill="#C9A24A"/>' +
+      '<g class="rg-lid"><path d="M-26 -6 q26 -26 52 0z" fill="#A86F35" stroke="#3B2410" stroke-width="2"/><path d="M-26 -6 q26 -26 52 0" fill="none" stroke="#C9A24A" stroke-width="3"/></g>' +
+      '<rect x="-4" y="-4" width="8" height="10" fill="#FFD84F" stroke="#3B2410" stroke-width="1.5"/><text y="-30" text-anchor="middle" class="rg-chest-hint">¡Ábreme!</text></g>'
+    if (!calm()) {
+      c.firstChild.animate([{ transform: 'translateY(-160px) rotate(-10deg)' }, { transform: 'translateY(0) scale(1.18,.78)', offset: 0.55 }, { transform: 'translateY(-22px) scale(.95,1.06) rotate(4deg)', offset: 0.75 }, { transform: 'translateY(0) scale(1.06,.94)', offset: 0.9 }, { transform: 'none' }], { duration: 800, easing: 'ease-in' })
+      setTimeout(() => {
+        if (!ui) return
+        const p = toScreen(0, 150)
+        for (let i = 0; i < 6; i++) puff(p.x + rnd(-30, 30), p.y, 'rgba(200,180,150,', 0.5)
+      }, 440)
+    }
     if (lvl(G, 'k4')) setTimeout(() => chestReady && openChest(), 2500)
   }
   function openChest() {
@@ -759,12 +1269,25 @@
     const rar = RARITIES[tier]
     const base = rate(G, fx)
     const click = clickValue(G, fx)
-    const reward = [base * 30 + click * 20, base * 120 + click * 60, base * 400 + click * 150, base * 1200 + click * 400][tier]
+    const reward = [base * 30 + click * 5, base * 120 + click * 15, base * 400 + click * 40, base * 1200 + click * 100][tier]
     G.chests = (G.chests || 0) + 1
     earn(G, Math.floor(reward))
     const p = toScreen(0, 118)
+    const shards = [0, 1, 3, 8][tier]
+    G.shards = (G.shards || 0) + shards
+    hitstop(40 + tier * 30)
+    flash(p.x, p.y, 60 + tier * 40, rar.color === '#C9CED6' ? '230,235,240' : tier === 1 ? '79,163,255' : tier === 2 ? '180,108,255' : '255,176,32')
+    beams(p.x, p.y, rar.color)
     sparks(p.x, p.y, 20 + tier * 25, rar.color, 5 + tier * 2)
-    if (tier >= 2) confetti(p.x, p.y, 30 * tier)
+    coinsBurst(p.x, p.y, 6 + tier * 6)
+    if (shards) floatNum({ x: p.x, y: p.y - 50 }, `+${shards} 💠`, '#9FE8FF', 18, true)
+    if (tier >= 2) {
+      confetti(p.x, p.y, 30 * tier)
+      whiteFlash(0.25 * tier)
+      punch(1 + 0.02 * tier)
+    }
+    const lid = ui.chest.querySelector('.rg-lid')
+    lid?.animate([{ transform: 'none' }, { transform: 'translate(-20px,-60px) rotate(-70deg)', opacity: 1, offset: 0.6 }, { transform: 'translate(-34px,-30px) rotate(-120deg)', opacity: 0 }], { duration: 500, easing: 'ease-out', fill: 'forwards' })
     if (tier === 3) {
       SL().unlock('redchest')
       frenzy(7, 20, '¡LEGENDARIO! ×7')
@@ -772,10 +1295,340 @@
     bigText(`${rar.name}: +${fmt(reward)}`, rar.color)
     SL().beep([523, 659, 784, 1047].slice(0, 2 + tier), 0.07)
     const c = ui.chest
-    c.firstChild.animate([{ transform: 'none' }, { transform: 'scale(1.3) rotate(-6deg)' }, { transform: 'scale(0) rotate(20deg)', opacity: 0 }], { duration: 420 }).onfinish = () => {
+    c.firstChild.animate([{ transform: 'none' }, { transform: 'scale(1.25,.8)', offset: 0.15 }, { transform: 'scale(1.1) translateY(-6px)', offset: 0.5 }, { transform: 'scale(0) rotate(20deg)', opacity: 0 }], { duration: 900, easing: 'ease-in' }).onfinish = () => {
       c.style.display = 'none'
     }
     refresh()
+  }
+
+  // ---------- the story: who talks ----------
+
+  const NARRATOR = { name: 'El botón', face: '🔴' }
+  const ZARPAS = { name: 'Doctor Zarpas', face: '😼', evil: true }
+  const talks = []
+  function say(who, text) {
+    talks.push({ who, text })
+    if (ui && ui.talk.hidden) nextTalk()
+  }
+  // shows the next line in the queue, typed out letter by letter; a click finishes it or moves on
+  function nextTalk() {
+    if (!ui) return
+    const t = ui.talk
+    if (t.typing) {
+      clearInterval(t.typing)
+      t.typing = 0
+      t.querySelector('p').textContent = t.full
+      return
+    }
+    const line = talks.shift()
+    if (!line) {
+      t.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(10px)' }], { duration: 180 }).onfinish = () => (t.hidden = true)
+      return
+    }
+    const wasHidden = t.hidden
+    t.hidden = false
+    t.classList.toggle('evil', !!line.who.evil)
+    t.querySelector('.who').innerHTML = `<span class="face">${line.who.face}</span>${line.who.name}`
+    t.full = line.text
+    const p = t.querySelector('p')
+    p.textContent = ''
+    if (wasHidden) t.animate([{ opacity: 0, transform: 'translateY(16px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.2,.9,.3,1.2)' })
+    if (line.who.evil) t.querySelector('.face').animate([{ transform: 'rotate(-12deg) scale(1.2)' }, { transform: 'rotate(10deg)' }, { transform: 'none' }], { duration: 500 })
+    let i = 0
+    if (calm()) {
+      p.textContent = line.text
+      return
+    }
+    t.typing = setInterval(() => {
+      i += 2
+      p.textContent = line.text.slice(0, i)
+      if (i >= line.text.length) {
+        clearInterval(t.typing)
+        t.typing = 0
+      }
+    }, 18)
+  }
+
+  // ---------- the current mission, always on screen ----------
+
+  function refreshMission() {
+    const ch = chapter(G)
+    const idx = Math.min(G.chapter || 0, CHAPTERS.length - 1)
+    const m = ui.mission
+    if (m.dataset.ch !== String(idx)) {
+      m.dataset.ch = String(idx)
+      m.innerHTML = `<small>Capítulo ${idx + 1} de ${CHAPTERS.length}</small><b>${ch.title}</b><ul>${ch.objs
+        .map(o => `<li><span class="tick"></span><span class="tx">${o.text}</span><em></em><i class="bar"><u></u></i></li>`)
+        .join('')}</ul><button class="rg-next" hidden></button>`
+      m.querySelector('.rg-next').addEventListener('click', onNext)
+      m.animate([{ opacity: 0, transform: 'translateX(-20px)' }, { opacity: 1, transform: 'none' }], { duration: 400, easing: 'cubic-bezier(.2,.9,.3,1.2)' })
+    }
+    ch.objs.forEach((o, k) => {
+      const li = m.querySelectorAll('li')[k]
+      const cur = Math.min(o.target, o.cur(G))
+      const done = cur >= o.target
+      if (done && !li.classList.contains('done')) {
+        li.classList.add('done')
+        if (m.dataset.ready) {
+          li.animate([{ background: 'rgba(127,227,127,.45)', transform: 'scale(1.04)' }, { background: 'transparent', transform: 'none' }], { duration: 700, easing: 'ease-out' })
+          const r = li.getBoundingClientRect()
+          const box = root.getBoundingClientRect()
+          sparks(r.left - box.left + 12, r.top - box.top + r.height / 2, 16, '#7FE37F', 3.5)
+          SL().beep([660, 880], 0.06)
+        }
+      }
+      li.querySelector('em').textContent = o.target >= 1000 ? `${fmt(cur)}/${fmt(o.target)}` : `${cur.toLocaleString('es-ES', { maximumFractionDigits: 1 })}/${o.target.toLocaleString('es-ES')}`
+      li.querySelector('.bar u').style.width = `${(cur / o.target) * 100}%`
+    })
+    m.dataset.ready = '1'
+    const next = m.querySelector('.rg-next')
+    const last = idx >= CHAPTERS.length - 1
+    const pending = ch.boss !== undefined && !(G.beaten || {})[ch.boss]
+    const ready = chapterDone(G) && !last
+    next.hidden = !ready || !!fight
+    if (ready) {
+      const label = pending ? (fightCooldown > Date.now() ? `⏳ Zarpas descansa… ${Math.ceil((fightCooldown - Date.now()) / 1000)} s` : `⚔️ ¡Enfréntate a ${BOSSES[ch.boss].name}!`) : `Siguiente capítulo ▸ +${ch.shards} 💠`
+      if (next.textContent !== label) next.textContent = label
+      next.disabled = pending && fightCooldown > Date.now()
+      next.classList.toggle('boss', pending)
+    }
+  }
+  function onNext() {
+    const ch = chapter(G)
+    if (ch.boss !== undefined && !(G.beaten || {})[ch.boss]) return startFight(ch.boss)
+    const before = G.chapter || 0
+    const got = advance(G)
+    if ((G.chapter || 0) === before) return
+    const m = ui.mission.getBoundingClientRect()
+    const box = root.getBoundingClientRect()
+    const from = { x: m.left - box.left + m.width / 2, y: m.top - box.top + m.height }
+    const sh = ui.shards.getBoundingClientRect()
+    coinsFly(from, { x: sh.left - box.left + 10, y: sh.top - box.top + 8 }, Math.min(10, 2 + got * 2))
+    confetti(from.x, from.y, 50)
+    bigText(`¡Capítulo completado! +${got} 💠`, '#7FE3FF')
+    SL().beep([523, 659, 784, 1047], 0.08)
+    save(true)
+    refresh()
+    setTimeout(() => say(NARRATOR, chapter(G).intro), 900)
+  }
+
+  // ---------- artifacts ----------
+
+  function buildArts() {
+    ui.arts.innerHTML = `<p class="rg-hintline">Los fragmentos 💠 salen de los cofres raros, de los botones dorados, de los capítulos y de vencer a Zarpas.</p><div class="rg-artgrid">${ARTS.map(
+      a => `<button class="rg-art" data-art="${a.id}"><span class="ic">${a.icon}</span><b>${a.name}</b><small>${a.desc}</small><em></em></button>`,
+    ).join('')}</div>`
+    ui.arts.querySelectorAll('[data-art]').forEach(b => b.addEventListener('click', () => buyArtifact(b.dataset.art)))
+  }
+  function refreshArts() {
+    if (ui.arts.hidden) return
+    for (const b of ui.arts.querySelectorAll('[data-art]')) {
+      const a = ARTS.find(x => x.id === b.dataset.art)
+      const owned = art(G, a.id)
+      b.classList.toggle('owned', owned)
+      b.disabled = owned || (G.shards || 0) < a.cost
+      b.querySelector('em').textContent = owned ? '✓ tuyo' : `${a.cost} 💠`
+    }
+  }
+  function buyArtifact(id) {
+    const a = ARTS.find(x => x.id === id)
+    if (!buyArt(G, a)) return
+    SL().unlock('redshop')
+    // the relic rises to the middle of the screen, glowing, and settles into the list
+    const b = ui.arts.querySelector(`[data-art="${id}"]`)
+    const r = b.getBoundingClientRect()
+    const box = root.getBoundingClientRect()
+    const el = document.createElement('div')
+    el.className = 'rg-relic'
+    el.textContent = a.icon
+    root.appendChild(el)
+    const sx = r.left - box.left + 20
+    const sy = r.top - box.top + 20
+    const cx = box.width * 0.35
+    const cy = box.height * 0.45
+    el.animate(
+      [
+        { transform: `translate(${sx}px,${sy}px) scale(.6)`, opacity: 0.3 },
+        { transform: `translate(${cx}px,${cy}px) scale(3)`, opacity: 1, offset: 0.35 },
+        { transform: `translate(${cx}px,${cy - 10}px) scale(3.2) rotate(8deg)`, opacity: 1, offset: 0.7 },
+        { transform: `translate(${sx}px,${sy}px) scale(.8)`, opacity: 0 },
+      ],
+      { duration: 1600, easing: 'cubic-bezier(.3,.8,.3,1)' },
+    ).onfinish = () => el.remove()
+    setTimeout(() => {
+      if (!ui) return
+      beams(cx + 20, cy + 20, '#9FE8FF')
+      flash(cx + 20, cy + 20, 120, '160,230,255')
+      sparks(cx + 20, cy + 20, 40, '#9FE8FF', 6)
+      whiteFlash(0.25)
+    }, 520)
+    bigText(`¡${a.name}!`, '#9FE8FF')
+    SL().beep([392, 523, 659, 784, 1047], 0.07)
+    save(true)
+    refresh()
+  }
+
+  // ---------- the story tab ----------
+
+  function refreshStory() {
+    if (ui.story.hidden) return
+    const idx = G.chapter || 0
+    const key = `${idx}:${JSON.stringify(G.beaten || {})}`
+    if (ui.story.dataset.key === key) return
+    ui.story.dataset.key = key
+    ui.story.innerHTML = CHAPTERS.map((ch, i) => {
+      const state = i < idx ? 'done' : i === idx ? 'now' : 'locked'
+      const boss = ch.boss !== undefined ? `<span class="tag">${(G.beaten || {})[ch.boss] ? '😿 vencido' : `⚔️ ${BOSSES[ch.boss].name}`}</span>` : ''
+      return `<div class="rg-chapter ${state}"><b>${state === 'locked' ? '🔒' : state === 'done' ? '✓' : '▶'} ${i + 1}. ${state === 'locked' ? '???' : ch.title}</b>${state === 'locked' ? '' : boss}${state === 'now' ? `<p>${ch.intro}</p>` : ''}</div>`
+    }).join('')
+  }
+
+  // ---------- the fights against Doctor Zarpas ----------
+
+  // Zarpas stands to the right of the button, clear of the crew
+  const BX = 232
+  const BY = -30
+  let fight = null
+  let fightCooldown = 0
+  // the villain: a black cat in a cape with a monocle; armour and a crown come with each comeback
+  function drawBoss(i) {
+    const armour = i >= 1 ? '<path d="M-30 -8 q30 -18 60 0 v26 q-30 12 -60 0z" fill="#9AA3AE" stroke="#4A5260" stroke-width="2"/><path d="M-30 4 h60" stroke="#4A5260" stroke-width="2"/><circle cx="-18" cy="-2" r="2" fill="#4A5260"/><circle cx="18" cy="-2" r="2" fill="#4A5260"/>' : ''
+    const crown = i >= 2 ? '<path d="M-22 -86 l8 -16 l8 12 l6 -16 l6 16 l8 -12 l8 16 z" fill="#FFD84F" stroke="#9A6A06" stroke-width="2"/><circle cx="0" cy="-92" r="3" fill="#FF3A5A"/>' : ''
+    const aura = i >= 2 ? '<ellipse cx="0" cy="-30" rx="80" ry="90" fill="url(#rg-halo)" class="rg-boss-aura"/>' : ''
+    return `${aura}<ellipse cx="0" cy="34" rx="46" ry="10" fill="#000" opacity=".35"/>
+      <g class="rg-boss-body">
+        <path d="M-40 30 q-14 -40 10 -62 h60 q24 22 10 62z" fill="#B3122A" class="cape"/>
+        <ellipse cx="0" cy="6" rx="34" ry="30" fill="#1A1416"/>
+        ${armour}
+        <path d="M30 20 q30 -6 26 -40 q-2 -10 -8 -4 q2 26 -22 30z" fill="#1A1416" class="tail"/>
+        <circle cx="0" cy="-42" r="30" fill="#1A1416"/>
+        <path d="M-26 -58 l-6 -28 l22 14z M26 -58 l6 -28 l-22 14z" fill="#1A1416"/>
+        <path d="M-24 -62 l-3 -16 l12 8z M24 -62 l3 -16 l-12 8z" fill="#5A2030"/>
+        <ellipse cx="-11" cy="-46" rx="7" ry="5" fill="#FF2A3A" class="eye"/><ellipse cx="11" cy="-46" rx="7" ry="5" fill="#FF2A3A" class="eye"/>
+        <ellipse cx="-11" cy="-46" rx="2" ry="4" fill="#200"/><ellipse cx="11" cy="-46" rx="2" ry="4" fill="#200"/>
+        <circle cx="11" cy="-46" r="10" fill="none" stroke="#FFD84F" stroke-width="2.5"/><path d="M21 -46 q6 14 0 30" stroke="#FFD84F" stroke-width="1.2" fill="none"/>
+        <path d="M-6 -32 q6 6 12 0" stroke="#FFF" stroke-width="2" fill="none"/><path d="M-4 -31 l2 5 l2 -5z M4 -31 l-2 5 l-2 -5z" fill="#FFF"/>
+        <path d="M-30 -36 h-20 M-30 -32 l-18 4 M30 -36 h20 M30 -32 l18 4" stroke="#BBB" stroke-width="1.4"/>
+        ${crown}
+      </g>
+      <g class="rg-boss-bubble" opacity="0"><rect x="-300" y="-78" width="256" height="34" rx="10" fill="#FFF" stroke="#1a1310" stroke-width="2"/><path d="M-46 -68 l16 8 l-16 8z" fill="#FFF" stroke="#1a1310" stroke-width="2"/><text x="-172" y="-56" text-anchor="middle"></text></g>`
+  }
+  function startFight(i) {
+    const b = BOSSES[i]
+    const hp = bossHp(G, b)
+    fight = { i, b, hp, max: hp, until: Date.now() + b.seconds * 1000, nextTaunt: Date.now() + 3000 }
+    ui.boss.innerHTML = drawBoss(i)
+    ui.boss.style.display = ''
+    ui.boss.setAttribute('transform', `translate(${BX},${BY}) scale(.8)`)
+    const body = ui.boss.querySelector('.rg-boss-body')
+    // he crashes down from the sky
+    body.animate([{ transform: 'translateY(-260px) rotate(-20deg)' }, { transform: 'translateY(0) scale(1.25,.75)', offset: 0.7 }, { transform: 'translateY(-16px) scale(.95,1.05)', offset: 0.85 }, { transform: 'none' }], { duration: 800, easing: 'ease-in' })
+    setTimeout(() => {
+      if (!ui) return
+      shake(14)
+      punch(1.04)
+      const p = toScreen(BX, BY + 30)
+      for (let k = 0; k < 10; k++) puff(p.x + rnd(-50, 50), p.y + 20, 'rgba(120,90,110,', 0.6)
+    }, 560)
+    ui.bossHud.hidden = false
+    ui.bossHud.querySelector('.name').textContent = `😼 ${b.name}`
+    ui.bossHud.animate([{ transform: 'translate(-50%,-40px)', opacity: 0 }, { transform: 'translate(-50%,0)', opacity: 1 }], { duration: 400, easing: 'cubic-bezier(.2,.9,.3,1.3)' })
+    root.classList.add('rg-fighting')
+    bigText(`⚔️ ¡${b.name}!`, '#FF5A6A')
+    SL().beep([196, 185, 175, 165], 0.12)
+    taunt(b.taunts[0])
+    refresh()
+    updateBossHud()
+  }
+  function taunt(text) {
+    const bub = ui?.boss.querySelector('.rg-boss-bubble')
+    if (!bub) return
+    bub.querySelector('text').textContent = text
+    bub.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none', offset: 0.15 }, { opacity: 1, offset: 0.85 }, { opacity: 0 }], { duration: 2600, easing: 'ease-out' })
+  }
+  function hurtBoss(n, crit) {
+    if (!fight) return
+    fight.hp -= n
+    if (ui) {
+      const body = ui.boss.querySelector('.rg-boss-body')
+      if (!calm() && performance.now() - (fight.hitAt || 0) > 90) {
+        fight.hitAt = performance.now()
+        body.animate([{ transform: 'none', filter: 'brightness(3)' }, { transform: `translate(${crit ? 10 : 4}px,-2px) rotate(${crit ? 6 : 2}deg)`, filter: 'brightness(1.6)' }, { transform: 'none', filter: 'none' }], { duration: 180 })
+        const p = toScreen(BX + rnd(-34, 34), BY - 10 + rnd(-14, 14))
+        floatNum(p, `-${fmt(n)}`, crit ? '#FFD84F' : '#FF6A7A', crit ? 22 : 15, crit)
+        sparks(p.x, p.y, crit ? 18 : 5, '#FF4A5A', 3.5)
+      }
+      updateBossHud()
+    }
+    if (fight.hp <= 0) winFight()
+  }
+  function updateBossHud() {
+    if (!fight || !ui) return
+    const pct = Math.max(0, fight.hp / fight.max)
+    ui.bossHud.querySelector('.hp i').style.width = `${(pct * 100).toFixed(1)}%`
+    ui.bossHud.querySelector('.hp span').textContent = `${fmt(Math.max(0, fight.hp))} / ${fmt(fight.max)}`
+    const left = Math.max(0, Math.ceil((fight.until - Date.now()) / 1000))
+    ui.bossHud.querySelector('.time').textContent = `⏱️ ${left} s`
+    ui.bossHud.classList.toggle('hurry', left <= 10)
+    // every few seconds he swipes at you: the combo is lost, keep pressing
+    if (Date.now() > fight.nextTaunt) {
+      fight.nextTaunt = Date.now() + 7000
+      taunt(fight.b.taunts[Math.floor(Math.random() * fight.b.taunts.length)])
+      if (combo > 8) {
+        combo = 0
+        updateCombo()
+        bigText('¡Zarpazo! Combo perdido', '#FF8A7A')
+        const p = toScreen(60, -10)
+        slash(p.x, p.y, -1)
+        shake(10)
+      }
+    }
+  }
+  function winFight() {
+    const f = fight
+    fight = null
+    G.beaten = { ...G.beaten, [f.i]: Date.now() }
+    G.shards = (G.shards || 0) + f.b.shards
+    if (f.i === BOSSES.length - 1) SL().unlock('redboss')
+    save(true)
+    if (!ui) return
+    const p = toScreen(BX, BY - 30)
+    hitstop(160)
+    whiteFlash(0.7)
+    punch(1.08)
+    flash(p.x, p.y, 200, '255,90,110')
+    beams(p.x, p.y, '#FF5A6A')
+    confetti(p.x, p.y, 120)
+    coinsBurst(p.x, p.y, 24)
+    // he spins away into the sky, shrinking
+    ui.boss.querySelector('.rg-boss-body').animate([{ transform: 'none' }, { transform: 'translate(40px,-80px) rotate(200deg) scale(.7)', offset: 0.5 }, { transform: 'translate(200px,-400px) rotate(720deg) scale(.1)', opacity: 0 }], { duration: 1300, easing: 'ease-in' }).onfinish = () => {
+      if (ui) ui.boss.style.display = 'none'
+    }
+    endFightHud()
+    bigText(`¡${f.b.name} vencido! +${f.b.shards} 💠`, '#7FE37F')
+    SL().beep([523, 659, 784, 1047, 1319], 0.09)
+    setTimeout(() => say(ZARPAS, f.b.lose), 1400)
+    refresh()
+  }
+  function loseFight(quiet) {
+    const f = fight
+    fight = null
+    fightCooldown = Date.now() + 20000
+    if (!ui || quiet) return
+    taunt('¡Miau-ja-ja-ja! ¡Demasiado lento!')
+    ui.boss.querySelector('.rg-boss-body').animate([{ transform: 'none' }, { transform: 'translateY(-20px) rotate(-8deg)', offset: 0.3 }, { transform: 'translate(320px,-60px)', opacity: 0 }], { duration: 1500, easing: 'ease-in', delay: 900 }).onfinish = () => {
+      if (ui) ui.boss.style.display = 'none'
+    }
+    endFightHud()
+    bigText(`${f.b.name} se escapa… ¡Vuelve a intentarlo!`, '#FF8A7A')
+    SL().beep([392, 330, 262], 0.15)
+    refresh()
+  }
+  function endFightHud() {
+    root.classList.remove('rg-fighting')
+    ui.bossHud.animate([{ opacity: 1 }, { opacity: 0, transform: 'translate(-50%,-30px)' }], { duration: 300 }).onfinish = () => {
+      if (ui) ui.bossHud.hidden = true
+    }
   }
 
   // ---------- the side list of helpers ----------
@@ -795,15 +1648,27 @@
           SL().unlock('redshop')
           const r = row.getBoundingClientRect()
           const box = root.getBoundingClientRect()
-          sparks(r.left - box.left + 20, r.top - box.top + r.height / 2, 14 + got, '#FFD84F', 4)
-          row.animate([{ transform: 'scale(1.04)', background: '#5a4a2a' }, { transform: 'none' }], { duration: 300 })
+          const to = { x: r.left - box.left + 20, y: r.top - box.top + r.height / 2 }
+          const cr = ui.coins.getBoundingClientRect()
+          coinsFly({ x: cr.left - box.left + 10, y: cr.top - box.top + 8 }, to, Math.min(12, 3 + got))
+          setTimeout(() => sparks(to.x, to.y, 14 + got, '#FFD84F', 4), 420)
+          row.animate([{ transform: 'scale(1.05)', background: '#6a5a2a', boxShadow: '0 0 18px #ffd84f' }, { transform: 'scale(.98)', offset: 0.4 }, { transform: 'none' }], { duration: 420, easing: 'ease-out' })
           SL().beep([440, 660 + Math.min(got, 20) * 10], 0.05)
           if (MILESTONES.includes(count(G, h))) bigText(`${h.icon} ×2 · nivel ${count(G, h)}`, '#FFE34F')
           const shown = ui.sprites.filter(s => s.h === h).length
           if (shown < shownOf(count(G, h))) {
             buildSprites()
             const s = ui.sprites.filter(q => q.h === h).at(-1)
-            s?.g.animate([{ transform: `translate(${s.x}px,${s.y - 120}px)`, opacity: 0 }, { transform: `translate(${s.x}px,${s.y}px)`, opacity: 1 }], { duration: 500, easing: 'cubic-bezier(.3,1.5,.5,1)' })
+            if (s) {
+              // a new crew member drops in from above and lands in a puff of dust
+              s.g.animate([{ transform: `translate(${s.x}px,${s.y - 160}px) scale(.6,1.3)`, opacity: 0 }, { transform: `translate(${s.x}px,${s.y}px) scale(1.3,.7)`, opacity: 1, offset: 0.6 }, { transform: `translate(${s.x}px,${s.y - 12}px) scale(.95,1.08)`, offset: 0.8 }, { transform: `translate(${s.x}px,${s.y}px)` }], { duration: 650, easing: 'ease-in' })
+              setTimeout(() => {
+                if (!ui) return
+                const p = toScreen(s.x, s.y)
+                for (let i = 0; i < 6; i++) puff(p.x + rnd(-20, 20), p.y, 'rgba(220,200,180,', 0.55)
+                ring(p, '#FFE34F', 4, 0.06)
+              }, 390)
+            }
           }
           checkMedals()
           save(true)
@@ -814,8 +1679,8 @@
   }
   function refresh() {
     if (!ui) return
+    // the number itself rolls in the frame loop; here only the bump
     if (ui.lastLife !== G.life) {
-      ui.life.textContent = fmt(G.life)
       const now = performance.now()
       if (now - ui.bumpAt > 140 && !calm()) {
         ui.bumpAt = now
@@ -823,10 +1688,9 @@
       }
       ui.lastLife = G.life
     }
-    ui.coins.textContent = `🪙 ${fmt(G.coins)} para gastar`
-    ui.rates.textContent = `${fmtRate(rate(G, fx))}/s · ${fmtRate(clickValue(G, fx))} por clic`
-    ui.goal.style.width = `${Math.min(100, (Math.log10(Math.max(1, G.life)) / 9) * 100).toFixed(1)}%`
-    ui.goal.parentElement.title = `Meta: mil millones (${((G.life / GOAL) * 100).toLocaleString('es-ES', { maximumFractionDigits: 4 })} %)`
+    ui.coins.textContent = `🪙 ${fmt(G.coins)}`
+    ui.shards.textContent = `💠 ${G.shards || 0}`
+    ui.rates.textContent = `pulsaciones · ${fmtRate(rate(G, fx))}/s · ${fmtRate(clickValue(G, fx))} por clic`
     ui.helpers.querySelectorAll('[data-h]').forEach((row, i) => {
       const h = HELPERS[i]
       const n = count(G, h)
@@ -846,6 +1710,9 @@
       row.classList.toggle('afford', !one.disabled)
     })
     if (!ui.tree.hidden) refreshTree()
+    refreshMission()
+    refreshArts()
+    refreshStory()
   }
   function updateComboBar() {
     if (!ui) return
@@ -873,7 +1740,9 @@
     const svg = ui.tree.querySelector('.rg-tree-svg')
     const links = svg.querySelector('.rg-links')
     const nodes = svg.querySelector('.rg-nodes')
-    links.innerHTML = TREE.flatMap(n => n.req.map(r => `<line data-from="${r}" data-to="${n.id}" x1="${TREE_BY_ID[r].x * UNIT}" y1="${TREE_BY_ID[r].y * UNIT}" x2="${n.x * UNIT}" y2="${n.y * UNIT}"/>`)).join('')
+    // each link twice: the cable, and a dotted line of energy that flows along it once lit
+    const link = cls => TREE.flatMap(n => n.req.map(r => `<line class="${cls}" data-from="${r}" data-to="${n.id}" x1="${TREE_BY_ID[r].x * UNIT}" y1="${TREE_BY_ID[r].y * UNIT}" x2="${n.x * UNIT}" y2="${n.y * UNIT}"/>`)).join('')
+    links.innerHTML = link('cable') + link('flow')
     nodes.innerHTML = TREE.map(
       n => `<g class="rg-node" data-node="${n.id}" transform="translate(${n.x * UNIT},${n.y * UNIT})"><circle class="glow" r="40"/><circle class="disc" r="30"/><circle class="prog" r="34" transform="rotate(-90)"/><text class="ic" y="11" text-anchor="middle">${n.icon}</text><text class="lv" y="52" text-anchor="middle"></text></g>`,
     ).join('')
@@ -976,8 +1845,13 @@
     g.querySelector('.disc').animate([{ transform: 'scale(1.5)' }, { transform: 'scale(.9)' }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.3,1.6,.5,1)' })
     const r = g.getBoundingClientRect()
     const box = root.getBoundingClientRect()
-    sparks(r.left - box.left + r.width / 2, r.top - box.top + r.height / 2, 40, '#FFD84F', 6)
-    for (const line of svg.querySelectorAll(`.rg-links line[data-to="${id}"]`)) {
+    const cx = r.left - box.left + r.width / 2
+    const cy = r.top - box.top + r.height / 2
+    sparks(cx, cy, 40, '#FFD84F', 6)
+    flash(cx, cy, 70, '255,220,90')
+    add({ kind: 'ring', x: cx, y: cy, r: 20, life: 1, decay: 0.04, color: '#FFE34F', grow: 5, round: true })
+    g.querySelector('.glow').animate([{ opacity: 0.9, transform: 'scale(.6)' }, { opacity: 0, transform: 'scale(2.2)' }], { duration: 600, easing: 'ease-out' })
+    for (const line of svg.querySelectorAll(`.rg-links line.cable[data-to="${id}"]`)) {
       const len = Math.hypot(line.x2.baseVal.value - line.x1.baseVal.value, line.y2.baseVal.value - line.y1.baseVal.value)
       line.animate([{ strokeDasharray: `${len}`, strokeDashoffset: `${len}`, stroke: '#FFF' }, { strokeDasharray: `${len}`, strokeDashoffset: '0', stroke: '#FFD84F' }], { duration: 500, easing: 'ease-out' })
     }
@@ -1035,6 +1909,7 @@
     G.ended = Date.now()
     save(true)
     SL().unlock('redend')
+    if (G.ended - G.start < SPEEDRUN_MS) SL().unlock('redspeed')
     SL().mapLabel()
     if (!ui) return
     SL().beep([523, 659, 784, 1047, 1319, 1568], 0.12)
@@ -1053,8 +1928,8 @@
     const took = mins < 60 ? `${mins} min` : mins < 1440 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${Math.floor(mins / 1440)} d ${Math.floor((mins % 1440) / 60)} h`
     const card = document.createElement('div')
     card.className = 'rg-end'
-    card.innerHTML = `<div class="big">🏁</div><h3>¡Mil millones!</h3><p>Has terminado el juego del botón rojo.</p>
-      <ul><li><span>Pulsaciones</span><b>1.000.000.000</b></li><li><span>Clics a mano</span><b>${fmt(G.clicks)}</b></li><li><span>Tiempo</span><b>${took}</b></li>
+    card.innerHTML = `<div class="big">🏁</div><h3>¡Mil millones!</h3><p>Has salvado el botón del Doctor Zarpas y lo has llevado a los mil millones.</p>
+      <ul><li><span>Pulsaciones</span><b>1.000.000.000</b></li><li><span>Clics a mano</span><b>${fmt(G.clicks)}</b></li><li><span>Tiempo</span><b>${took} <small>(media ~${AVERAGE_MIN} min)</small></b></li>${G.ended - G.start < SPEEDRUN_MS ? "<li class=\"speed\"><span>⏱️ Speedrunner</span><b>¡menos de 20 min!</b></li>" : ""}
       <li><span>Botones dorados</span><b>${fmt(G.golden || 0)}</b></li><li><span>Cofres</span><b>${fmt(G.chests || 0)}</b></li><li><span>Combo máximo</span><b>×${(G.bestCombo || 1).toLocaleString('es-ES', { maximumFractionDigits: 1 })}</b></li>
       <li><span>Árbol y ayudantes</span><b>${maxedAll(G) ? 'completos' : 'a medias'}</b></li></ul>
       <div class="row"><button class="again">🔁 Volver a empezar</button><button class="primary done">Cerrar</button></div>`
@@ -1065,6 +1940,7 @@
       chestReady = 0
       frenzyUntil = 0
       frenzyMult = 1
+      fight = null
       save(true)
       card.remove()
       buildSprites()
@@ -1138,6 +2014,8 @@
       frenzyUntil = 0
       frenzyMult = 1
       carry = 0
+      fight = null
+      talks.length = 0
     },
   }
 })()

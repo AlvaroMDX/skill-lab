@@ -1,5 +1,12 @@
 # Cambios
 
+## 1.3.0 — 2026-10-28
+- Historia en 7 capítulos con objetivos claros siempre a la vista: el Doctor Zarpas, un gato malvado con monóculo, quiere el botón. Tres combates contra reloj (Doctor Zarpas, Zarpas Acorazado y Zarpas Omega) con barra de vida, pullas y zarpazos que te quitan el combo.
+- Tienda de artefactos: 13 reliquias únicas (atún eterno, guante de seda, reloj de arena roto…) que se compran con fragmentos 💠 de cofres raros, botones dorados, capítulos y jefes.
+- Interfaz más limpia: cabecera con contador, monedas, fragmentos y combo; tarjeta de misión; pestañas Ayudantes · Artefactos · Historia; diálogos que se escriben solos.
+- Animaciones mucho más trabajadas: anticipación y rebote en cada ayudante (zarpazos con marcas, saltos con polvo, pistones con muelle y vapor, láser con carga y rayos eléctricos de Claude), aro de luces en la base, parada de impacto y golpe de cámara en críticos, estelas, brasas con el combo lleno, monedas que vuelan al comprar y energía que corre por el árbol.
+- Medallas nuevas: Domador de gatos (vencer a Zarpas Omega) y Speedrunner (terminar en menos de 20 minutos; la media ronda los 35). 62 en total.
+
 ## 1.2.0 — 2026-10-28
 - El botón rojo pasa a ser un juego incremental a pantalla completa: al completar todas las demás medallas se abre solo, como easter egg, y después se entra desde el botón del mapa.
 - Ayudantes que se ven pulsar: gatos con zarpazo, skills que saltan encima, robots con pistón, drones con láser y el nuevo Claude en bucle; cada «+N» sale del que pulsa.
