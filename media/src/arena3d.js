@@ -14,6 +14,8 @@ const easeIn = k => k * k * k
 const S = 1 / 88
 const RING = 205 * S
 const CAP_TOP = 0.78
+// the second act's crews stand on an outer ring
+const OUTER = 3.75
 
 const COATS = {
   gris: ['#8E929A', '#6A6E76', '#E9E3D8'],
@@ -23,6 +25,7 @@ const COATS = {
   siames: ['#EADFC9', '#5A4232', '#F6EFE2'],
   tricolor: ['#F3EFE7', '#D9822B', '#2B2729'],
   militar: ['#6E7B4C', '#4A5532', '#A8A57A'],
+  cosmico: ['#4B3A9A', '#2A1F66', '#C9B8FF'],
 }
 
 // soft round light used for every glow: additive sprites fake bloom without post-processing
@@ -170,9 +173,24 @@ function skillModel() {
   return { g, parts: { body } }
 }
 
-function robotModel() {
+function pistonArm(dark, steel, f = 0.13) {
+  const arm = new THREE.Group()
+  const rod = mesh(cyl(0.035, 0.035, 1, 12), steel)
+  rod.rotation.x = Math.PI / 2
+  rod.position.z = 0.5
+  const holder = new THREE.Group()
+  holder.add(rod)
+  holder.scale.z = 0.12
+  const fist = mesh(box(f, f, f * 0.85), dark, 0, 0, 0.14)
+  const joint = mesh(cyl(0.07, 0.07, 0.1, 14), dark)
+  joint.rotation.z = Math.PI / 2
+  arm.add(joint, holder, fist)
+  return { arm, rod: holder, fist }
+}
+
+function robotModel(shellColor = '#3D85C6', visorColor = '#7FF0FF') {
   const g = new THREE.Group()
-  const shell = mat('#3D85C6', { metalness: 0.5, roughness: 0.35 })
+  const shell = mat(shellColor, { metalness: 0.5, roughness: 0.35 })
   const dark = mat('#20344A', { metalness: 0.6, roughness: 0.4 })
   const steel = mat('#B9C3CF', { metalness: 0.9, roughness: 0.25 })
   g.add(mesh(cyl(0.16, 0.2, 0.1, 20), dark, 0, 0.05, 0))
@@ -180,8 +198,8 @@ function robotModel() {
   const head = new THREE.Group()
   head.position.set(0, 0.6, 0)
   head.add(mesh(box(0.3, 0.22, 0.24), shell))
-  const visor = mesh(box(0.24, 0.07, 0.02), basic('#7FF0FF'), 0, 0.01, 0.125)
-  const visorGlow = glow('#7FF0FF', 0.35, 0.7)
+  const visor = mesh(box(0.24, 0.07, 0.02), basic(visorColor), 0, 0.01, 0.125)
+  const visorGlow = glow(visorColor, 0.35, 0.7)
   visorGlow.position.set(0, 0.01, 0.16)
   head.add(visor, visorGlow, mesh(cyl(0.01, 0.01, 0.14, 6), steel, 0, 0.17, 0))
   const bulb = mesh(sphere(0.035, 10), basic('#FF4A4A'), 0, 0.25, 0)
@@ -189,19 +207,154 @@ function robotModel() {
   bulbGlow.position.copy(bulb.position)
   head.add(bulb, bulbGlow)
   // the piston arm grows along +Z from the shoulder
-  const arm = new THREE.Group()
+  const { arm, rod, fist } = pistonArm(dark, steel)
   arm.position.set(0.22, 0.34, 0)
-  const rod = mesh(cyl(0.035, 0.035, 1, 12), steel)
-  rod.rotation.x = Math.PI / 2
-  rod.position.z = 0.5
-  const rodHolder = new THREE.Group()
-  rodHolder.add(rod)
-  rodHolder.scale.z = 0.12
-  const fist = mesh(box(0.13, 0.13, 0.11), dark, 0, 0, 0.14)
-  arm.add(mesh(cyl(0.07, 0.07, 0.1, 14), dark), rodHolder, fist)
-  arm.children[0].rotation.z = Math.PI / 2
   g.add(torso, head, arm, mesh(box(0.14, 0.1, 0.02), basic('#FFD84F'), 0, 0.33, 0.145))
-  return { g, parts: { head, arm, rod: rodHolder, fist, bulb: bulbGlow } }
+  return { g, parts: { head, arm, rod, fist, bulb: bulbGlow } }
+}
+
+// ---------- the second act's crews ----------
+
+function factoryModel() {
+  const g = new THREE.Group()
+  const brick = mat('#9A4A32', { roughness: 0.85 })
+  const dark = mat('#3A3036', { metalness: 0.5, roughness: 0.4 })
+  const steel = mat('#B9C3CF', { metalness: 0.9, roughness: 0.25 })
+  g.add(mesh(box(0.7, 0.5, 0.5), brick, 0, 0.25, -0.05))
+  for (let k = 0; k < 3; k++) {
+    const roof = mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.5, 3), dark, -0.23 + k * 0.23, 0.55, -0.05)
+    roof.rotation.x = Math.PI / 2
+    g.add(roof)
+  }
+  g.add(mesh(cyl(0.06, 0.07, 0.5, 12), brick, 0.24, 0.75, -0.18))
+  for (const x of [-0.2, 0.2]) g.add(mesh(box(0.14, 0.12, 0.01), basic('#FFD86A'), x, 0.32, 0.205))
+  g.add(mesh(box(0.2, 0.12, 0.02), basic('#FF8A3A'), 0, 0.12, 0.21))
+  const smoke = [0, 1, 2].map(i => {
+    const p = glow('#CFC8C0', 0.3, 0.3)
+    p.material.blending = THREE.NormalBlending
+    p.position.set(0.24, 1.05 + i * 0.18, -0.18)
+    g.add(p)
+    return p
+  })
+  const { arm, rod, fist } = pistonArm(dark, steel, 0.16)
+  arm.position.set(0, 0.25, 0.25)
+  g.add(arm)
+  return { g, parts: { arm, rod, fist, smoke } }
+}
+function mechModel() {
+  const m = robotModel('#C8352B', '#FFD84F')
+  for (const x of [-0.25, 0.25]) m.g.add(mesh(sphere(0.1, 14), mat('#7A1A14', { metalness: 0.7, roughness: 0.3 }), x, 0.5, 0))
+  m.g.add(mesh(box(0.05, 0.25, 0.05), mat('#FFD84F', { metalness: 0.8 }), -0.1, 0.85, -0.05))
+  return m
+}
+function satModel() {
+  const g = new THREE.Group()
+  const foil = mat('#E8C35A', { metalness: 0.9, roughness: 0.3 })
+  g.add(mesh(box(0.26, 0.22, 0.26), foil))
+  const panels = new THREE.Group()
+  for (const sd of [-1, 1]) {
+    panels.add(mesh(box(0.5, 0.012, 0.22), mat('#2A4FA8', { metalness: 0.6, roughness: 0.3, emissive: '#0A2A6A', emissiveIntensity: 0.5 }), sd * 0.42, 0, 0))
+    const strut = mesh(cyl(0.012, 0.012, 0.2, 6), foil, sd * 0.15, 0, 0)
+    strut.rotation.z = Math.PI / 2
+    panels.add(strut)
+  }
+  g.add(panels)
+  const dish = mesh(new THREE.SphereGeometry(0.15, 20, 10, 0, TAU, 0, Math.PI / 2.6), mat('#EEEEEE', { side: THREE.DoubleSide }), 0, -0.12, 0.08)
+  dish.rotation.x = Math.PI * 0.75
+  const eye = glow('#7FF0FF', 0.45, 0.8)
+  eye.position.set(0, -0.16, 0.18)
+  const muzzle = new THREE.Object3D()
+  muzzle.position.set(0, -0.17, 0.18)
+  g.add(dish, eye, muzzle)
+  return { g, parts: { muzzle, spin: [{ o: panels, axis: 'x', speed: 0.01 }] } }
+}
+function portalModel() {
+  const g = new THREE.Group()
+  g.add(mesh(cyl(0.25, 0.3, 0.1, 20), mat('#3A3036', { metalness: 0.6, roughness: 0.4 }), 0, 0.05, 0))
+  g.add(mesh(torus(0.42, 0.06), mat('#6A3AD0', { emissive: '#7A3AFF', emissiveIntensity: 0.8, metalness: 0.5, roughness: 0.3 }), 0, 0.55, 0))
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(0.4, 40), add('#B46CFF', 0.55))
+  disc.material.side = THREE.DoubleSide
+  disc.position.set(0, 0.55, 0)
+  const swirl = new THREE.Mesh(new THREE.RingGeometry(0.08, 0.36, 40, 1, 0, TAU * 0.7), add('#FFFFFF', 0.4))
+  swirl.material.side = THREE.DoubleSide
+  swirl.position.set(0, 0.55, 0.01)
+  const halo = glow('#B46CFF', 1.6, 0.45)
+  halo.position.set(0, 0.55, 0)
+  const muzzle = new THREE.Object3D()
+  muzzle.position.set(0, 0.55, 0.05)
+  g.add(disc, swirl, halo, muzzle)
+  return { g, parts: { muzzle, spin: [{ o: swirl, axis: 'z', speed: 0.08 }] } }
+}
+function holeModel() {
+  const g = new THREE.Group()
+  g.add(mesh(sphere(0.22, 24), basic('#000000')))
+  const disk = new THREE.Group()
+  for (const [r0, r1, c, o] of [[0.28, 0.62, '#FF8A2A', 0.7], [0.24, 0.42, '#FFE07A', 0.6]]) {
+    const d = new THREE.Mesh(new THREE.RingGeometry(r0, r1, 48), add(c, o))
+    d.material.side = THREE.DoubleSide
+    d.rotation.x = -Math.PI / 2
+    disk.add(d)
+  }
+  disk.rotation.x = 0.35
+  const halo = glow('#FF8A2A', 1.7, 0.4)
+  const muzzle = new THREE.Object3D()
+  muzzle.position.set(0, 0, 0.25)
+  g.add(disk, halo, muzzle)
+  return { g, parts: { muzzle, spin: [{ o: disk, axis: 'y', speed: 0.05 }] } }
+}
+function galaxyModel() {
+  const g = new THREE.Group()
+  const n = 420
+  const pos = new Float32Array(n * 3)
+  const col = new Float32Array(n * 3)
+  const c = new THREE.Color()
+  for (let i = 0; i < n; i++) {
+    const t = Math.random()
+    const r = 0.04 + t * 0.6
+    const a = ((i % 3) * TAU) / 3 + t * 4 + rnd(-0.25, 0.25)
+    pos.set([Math.cos(a) * r, rnd(-0.03, 0.03) * (1 - t), Math.sin(a) * r], i * 3)
+    c.set(t < 0.3 ? '#FFF4D0' : i % 2 ? '#9FD0FF' : '#FF9FE0')
+    col.set([c.r, c.g, c.b], i * 3)
+  }
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
+  const spiral = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.04, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }))
+  const disc = new THREE.Group()
+  disc.add(spiral)
+  disc.rotation.x = 0.5
+  const core = glow('#FFF4D0', 0.9, 0.9)
+  const muzzle = new THREE.Object3D()
+  g.add(disc, core, muzzle)
+  return { g, parts: { muzzle, spin: [{ o: spiral, axis: 'y', speed: 0.012 }] } }
+}
+function cosmicModel() {
+  const m = catModel('cosmico')
+  const aura = glow('#B46CFF', 1.4, 0.45)
+  aura.position.y = 0.3
+  m.g.add(aura)
+  for (let k = 0; k < 6; k++) {
+    const star = glow('#FFFFFF', 0.12, 0.9)
+    star.position.set(rnd(-0.2, 0.2), rnd(0.15, 0.45), rnd(-0.3, 0.25))
+    m.g.add(star)
+  }
+  return m
+}
+
+// how each kind looks, where it stands and how it presses; head: height of its head in model units
+const KIND = {
+  cat: { model: coat => catModel(coat), style: 'pounce', scale: 0.85, ring: RING, hover: 0, head: 0.62, crown: { head: true, y: 0.13, s: 0.62 } },
+  skill: { model: skillModel, style: 'hop', scale: 0.85, ring: RING, hover: 0, head: 0.45, crown: { y: 0.43, s: 0.7 } },
+  robot: { model: () => robotModel(), style: 'piston', scale: 0.9, ring: RING, hover: 0, head: 0.88, crown: { head: true, y: 0.12, s: 0.62 } },
+  drone: { model: droneModel, style: 'beam', color: '#FF3A5A', scale: 1, ring: RING * 0.92, hover: 1.45, head: 0.12, crown: { y: 0.1, s: 0.55 } },
+  claude: { model: claudeModel, style: 'beam', color: '#FFD84F', big: true, scale: 0.75, ring: RING * 0.92, hover: 1.95, head: 0.4, crown: { y: 0.36, s: 0.6 } },
+  factory: { model: factoryModel, style: 'piston', scale: 1.1, ring: OUTER, hover: 0, head: 1.05, crown: { y: 0.72, s: 0.9 } },
+  mech: { model: mechModel, style: 'piston', scale: 1.6, ring: OUTER, hover: 0, head: 0.95, crown: { head: true, y: 0.12, s: 0.62 } },
+  sat: { model: satModel, style: 'beam', color: '#7FF0FF', scale: 1.15, ring: OUTER * 0.95, hover: 2.7, head: 0.2, crown: { y: 0.13, s: 0.6 } },
+  portal: { model: portalModel, style: 'beam', color: '#B46CFF', scale: 1.2, ring: OUTER, hover: 0, head: 1.02, crown: { y: 1.0, s: 0.75 } },
+  hole: { model: holeModel, style: 'beam', color: '#FF8A2A', scale: 1.1, ring: OUTER * 0.95, hover: 2.2, head: 0.3, crown: { y: 0.24, s: 0.6 } },
+  galaxy: { model: galaxyModel, style: 'beam', color: '#9FD0FF', scale: 1.25, ring: OUTER * 0.95, hover: 2.9, head: 0.2, crown: { y: 0.12, s: 0.6 } },
+  cosmic: { model: cosmicModel, style: 'pounce', scale: 1.5, ring: OUTER, hover: 0, head: 0.62, crown: { head: true, y: 0.13, s: 0.62 } },
 }
 
 function droneModel() {
@@ -370,20 +523,106 @@ function artModel(id) {
     g.add(r)
     color = '#B46CFF'
   }
+  else if (id === 'gear') {
+    g.add(mesh(torus(0.18, 0.06), gold))
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * TAU
+      const tooth = mesh(box(0.08, 0.08, 0.1), gold, Math.cos(a) * 0.26, Math.sin(a) * 0.26, 0)
+      tooth.rotation.z = a
+      g.add(tooth)
+    }
+    color = '#FFD84F'
+  } else if (id === 'dice') {
+    g.add(mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3, 2, 2, 2), mat('#FFFFFF', { roughness: 0.3 })))
+    for (const [x, y] of [[0, 0], [-0.08, 0.08], [0.08, -0.08]]) g.add(mesh(sphere(0.03, 8), basic('#D02A2A'), x, y, 0.152))
+    for (const [x, z] of [[-0.08, -0.08], [0.08, 0.08]]) g.add(mesh(sphere(0.03, 8), basic('#141010'), x, 0.152, z))
+    g.rotation.set(0.5, 0.6, 0)
+    color = '#FF6A6A'
+  } else if (id === 'fusion') {
+    g.add(mesh(sphere(0.12, 20), mat('#7FFF8A', { emissive: '#3AFF5A', emissiveIntensity: 1.2 })))
+    for (let k = 0; k < 3; k++) {
+      const o = mesh(torus(0.24, 0.012), basic('#BFFFC8'))
+      o.rotation.set((k * Math.PI) / 3, k, 0)
+      g.add(o)
+    }
+    color = '#7FFF8A'
+  } else if (id === 'bell') {
+    const b = mesh(new THREE.SphereGeometry(0.2, 24, 16, 0, TAU, 0, Math.PI * 0.6), gold)
+    b.material.side = THREE.DoubleSide
+    g.add(b, mesh(sphere(0.06, 12), gold, 0, -0.12, 0), mesh(torus(0.05, 0.015), gold, 0, 0.22, 0))
+    color = '#FFD84F'
+  } else if (id === 'antenna') {
+    const d = mesh(new THREE.SphereGeometry(0.24, 24, 10, 0, TAU, 0, Math.PI / 3), mat('#E6EAF0', { side: THREE.DoubleSide, metalness: 0.6 }))
+    d.rotation.x = Math.PI
+    g.add(d, mesh(cyl(0.012, 0.012, 0.3, 6), silver, 0, -0.05, 0), mesh(sphere(0.035, 10), basic('#FF4A4A'), 0, -0.2, 0))
+    color = '#9FE8FF'
+  } else if (id === 'tesseract') {
+    for (const [sz, c] of [[0.36, '#7FF0FF'], [0.2, '#B46CFF']]) {
+      const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(sz, sz, sz)), new THREE.LineBasicMaterial({ color: c }))
+      e.rotation.set(sz, sz * 2, 0)
+      g.add(e)
+    }
+    g.add(mesh(box(0.2, 0.2, 0.2), add('#B46CFF', 0.25)))
+    color = '#7FF0FF'
+  } else if (id === 'lens') {
+    g.add(mesh(torus(0.2, 0.03), mat('#B8862B', { metalness: 0.9, roughness: 0.25 })))
+    g.add(mesh(cyl(0.2, 0.2, 0.02, 32), mat('#BFE8FF', { transparent: true, opacity: 0.4, roughness: 0.05 }), 0, 0, 0))
+    g.children[g.children.length - 1].rotation.x = Math.PI / 2
+    const handle = mesh(cyl(0.025, 0.025, 0.22, 8), mat('#5A3A20'), 0.2, -0.2, 0)
+    handle.rotation.z = Math.PI / 4
+    g.add(handle)
+    color = '#FFB35A'
+  } else if (id === 'starmap') {
+    const p = mesh(box(0.42, 0.3, 0.01), mat('#2A2F5A', { roughness: 0.8 }))
+    g.add(p)
+    for (let k = 0; k < 9; k++) g.add(mesh(sphere(0.012, 6), basic('#FFF4C8'), rnd(-0.18, 0.18), rnd(-0.12, 0.12), 0.01))
+    for (const sd of [-1, 1]) {
+      const r = mesh(cyl(0.025, 0.025, 0.34, 10), mat('#D9C79A'), sd * 0.22, 0, 0)
+      g.add(r)
+    }
+    color = '#9FD0FF'
+  } else if (id === 'yarn') {
+    g.add(mesh(sphere(0.18, 20), mat('#D93A6A', { roughness: 0.9 })))
+    for (let k = 0; k < 4; k++) {
+      const w = mesh(torus(0.18, 0.012), mat('#FF7A9A'))
+      w.rotation.set(k * 0.8, k * 1.3, 0)
+      g.add(w)
+    }
+    const thread = mesh(cyl(0.008, 0.008, 0.3, 4), mat('#FF7A9A'), 0.16, -0.18, 0)
+    thread.rotation.z = 0.6
+    g.add(thread)
+    color = '#FF7A9A'
+  } else if (id === 'egg') {
+    const e = mesh(sphere(0.2, 28), mat('#FFF2D0', { emissive: '#FFB020', emissiveIntensity: 0.35, roughness: 0.25, metalness: 0.2 }))
+    e.scale.set(1, 1.3, 1)
+    g.add(e)
+    for (let k = 0; k < 5; k++) g.add(mesh(sphere(0.02, 6), basic('#FFD84F'), Math.cos(k) * 0.2, rnd(-0.15, 0.2), Math.sin(k) * 0.2))
+    color = '#FFD84F'
+  }
   const halo = glow(color, 0.9, 0.35)
   g.add(halo)
   return { g, color, halo }
 }
 
 // the helper artifacts sit on pedestals behind their crew; the rest circle above the button
-const ART_HOME = { tuna: 'cat', scroll: 'skill', oil: 'robot', battery: 'drone', chip: 'claude' }
-const ORBITERS = ['pillow', 'hourglass', 'magnet', 'clover', 'key', 'relic']
+const ART_HOME = { tuna: 'cat', scroll: 'skill', oil: 'robot', battery: 'drone', chip: 'claude', gear: 'factory', fusion: 'mech', antenna: 'sat', tesseract: 'portal', lens: 'hole', starmap: 'galaxy', yarn: 'cosmic' }
+const ORBITERS = ['pillow', 'hourglass', 'magnet', 'clover', 'key', 'relic', 'dice', 'bell', 'egg']
+const HOME_ANGLE = { cat: 2.3, skill: 3.3, robot: 4.4, drone: 5.4, claude: 0.8, factory: 2.13, mech: 3.0, sat: 3.87, portal: 4.75, hole: 5.62, galaxy: 0.21, cosmic: 1.08 }
 
 // ---------- the evil cat ----------
 
+const BOSS_LOOK = [
+  { fur: '#1E191C', cape: '#B3122A' },
+  { fur: '#1E191C', cape: '#B3122A' },
+  { fur: '#1E191C', cape: '#B3122A', aura: '#B46CFF' },
+  { fur: '#4A525E', cape: '#3A3F48', metal: true, aura: '#FF4A3A', visor: true },
+  { fur: '#2A1838', cape: '#5A1CC0', aura: '#B46CFF' },
+  { fur: '#1E191C', cape: '#D4A017', aura: '#FFD84F', big: true },
+]
 function bossModel(i) {
+  const look = BOSS_LOOK[Math.min(i, BOSS_LOOK.length - 1)]
   const g = new THREE.Group()
-  const fur = mat('#1E191C', { roughness: 0.75 })
+  const fur = mat(look.fur, look.metal ? { metalness: 0.85, roughness: 0.3 } : { roughness: 0.75 })
   const body = new THREE.Group()
   g.add(body)
   const torso = mesh(sphere(0.45, 28), fur, 0, 0.5, 0)
@@ -428,12 +667,12 @@ function bossModel(i) {
   body.add(head)
   // cape: a cloth that waves, its vertices are moved every frame
   const capeGeo = new THREE.PlaneGeometry(0.85, 0.62, 10, 10)
-  const cape = new THREE.Mesh(capeGeo, mat('#B3122A', { side: THREE.DoubleSide, roughness: 0.6 }))
+  const cape = new THREE.Mesh(capeGeo, mat(look.cape, { side: THREE.DoubleSide, roughness: 0.6, metalness: look.cape === '#D4A017' ? 0.6 : 0 }))
   cape.position.set(0, 0.64, -0.36)
   cape.castShadow = true
   cape.userData.rest = capeGeo.attributes.position.array.slice()
   body.add(cape)
-  const collar = mesh(torus(0.3, 0.05), mat('#B3122A'), 0, 0.92, 0)
+  const collar = mesh(torus(0.3, 0.05), mat(look.cape), 0, 0.92, 0)
   collar.rotation.x = Math.PI / 2
   body.add(collar)
   const paw = mesh(sphere(0.12), fur, 0.36, 0.62, 0.22)
@@ -452,12 +691,15 @@ function bossModel(i) {
     for (const s of [-1, 1]) body.add(mesh(sphere(0.16, 14), mat('#8A939E', { metalness: 0.9, roughness: 0.3 }), s * 0.42, 0.78, 0))
   }
   let aura = null
-  if (i >= 2) {
+  if (look.visor) head.add(mesh(box(0.42, 0.08, 0.05), basic('#FF2A3A'), 0, 0.05, 0.36))
+  if (i >= 2 && i !== 3) {
     const crown = artModel('crown').g
-    crown.scale.setScalar(1.2)
+    crown.scale.setScalar(look.big ? 1.7 : 1.2)
     crown.position.set(0, 0.42, 0)
     head.add(crown)
-    aura = glow('#B46CFF', 3.4, 0.5)
+  }
+  if (look.aura) {
+    aura = glow(look.aura, look.big ? 4.5 : 3.4, 0.5)
     aura.position.y = 0.9
     g.add(aura)
   }
@@ -515,14 +757,14 @@ export function create(canvas, opts) {
   const pmrem = new THREE.PMREMGenerator(renderer)
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
   const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100)
-  const target = new THREE.Vector3(0.4, 0.35, 0.15)
+  const target = new THREE.Vector3(0.2, 0.35, 0.1)
 
   scene.add(new THREE.HemisphereLight('#FFF0E8', '#3A2420', 1.1))
   const sun = new THREE.DirectionalLight('#FFF1E0', 2.2)
   sun.position.set(-3, 7, 4)
   sun.castShadow = true
   sun.shadow.mapSize.set(1024, 1024)
-  Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 20 })
+  Object.assign(sun.shadow.camera, { left: -6.5, right: 6.5, top: 6.5, bottom: -6.5, near: 1, far: 24 })
   sun.shadow.bias = -0.0015
   sun.shadow.radius = 4
   scene.add(sun)
@@ -551,6 +793,25 @@ export function create(canvas, opts) {
     scene.add(l)
     runway.push(l)
   }
+  const outer = new THREE.Group()
+  outer.visible = false
+  const outerFloor = new THREE.Mesh(new THREE.CylinderGeometry(4.75, 4.9, 0.12, 128), [mat('#16101A', { roughness: 0.6, metalness: 0.4 }), mat('#1E1630', { map: floorTexture(), roughness: 0.55, metalness: 0.3 }), mat('#0C0810')])
+  outerFloor.position.y = -0.1
+  outerFloor.receiveShadow = true
+  const outerEdge = new THREE.Mesh(torus(4.78, 0.03), add('#B46CFF', 0.7))
+  outerEdge.rotation.x = Math.PI / 2
+  outerEdge.position.y = -0.03
+  outer.add(outerFloor, outerEdge)
+  const runway2 = []
+  for (let k = 0; k < 72; k++) {
+    const a = (k / 72) * TAU
+    const l = new THREE.Mesh(box(0.12, 0.03, 0.05), basic('#B46CFF'))
+    l.position.set(Math.cos(a) * 4.55, -0.025, Math.sin(a) * 4.55)
+    l.rotation.y = -a
+    outer.add(l)
+    runway2.push(l)
+  }
+  scene.add(outer)
   const spinRing = new THREE.Mesh(new THREE.RingGeometry(1.35, 1.4, 64, 1, 0, TAU * 0.8), add('#FF8A6A', 0.35))
   spinRing.rotation.x = -Math.PI / 2
   spinRing.position.y = 0.004
@@ -674,7 +935,9 @@ export function create(canvas, opts) {
 
   // ---------- camera ----------
 
-  const cam = { shake: 0, punch: 0, sway: 0, w: 1, h: 1, focus: null }
+  const cam = { shake: 0, punch: 0, sway: 0, w: 1, h: 1, focus: null, wide: false }
+  const view = { az: 0, el: 31, zoom: 1 }
+  let viewBack = null
   // a short dolly towards something that matters (Zarpas landing, a new artifact)
   const focusOn = (p, ms) => !calm() && (cam.focus = { p: p.clone(), t0: performance.now(), ms })
   const look = new THREE.Vector3()
@@ -692,9 +955,18 @@ export function create(canvas, opts) {
     const aspect = cam.w / cam.h
     const vf = THREE.MathUtils.degToRad(camera.fov)
     const hf = 2 * Math.atan(Math.tan(vf / 2) * aspect)
-    const dist = Math.max(3.95 / Math.tan(hf / 2), 2.45 / Math.tan(vf / 2)) * (1 - cam.punch * 0.06 - f * 0.22)
-    const el = THREE.MathUtils.degToRad(31)
-    const az = calm() ? 0 : Math.sin(now * 0.00017) * 0.06
+    if (viewBack) {
+      const k = clamp01((now - viewBack.t0) / 600)
+      const e = smooth(k)
+      view.az = lerp(viewBack.az, 0, e)
+      view.el = lerp(viewBack.el, 31, e)
+      view.zoom = lerp(viewBack.zoom, 1, e)
+      if (k >= 1) viewBack = null
+    }
+    const fit = cam.wide ? [5.7, 3.5] : [3.95, 2.45]
+    const dist = Math.max(fit[0] / Math.tan(hf / 2), fit[1] / Math.tan(vf / 2)) * view.zoom * (1 - cam.punch * 0.06 - f * 0.22)
+    const el = THREE.MathUtils.degToRad(view.el)
+    const az = view.az + (calm() ? 0 : Math.sin(now * 0.00017) * 0.06)
     camera.position.set(look.x + Math.sin(az) * Math.cos(el) * dist, look.y + Math.sin(el) * dist, look.z + Math.cos(az) * Math.cos(el) * dist)
     if (cam.shake > 0.001) camera.position.add(new THREE.Vector3(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)).multiplyScalar(cam.shake * 0.012))
     camera.lookAt(look)
@@ -736,19 +1008,31 @@ export function create(canvas, opts) {
     crew.length = 0
     for (const k in homeOf) delete homeOf[k]
   }
-  function addHelper(kind, angle, coat) {
-    const built = kind === 'cat' ? catModel(coat) : kind === 'skill' ? skillModel() : kind === 'robot' ? robotModel() : kind === 'drone' ? droneModel() : claudeModel()
+  function addHelper(kind, angle, coat, king = false) {
+    const K = KIND[kind]
+    const built = K.model(coat)
     const rig = new THREE.Group()
-    const r = kind === 'drone' || kind === 'claude' ? RING * 0.92 : RING
-    const hover = kind === 'drone' ? 1.45 : kind === 'claude' ? 1.95 : 0
+    const r = K.ring
+    const hover = K.hover
     rig.position.set(Math.cos(angle) * r, 0, Math.sin(angle) * r)
     rig.lookAt(0, 0, 0)
     const body = new THREE.Group()
     body.position.y = hover
     body.add(built.g)
     rig.add(body)
-    const scale = { cat: 0.85, skill: 0.85, robot: 0.9, drone: 1, claude: 0.75 }[kind]
+    const scale = K.scale * (king ? 1.6 : 1)
     built.g.scale.setScalar(scale)
+    if (king) {
+      // the crown sits on the head itself, sized to it
+      const crown = artModel('crown').g
+      crown.scale.setScalar(K.crown.s)
+      crown.position.set(0, K.crown.y, 0)
+      crown.rotation.z = 0.12
+      ;(K.crown.head && built.parts.head ? built.parts.head : built.g).add(crown)
+      const aura = glow('#FFD84F', 1.3, 0.35)
+      aura.position.y = 0.05
+      rig.add(aura)
+    }
     if (hover) {
       const sh = new THREE.Mesh(new THREE.CircleGeometry(0.3, 20), basic('#000000', { transparent: true, opacity: 0.22, depthWrite: false }))
       sh.rotation.x = -Math.PI / 2
@@ -756,7 +1040,7 @@ export function create(canvas, opts) {
       rig.add(sh)
     }
     scene.add(rig)
-    const c = { kind, rig, body, parts: built.parts, hover, r, phase: rnd(0, TAU), anim: null }
+    const c = { kind, K, king, rig, body, parts: built.parts, hover, r, scale, phase: rnd(0, TAU), anim: null }
     crew.push(c)
     homeOf[kind] = homeOf[kind] || []
     homeOf[kind].push(angle)
@@ -770,10 +1054,11 @@ export function create(canvas, opts) {
   }
   // a helper's press: wind-up, strike, a hold on impact, springy recovery. onHit(impactPx, headPx)
   function helperPress(c, dur, onHit) {
-    const head = () => toPx(c.body.localToWorld(new THREE.Vector3(0, 0.75, 0)))
+    const head = () => toPx(c.body.localToWorld(new THREE.Vector3(0, c.K.head * c.scale + 0.3, 0)))
     if (calm()) return onHit(toPx(impactFor(c)), head())
     const reach = c.r - 0.75
-    if (c.kind === 'cat') {
+    const style = c.K.style
+    if (style === 'pounce') {
       c.anim = { t0: performance.now(), dur, fn: k => {
         // crouch → pounce → paw swipe → hop back
         const z = k < 0.25 ? -0.12 * smooth(k / 0.25) : k < 0.45 ? lerp(-0.12, reach * 0.62, smooth((k - 0.25) / 0.2)) : k < 0.62 ? reach * 0.62 : lerp(reach * 0.62, 0, smooth((k - 0.62) / 0.38))
@@ -786,7 +1071,7 @@ export function create(canvas, opts) {
         c.parts.paw.position.z = k > 0.42 && k < 0.62 ? 0.14 + Math.sin(((k - 0.42) / 0.2) * Math.PI) * 0.18 : 0.14
       } }
       setTimeout(() => onHit(toPx(impactFor(c)), head()), dur * 0.47)
-    } else if (c.kind === 'skill') {
+    } else if (style === 'hop') {
       dur *= 1.35
       c.anim = { t0: performance.now(), dur, fn: k => {
         const hop = k < 0.15 ? 0 : k < 0.62 ? Math.sin(((k - 0.15) / 0.47) * Math.PI) * 0.95 : k < 0.9 ? Math.sin(((k - 0.62) / 0.28) * Math.PI) * 0.3 : 0
@@ -797,14 +1082,14 @@ export function create(canvas, opts) {
         c.body.rotation.x = k > 0.15 && k < 0.62 ? -0.3 + ((k - 0.15) / 0.47) * 0.9 : 0
       } }
       setTimeout(() => onHit(toPx(impactFor(c)), head()), dur * 0.6)
-    } else if (c.kind === 'robot') {
-      const len = reach - 0.05
+    } else if (style === 'piston') {
+      const len = (reach / c.scale) * 1.05
       c.anim = { t0: performance.now(), dur, fn: k => {
         // the arm points at the cap and the piston shoots out with an overshoot
         c.parts.arm.lookAt(tmp.set(0, CAP_TOP + 0.05, 0))
         const ext = k < 0.15 ? -0.08 * (k / 0.15) : k < 0.4 ? easeOutBack((k - 0.15) / 0.25) : k < 0.55 ? 1 : 1 - ((k - 0.55) / 0.45) ** 2
-        c.parts.rod.scale.z = 0.12 + Math.max(0, ext) * len * 1.7
-        c.parts.fist.position.z = 0.14 + Math.max(0, ext) * len * 1.7
+        c.parts.rod.scale.z = 0.12 + Math.max(0, ext) * len
+        c.parts.fist.position.z = 0.14 + Math.max(0, ext) * len
         c.body.rotation.x = k < 0.15 ? -0.12 * (k / 0.15) : k < 0.5 ? 0.06 : 0
         c.body.position.z = k > 0.15 && k < 0.5 ? -0.06 : 0
       } }
@@ -813,20 +1098,21 @@ export function create(canvas, opts) {
         debris(impactFor(c), 2, 'red', 0.7)
       }, dur * 0.4)
     } else {
-      const big = c.kind === 'claude'
+      const big = !!c.K.big
+      const color = c.K.color
       dur *= 1.2
       const muzzle = () => c.parts.muzzle.getWorldPosition(new THREE.Vector3())
-      flare(muzzle(), big ? '#FFD84F' : '#FF3A5A', big ? 0.9 : 0.5, 0.035)
+      flare(muzzle(), color, big || c.king ? 0.9 : 0.5, 0.035)
       c.anim = { t0: performance.now(), dur, fn: k => {
         c.body.position.y = c.hover + (k < 0.3 ? -0.06 * (k / 0.3) : k < 0.42 ? 0.16 : 0.16 * (1 - (k - 0.42) / 0.58))
         c.body.rotation.x = k < 0.4 ? 0.35 * (k / 0.4) : 0.35 * (1 - (k - 0.4) / 0.6)
-        if (big) c.parts.star.rotation.z += 0.02 + (k < 0.45 ? k * 0.4 : 0)
+        if (c.parts.star) c.parts.star.rotation.z += 0.02 + (k < 0.45 ? k * 0.4 : 0)
       } }
       setTimeout(() => {
         const to = impactFor(c, -0.02).multiplyScalar(0.4).setY(CAP_TOP + cap.y)
-        beam(muzzle(), to, big ? '#FFD84F' : '#FF3A5A', big ? 0.05 : 0.025, dur * 0.55)
-        flare(to, big ? '#FFE07A' : '#FF6A8A', big ? 0.8 : 0.4, 0.09)
-        onHit(toPx(to), head(), toPx(muzzle()))
+        beam(muzzle(), to, color, (big ? 0.05 : 0.025) * (c.king ? 1.8 : 1) * (c.r > RING ? 1.4 : 1), dur * 0.55)
+        flare(to, color, big || c.king ? 0.8 : 0.4, 0.09)
+        onHit(toPx(to), head(), big ? toPx(muzzle()) : null)
       }, dur * 0.4)
     }
   }
@@ -839,10 +1125,11 @@ export function create(canvas, opts) {
     if (id === 'crown') return capPivot.localToWorld(new THREE.Vector3(0, 0.42, 0))
     if (id === 'glove') return new THREE.Vector3(-0.75, 1.55 + Math.sin(now * 0.002) * 0.08, 0.75)
     if (ART_HOME[id]) {
-      const angles = homeOf[ART_HOME[id]]
-      const fallback = { cat: 2.3, skill: 3.3, robot: 4.4, drone: 5.4, claude: 0.8 }[ART_HOME[id]]
-      const a = angles && angles.length ? angles.reduce((s, x) => s + x, 0) / angles.length : fallback
-      return new THREE.Vector3(Math.cos(a) * 2.75, 0.42 + Math.sin(now * 0.002 + a) * 0.05, Math.sin(a) * 3.0)
+      const home = ART_HOME[id]
+      const angles = homeOf[home]
+      const a = angles && angles.length ? angles.reduce((s, x) => s + x, 0) / angles.length : HOME_ANGLE[home]
+      const r = KIND[home].ring > RING ? OUTER + 0.65 : 2.8
+      return new THREE.Vector3(Math.cos(a) * r, 0.42 + Math.sin(now * 0.002 + a) * 0.05, Math.sin(a) * r)
     }
     const owned = ORBITERS.filter(o => arts[o])
     const k = owned.indexOf(id)
@@ -850,6 +1137,13 @@ export function create(canvas, opts) {
     return new THREE.Vector3(Math.cos(a) * 1.45, 1.75 + Math.sin(now * 0.0021 + k) * 0.1, Math.sin(a) * 1.15)
   }
   function setArts(ids, reveal, onLand) {
+    // a restarted game takes its relics off the stage
+    for (const id of Object.keys(arts)) {
+      if (ids.includes(id)) continue
+      scene.remove(arts[id].g)
+      if (arts[id].ped) scene.remove(arts[id].ped)
+      delete arts[id]
+    }
     for (const id of ids) {
       if (arts[id]) continue
       const a = artModel(id)
@@ -920,8 +1214,11 @@ export function create(canvas, opts) {
     if (boss) scene.remove(boss.g)
     boss = bossModel(i)
     boss.g.position.copy(BOSS_AT)
+    if (cam.wide) boss.g.position.set(2.1, 0, 1.7)
+    boss.at = boss.g.position.clone()
     boss.g.rotation.y = -0.75
-    boss.g.scale.setScalar(0.85)
+    boss.g.scale.setScalar((BOSS_LOOK[Math.min(i, BOSS_LOOK.length - 1)].big ? 1.1 : 0.85) * (cam.wide ? 1.5 : 1))
+    boss.base = boss.g.scale.x
     boss.state = 'drop'
     boss.t0 = performance.now()
     boss.hurt = 0
@@ -1010,6 +1307,13 @@ export function create(canvas, opts) {
     })
     if (!still) spinRing.rotation.z += 0.004 + st.heat * 0.03 + st.rayBoost * 0.05
     edge.material.opacity = 0.35 + st.heat * 0.4 + st.rayBoost * 0.3
+    if (outer.visible)
+      runway2.forEach((l, i) => {
+        const pos = (now * st.speed * 2.2) % runway2.length
+        const d = Math.min(Math.abs(i - pos), runway2.length - Math.abs(i - pos))
+        const b = Math.max(0.15, 1 - d / 7, st.ledFlash * 0.6)
+        l.material.color.setRGB(b * 0.7, b * 0.42, b)
+      })
     // crew: idle life plus the press in progress
     for (const c of crew) {
       const t = now * 0.001 + c.phase
@@ -1020,7 +1324,7 @@ export function create(canvas, opts) {
           c.body.position.set(0, c.hover, 0)
           c.body.rotation.set(0, 0, 0)
           c.body.scale.set(1, 1, 1)
-          if (c.kind === 'robot') {
+          if (c.parts.rod) {
             c.parts.rod.scale.z = 0.12
             c.parts.fist.position.z = 0.14
           }
@@ -1031,20 +1335,32 @@ export function create(canvas, opts) {
         if (c.hover) c.body.position.y = c.hover + Math.sin(t * 2.2) * 0.07
       }
       if (still) continue
-      if (c.kind === 'cat') {
-        c.parts.tail.rotation.z = Math.sin(t * 3) * 0.5
-        c.parts.head.rotation.y = Math.sin(t * 0.7) * 0.25
-      } else if (c.kind === 'drone') {
-        for (const r of c.parts.rotors) r.rotation.y += 0.9
-        c.body.rotation.z = Math.sin(t * 1.7) * 0.06
-      } else if (c.kind === 'claude') {
-        c.parts.star.rotation.z += 0.01 + st.heat * 0.03
-        c.parts.star.rotation.y = Math.sin(t) * 0.4
-        c.parts.aura.material.opacity = 0.4 + Math.sin(t * 3) * 0.15
-      } else if (c.kind === 'robot') {
-        c.parts.bulb.material.opacity = Math.sin(t * 6) > 0 ? 0.95 : 0.2
-        c.parts.head.rotation.y = Math.sin(t * 0.9) * 0.3
+      const P = c.parts
+      if (P.tail) {
+        P.tail.rotation.z = Math.sin(t * 3) * 0.5
+        P.head.rotation.y = Math.sin(t * 0.7) * 0.25
       }
+      if (P.rotors) {
+        for (const r of P.rotors) r.rotation.y += 0.9
+        c.body.rotation.z = Math.sin(t * 1.7) * 0.06
+      }
+      if (P.star) {
+        P.star.rotation.z += 0.01 + st.heat * 0.03
+        P.star.rotation.y = Math.sin(t) * 0.4
+        P.aura.material.opacity = 0.4 + Math.sin(t * 3) * 0.15
+      }
+      if (P.bulb) {
+        P.bulb.material.opacity = Math.sin(t * 6) > 0 ? 0.95 : 0.2
+        P.head.rotation.y = Math.sin(t * 0.9) * 0.3
+      }
+      if (P.spin) for (const sp of P.spin) sp.o.rotation[sp.axis] += sp.speed * (1 + st.heat)
+      if (P.smoke)
+        P.smoke.forEach((p, i) => {
+          const k = (t * 0.5 + i / 3) % 1
+          p.position.y = 1.0 + k * 0.6
+          p.material.opacity = 0.35 * (1 - k)
+          p.scale.setScalar(0.2 + k * 0.4)
+        })
     }
     // artifacts float in their places; the glove slaps the button with the player
     for (const a of artList) {
@@ -1113,6 +1429,12 @@ export function create(canvas, opts) {
       const b = boss
       const k = (now - b.t0) / 800
       const t = now * 0.001
+      // he always faces the camera, halfway turned to the button
+      if (b.state === 'drop' || b.state === 'fight') {
+        const toCam = Math.atan2(camera.position.x - b.g.position.x, camera.position.z - b.g.position.z)
+        const toBtn = Math.atan2(-b.g.position.x, -b.g.position.z)
+        b.g.rotation.y = toCam + (((toBtn - toCam + Math.PI * 3) % TAU) - Math.PI) * 0.35
+      }
       if (b.state === 'drop') {
         b.g.position.y = k < 0.7 ? (1 - easeIn(clamp01(k / 0.7))) * 6 : 0
         const s = k > 0.65 && k < 0.85 ? 0.72 : 1
@@ -1133,10 +1455,10 @@ export function create(canvas, opts) {
         }
       } else if (b.state === 'win') {
         const w = clamp01((now - b.t0) / 1300)
-        b.g.position.set(BOSS_AT.x + w * 2.5, easeIn(w) * 7 + Math.sin(w * Math.PI) * 1, BOSS_AT.z - w * 2)
+        b.g.position.set(b.at.x + w * 2.5, easeIn(w) * 7 + Math.sin(w * Math.PI) * 1, b.at.z - w * 2)
         b.g.rotation.y += 0.35
         b.g.rotation.z = w * 4
-        b.g.scale.setScalar(0.85 * (1 - w * 0.85))
+        b.g.scale.setScalar(b.base * (1 - w * 0.85))
         b.shadow.visible = false
         if (w >= 1) {
           scene.remove(b.g)
@@ -1145,7 +1467,7 @@ export function create(canvas, opts) {
       } else if (b.state === 'flee') {
         const w = clamp01((now - b.t0 - 900) / 1500)
         b.g.rotation.y = w > 0 ? Math.PI / 2 : -0.75
-        b.g.position.x = BOSS_AT.x + easeIn(w) * 5
+        b.g.position.x = b.at.x + easeIn(w) * 5
         b.g.position.y = Math.abs(Math.sin(w * 18)) * 0.25
         if (w >= 1) {
           scene.remove(b.g)
@@ -1221,6 +1543,32 @@ export function create(canvas, opts) {
     bossHead,
     arena: (x, y) => toPx(arenaWorld(x, y)),
     point: (x, y, z) => toPx(new THREE.Vector3(x, y, z)),
+    setAct2(on) {
+      if (outer.visible === on) return
+      outer.visible = on
+      cam.wide = on
+      if (on && !calm()) {
+        const t0 = performance.now()
+        tween(900, k => outer.scale.setScalar(0.6 + 0.4 * easeOutBack(k)))
+        shockwave(-0.02, '#B46CFF', 4.6, 0.4)
+        void t0
+      }
+    },
+    orbit(dx, dy) {
+      viewBack = null
+      view.az -= dx * 0.008
+      view.el = Math.max(8, Math.min(80, view.el + dy * 0.25))
+    },
+    zoom(k) {
+      viewBack = null
+      view.zoom = Math.max(0.5, Math.min(1.7, view.zoom * k))
+    },
+    resetView() {
+      // the shortest way back to the front
+      const az = ((((view.az + Math.PI) % TAU) + TAU) % TAU) - Math.PI
+      viewBack = { t0: performance.now(), az, el: view.el, zoom: view.zoom }
+    },
+    viewMoved: () => Math.abs(view.az) > 0.02 || Math.abs(view.el - 31) > 0.5 || Math.abs(view.zoom - 1) > 0.02,
     shake: px => (cam.shake = Math.min(14, cam.shake + px)),
     punch: k => (cam.punch = Math.min(1.5, cam.punch + (k - 1) * 18)),
     dispose() {

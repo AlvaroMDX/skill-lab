@@ -235,3 +235,16 @@
 #rg .rg-node.poor .lv { fill: #7a7f88; }
 #rg button:disabled { opacity: .4; filter: grayscale(1); cursor: not-allowed; box-shadow: none; animation: none; }
 #rg .rg-art.owned:disabled { filter: none; }
+/* mission card folds into one line */
+#rg .rg-fold { position: absolute; right: 4px; top: 4px; width: 22px; height: 22px; padding: 0; font-size: 12px; line-height: 1; }
+#rg .rg-mission.min { width: auto; min-width: 170px; padding-right: 32px; }
+#rg .rg-mission.min ul { display: none; }
+#rg .rg-mission.min > b { margin-bottom: 0; }
+#rg .rg-mission.min .rg-next { margin-top: 6px; }
+#rg .rg-mission .sum { color: #7FE37F; }
+/* orbit camera */
+#rg .rg-viewbtn { position: absolute; left: 10px; bottom: 34px; z-index: 6; padding: 5px 10px; }
+/* story acts */
+#rg .rg-act { margin: 10px 0 4px; color: #B46CFF; font: 900 11px Verdana, sans-serif; text-transform: uppercase; letter-spacing: 1px; }
+#rg .rg-act:first-child { margin-top: 0; color: #FFB02A; }
+#rg .rg-viewbtn[hidden] { display: none; }

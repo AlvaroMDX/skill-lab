@@ -1,5 +1,29 @@
 # Cambios
 
+## 1.5.0 — 2026-10-28
+- Acto II: los mil millones cierran el Acto I y el juego sigue hasta **un octillón** (un 1 con 48 ceros). Si ya habías terminado, continúas desde ahí.
+- 7 ayudantes nuevos en un anillo exterior que aparece con el Acto II: Fábrica de gatos, Mecha pulsador, Satélite, Portal dimensional, Agujero negro, Galaxia de botones y Gato cósmico.
+- Árbol de mejoras mucho más grande (47 nodos): rama cósmica con Big Bang, Mano cósmica, Combo infinito, Cofres cósmicos, Lluvia dorada y mejoras y rebajas para cada ayudante nuevo.
+- 10 artefactos nuevos (Engranaje de oro, Dado trucado, Núcleo de fusión, Cascabel de Zarpas, Teseracto, Huevo cósmico…), todos visibles en el escenario.
+- 7 capítulos más de historia y tres Zarpas nuevos: Zarpas Mecha, Zarpas Dimensional y el Emperador Zarpas. La pestaña Historia se divide en dos actos.
+- Cuando un ayudante llega al máximo, su grupo se funde en un solo rey más gordo con la corona bien puesta en la cabeza: menos muñecos en pantalla y las mismas pulsaciones.
+- Cámara 360°: arrastra el escenario para girarlo, rueda para acercar y doble clic o «🧭 Recolocar vista» para volver.
+- La tarjeta del capítulo se puede minimizar a una línea.
+- Números grandes en escala española (M, B, T, Ct, Qi, Sx, Sp, Oc) con su nombre en la cabecera.
+- Medalla nueva: Octillonario (63 en total). Arreglado: al volver a empezar, los artefactos ya no se quedan en el escenario.
+
+## 1.5.0 — 2026-10-28
+- Acto II: los mil millones cierran el Acto I y el juego sigue hasta **un octillón** (un 1 con 48 ceros). Si ya habías terminado, continúas desde ahí.
+- 7 ayudantes nuevos en un anillo exterior que aparece con el Acto II: Fábrica de gatos, Mecha pulsador, Satélite, Portal dimensional, Agujero negro, Galaxia de botones y Gato cósmico.
+- Árbol de mejoras mucho más grande (47 nodos): rama cósmica con Big Bang, Mano cósmica, Combo infinito, Cofres cósmicos, Lluvia dorada y mejoras y rebajas para cada ayudante nuevo.
+- 10 artefactos nuevos (Engranaje de oro, Dado trucado, Núcleo de fusión, Cascabel de Zarpas, Teseracto, Huevo cósmico…), todos visibles en el escenario.
+- 7 capítulos más de historia y tres Zarpas nuevos: Zarpas Mecha, Zarpas Dimensional y el Emperador Zarpas. La pestaña Historia se divide en dos actos.
+- Cuando un ayudante llega al máximo, su grupo se funde en un solo rey más gordo con corona: menos muñecos en pantalla y las mismas pulsaciones.
+- Cámara 360°: arrastra el escenario para girarlo, rueda para acercar y doble clic o «🧭 Recolocar vista» para volver.
+- La tarjeta del capítulo se puede minimizar a una línea.
+- Números grandes en escala española (M, B, T, Ct, Qi, Sx, Sp, Oc) con su nombre en la cabecera.
+- Medalla nueva: Octillonario (63 en total). Arreglado: al volver a empezar, los artefactos ya no se quedan en el escenario.
+
 ## 1.4.0 — 2026-10-28
 - El juego del botón pasa a 3D: plataforma redonda con luces, botón de metal con tapa brillante que se hunde como un muelle, sombras reales y cámara que se balancea.
 - Ayudantes en 3D que pulsan de verdad: gatos que se agazapan y saltan con zarpazo, skills que brincan encima, robots que apuntan y disparan el pistón, drones con hélices y láser, y soles de Claude girando con rayos.

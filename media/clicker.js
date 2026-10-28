@@ -8,16 +8,28 @@
     { id: 'robot', icon: '🤖', name: 'Robot de turno', verb: 'pistón hidráulico', rate: 5, base: 8500, growth: 1.15, max: 50, every: 1.25 },
     { id: 'drone', icon: '🛸', name: 'Escuadrón de drones', verb: 'láser de precisión', rate: 30, base: 85000, growth: 1.15, max: 40, every: 0.95 },
     { id: 'claude', icon: '✴️', name: 'Claude en bucle', verb: 'pulsa sin descanso', rate: 200, base: 1100000, growth: 1.15, max: 25, every: 0.6 },
+    // second act: past the thousand millions, each crew is worth hundreds of thousands of the one before; milestones ×4
+    { id: 'factory', icon: '🏭', name: 'Fábrica de gatos', verb: 'estampa el botón', rate: 2e6, base: 6e10, growth: 1.3, max: 50, every: 1.6, act: 2, ms: 4 },
+    { id: 'mech', icon: '🦾', name: 'Mecha pulsador', verb: 'puñetazo de titanio', rate: 5e10, base: 3.8e15, growth: 1.3, max: 50, every: 1.5, act: 2, ms: 4 },
+    { id: 'sat', icon: '🛰️', name: 'Satélite de pulsar', verb: 'rayo orbital', rate: 1.3e15, base: 2.3e20, growth: 1.3, max: 50, every: 1.3, act: 2, ms: 4 },
+    { id: 'portal', icon: '🌀', name: 'Portal dimensional', verb: 'manos de otros mundos', rate: 3.1e19, base: 1.5e25, growth: 1.3, max: 50, every: 1.2, act: 2, ms: 4 },
+    { id: 'hole', icon: '🕳️', name: 'Agujero negro', verb: 'gravedad que pulsa', rate: 7.8e23, base: 9.2e29, growth: 1.3, max: 50, every: 1.1, act: 2, ms: 4 },
+    { id: 'galaxy', icon: '🌌', name: 'Galaxia de botones', verb: 'lluvia de estrellas', rate: 2e28, base: 5.7e34, growth: 1.3, max: 50, every: 1, act: 2, ms: 4 },
+    { id: 'cosmic', icon: '😺', name: 'Gato cósmico', verb: 'zarpazo estelar', rate: 4.9e32, base: 3.6e39, growth: 1.3, max: 50, every: 0.9, act: 2, ms: 4 },
   ]
   const MILESTONES = [10, 25, 50]
-  const GOAL = 1e9
+  // the first act ends at a thousand millions; the game goes on to one octillion (10^48)
+  const ACT1 = 1e9
+  const GOAL = 1e48
   const OFFLINE_MAX_S = 8 * 3600
   // simulated with tools: about 35 min on average from the first press to the end, 12–19 min playing hard
   const SPEEDRUN_MS = 20 * 60000
   const AVERAGE_MIN = 35
+  // the second act on top: about 20 min more playing hard, 40 at an easy pace
+  const AVERAGE_TOTAL_MIN = 60
 
   // the upgrade tree: each node appears once all the nodes it needs are bought
-  const NODE = (id, icon, name, max, base, growth, req, x, y, desc) => ({ id, icon, name, max, base, growth, req, x, y, desc })
+  const NODE = (id, icon, name, max, base, growth, req, x, y, desc, act = 1) => ({ id, icon, name, max, base, growth, req, x, y, desc, act })
   const pct = n => `${Math.round(n * 100)} %`
   const TREE = [
     NODE('core', '🔴', 'El botón', 1, 0, 1, [], 0, 0, () => 'Donde empieza todo.'),
@@ -47,6 +59,29 @@
     NODE('droneC', '🏷️', 'Hangar compartido', 4, 600000, 3, ['droneU'], 4.8, 1.1, l => `Drones un ${5 * l} % más baratos`),
     NODE('claudeU', '🧠', 'Contexto infinito', 3, 2000000, 4, ['droneU'], 5.7, -0.4, l => `Claude ×${2 ** l}`),
     NODE('sing', '🌀', 'Singularidad', 3, 3000000, 5, ['claudeU', 'c3', 'l4'], 4.2, -2.9, l => `Todo ×${2 ** l}`),
+    // second act
+    NODE('act2', '🌌', 'Más allá', 1, 1e9, 1, ['core'], 1.5, 2.7, () => 'Abre la segunda mitad del árbol', 2),
+    NODE('f6', '🖐️', 'Mano cósmica', 10, 2e10, 30, ['act2'], 0.2, 3.1, l => `Cada clic suma además el ${(l * 0.2).toLocaleString('es-ES')} % de lo que haces por segundo`, 2),
+    NODE('c4', '🌪️', 'Combo infinito', 4, 1e12, 1e4, ['f6'], -1.0, 3.5, l => `El combo llega a ×${1 + 0.5 * l} más`, 2),
+    NODE('bang', '🎆', 'Big Bang', 5, 1e15, 1e6, ['act2'], 1.5, 3.9, l => `Todo ×${3 ** l}`, 2),
+    NODE('k5', '🎁', 'Cofres cósmicos', 3, 1e13, 1e5, ['bang'], 0.3, 4.5, l => `Los cofres dan ×${1 + l}`, 2),
+    NODE('l5', '🌠', 'Lluvia dorada', 3, 1e14, 1e5, ['bang'], -1.0, 4.7, l => `El frenesí de los dorados es ×${7 + 3 * l}`, 2),
+    ...[
+      ['factory', '⚙️', 'Prensas hidráulicas', 2.8, 3.0],
+      ['mech', '🔋', 'Reactor de fusión', 3.6, 3.6],
+      ['sat', '📡', 'Antenas de fase', 4.4, 3.1],
+      ['portal', '🧿', 'Estabilizador', 5.2, 3.7],
+      ['hole', '🌑', 'Horizonte de sucesos', 6.0, 3.1],
+      ['galaxy', '💫', 'Brazos espirales', 6.8, 3.7],
+      ['cosmic', '👑', 'Coronación felina', 7.6, 3.1],
+    ].flatMap(([id, icon, name, x, y], i, all) => {
+      const h = HELPERS.find(q => q.id === id)
+      const label = h.name.split(' ')[0]
+      return [
+        NODE(`${id}U`, icon, name, 5, h.base * 300, 120, [i ? `${all[i - 1][0]}U` : 'act2'], x, y, l => `${label}s ×${2 ** l}`, 2),
+        NODE(`${id}C`, '🏷️', `${label}s de saldo`, 4, h.base * 50, 60, [`${id}U`], x + 0.1, y + 1.05, l => `${label}s un ${5 * l} % más baratos`, 2),
+      ]
+    }),
   ]
   const TREE_BY_ID = Object.fromEntries(TREE.map(n => [n.id, n]))
   const RARITIES = [
@@ -71,33 +106,48 @@
     { id: 'crown', icon: '👑', name: 'Corona del botón', desc: 'Cada clic suma además el 2 % de lo que haces por segundo', cost: 10 },
     { id: 'chip', icon: '💾', name: 'Chip de contexto de 1M', desc: 'Claude ×3', cost: 12 },
     { id: 'relic', icon: '🪐', name: 'Fragmento de singularidad', desc: 'Todo ×1,5', cost: 18 },
+    // second act
+    { id: 'gear', icon: '⚙️', name: 'Engranaje de oro', desc: 'Fábricas ×3', cost: 8, act: 2 },
+    { id: 'dice', icon: '🎲', name: 'Dado trucado', desc: 'Los críticos valen el doble', cost: 10, act: 2 },
+    { id: 'fusion', icon: '☢️', name: 'Núcleo de fusión', desc: 'Mechas ×3', cost: 10, act: 2 },
+    { id: 'bell', icon: '🔔', name: 'Cascabel de Zarpas', desc: 'El combo llega un ×1 más lejos', cost: 12, act: 2 },
+    { id: 'antenna', icon: '📡', name: 'Antena cuántica', desc: 'Satélites ×3', cost: 12, act: 2 },
+    { id: 'tesseract', icon: '🧊', name: 'Teseracto', desc: 'Portales ×3', cost: 14, act: 2 },
+    { id: 'lens', icon: '🔭', name: 'Lente gravitatoria', desc: 'Agujeros negros ×3', cost: 16, act: 2 },
+    { id: 'starmap', icon: '🗺️', name: 'Mapa estelar', desc: 'Galaxias ×3', cost: 18, act: 2 },
+    { id: 'yarn', icon: '🧶', name: 'Ovillo infinito', desc: 'Gatos cósmicos ×3', cost: 20, act: 2 },
+    { id: 'egg', icon: '🥚', name: 'Huevo cósmico', desc: 'Todo ×2', cost: 30, act: 2 },
   ]
-  const ART_OF = { cat: 'tuna', skill: 'scroll', robot: 'oil', drone: 'battery', claude: 'chip' }
+  const ART_OF = { cat: 'tuna', skill: 'scroll', robot: 'oil', drone: 'battery', claude: 'chip', factory: 'gear', mech: 'fusion', sat: 'antenna', portal: 'tesseract', hole: 'lens', galaxy: 'starmap', cosmic: 'yarn' }
 
   const fresh = () => ({ life: 0, coins: 0, helpers: {}, tree: { core: 1 }, arts: {}, shards: 0, chapter: 0, beaten: {}, at: 0, start: 0, clicks: 0, chestClicks: 0, golden: 0, chests: 0, bestCombo: 1, ended: 0 })
   const lvl = (G, id) => G.tree[id] || 0
   const count = (G, h) => G.helpers[h.id] || 0
   const art = (G, id) => !!(G.arts && G.arts[id])
-  const milestoneMult = n => 2 ** MILESTONES.filter(m => n >= m).length
-  const helperMult = (G, h) => milestoneMult(count(G, h)) * 2 ** lvl(G, `${h.id}U`) * (art(G, ART_OF[h.id]) ? 3 : 1)
+  const milestoneMult = (n, ms = 2) => ms ** MILESTONES.filter(m => n >= m).length
+  const helperMult = (G, h) => milestoneMult(count(G, h), h.ms) * 2 ** lvl(G, `${h.id}U`) * (art(G, ART_OF[h.id]) ? 3 : 1)
   const helperCost = (G, h) => Math.ceil(h.base * h.growth ** count(G, h) * 0.95 ** lvl(G, `${h.id}C`))
   const nodeCost = (G, n) => Math.ceil(n.base * n.growth ** lvl(G, n.id))
-  const nodeShown = (G, n) => n.req.every(r => lvl(G, r) > 0)
-  const helperShown = (G, i) => i === 0 || count(G, HELPERS[i - 1]) > 0 || count(G, HELPERS[i]) > 0
-  const comboMax = G => 1 + 0.5 * lvl(G, 'c1')
+  const nodeShown = (G, n) => (n.act !== 2 || !!G.act1) && n.req.every(r => lvl(G, r) > 0)
+  const helperShown = (G, i) => count(G, HELPERS[i]) > 0 || (HELPERS[i].act === 2 ? !!G.act1 && (HELPERS[i - 1].act !== 2 || count(G, HELPERS[i - 1]) > 0) : i === 0 || count(G, HELPERS[i - 1]) > 0)
+  const artShown = (G, a) => a.act !== 2 || !!G.act1
+  const comboMax = G => 1 + 0.5 * lvl(G, 'c1') + 0.5 * lvl(G, 'c4') + (art(G, 'bell') ? 1 : 0)
   // fx: the moment's boosts that the screen owns (frenzy, combo heat)
-  const globalMult = (G, fx) => 2 ** lvl(G, 'sing') * (art(G, 'relic') ? 1.5 : 1) * (fx.frenzy || 1)
+  const globalMult = (G, fx) => 2 ** lvl(G, 'sing') * 3 ** lvl(G, 'bang') * (art(G, 'relic') ? 1.5 : 1) * (art(G, 'egg') ? 2 : 1) * (fx.frenzy || 1)
   const fever = (G, fx) => (fx.comboFull && lvl(G, 'c3') ? 1 + lvl(G, 'c3') : 1)
   const helperRate = (G, h, fx) => h.rate * count(G, h) * helperMult(G, h) * globalMult(G, fx) * fever(G, fx)
   const rate = (G, fx = {}) => HELPERS.reduce((sum, h) => sum + helperRate(G, h, fx), 0)
-  const clickValue = (G, fx = {}) => (1 + lvl(G, 'f1') + rate(G, fx) * (0.005 * lvl(G, 'f2') + (art(G, 'crown') ? 0.02 : 0))) * (art(G, 'glove') ? 1.5 : 1) * (fx.combo || 1) * globalMult(G, fx)
+  // the share of production a click adds already carries the global multipliers: they are not applied twice
+  const clickValue = (G, fx = {}) => ((1 + lvl(G, 'f1')) * globalMult(G, fx) + rate(G, fx) * (0.005 * lvl(G, 'f2') + 0.002 * lvl(G, 'f6') + (art(G, 'crown') ? 0.02 : 0))) * (art(G, 'glove') ? 1.5 : 1) * (fx.combo || 1)
   const critChance = G => 0.03 * lvl(G, 'f3') + (art(G, 'clover') ? 0.05 : 0)
-  const critMult = G => 10 + 3 * lvl(G, 'f4')
+  const critMult = G => (10 + 3 * lvl(G, 'f4')) * (art(G, 'dice') ? 2 : 1)
   const comboCool = G => 1.2 * (1 + 0.25 * lvl(G, 'c2')) * (art(G, 'hourglass') ? 2 : 1)
   const chestEvery = G => Math.round(200 * 0.85 ** lvl(G, 'k2') * (art(G, 'key') ? 0.6 : 1))
   const goldenEvery = G => 90 * 0.85 ** lvl(G, 'l2') * (art(G, 'magnet') ? 0.7 : 1)
   const offlineShare = G => (art(G, 'pillow') ? 1 : 0.5)
   const frenzySeconds = G => 10 + 3 * lvl(G, 'l3')
+  const goldenFrenzy = G => 7 + 3 * lvl(G, 'l5')
+  const chestBonus = G => 1 + lvl(G, 'k5')
   const rarityWeights = G => {
     const k = lvl(G, 'k3')
     return [Math.max(20, 60 - 6.5 * k), 28 + 2 * k, 10 + 3 * k, 2 + 1.5 * k]
@@ -105,7 +155,9 @@
   const CHEST_SHARDS = [0, 1, 3, 8]
   const treeLevels = G => TREE.reduce((sum, n) => sum + (n.id === 'core' ? 0 : lvl(G, n.id)), 0)
   const artCount = G => ARTS.filter(a => art(G, a.id)).length
+  const helpersOf = (G, act) => HELPERS.filter(h => (h.act || 1) === act).reduce((sum, h) => sum + count(G, h), 0)
   const maxedAll = G => HELPERS.every(h => count(G, h) >= h.max) && TREE.every(n => lvl(G, n.id) >= n.max)
+  const maxedAct1 = G => HELPERS.every(h => h.act === 2 || count(G, h) >= h.max) && TREE.every(n => n.act === 2 || lvl(G, n.id) >= n.max)
 
   // the story: chapters of three clear objectives; some end in a fight against Doctor Zarpas, the evil cat
   const OBJ = (text, target, cur) => ({ text, target, cur })
@@ -153,7 +205,53 @@
     {
       title: 'Mil millones',
       intro: 'Zarpas está vencido y se ha quedado a vivir en el patio (le gusta el atún). Solo queda una cosa: llevar el botón a los mil millones.',
-      objs: [OBJ('Llega a 1.000 millones de pulsaciones', GOAL, G => G.life)],
+      objs: [OBJ('Llega a 1.000 millones de pulsaciones', ACT1, G => G.life)],
+      shards: 4,
+    },
+    // second act
+    {
+      title: 'Más allá del botón',
+      intro: 'Mil millones… y el botón sigue pidiendo más. Al fondo del patio se abre una grieta violeta. Zarpas la mira, con el atún a medio comer: «Eso no lo he hecho yo». Hay que fabricar gatos a escala industrial.',
+      objs: [OBJ('Compra «Más allá» en el árbol', 1, G => lvl(G, 'act2')), OBJ('Ten 10 fábricas de gatos', 10, helperCount('factory')), OBJ('Llega a 1 billón (10¹²)', 1e12, G => G.life)],
+      shards: 5,
+    },
+    {
+      title: 'Titanes de titanio',
+      intro: 'De la grieta sale un gato de metal del tamaño de un edificio: Zarpas Mecha, el primo lejano de Zarpas. Tus mechas tienen que pulsar más fuerte que él.',
+      objs: [OBJ('Ten 10 mechas pulsadores', 10, helperCount('mech')), OBJ('Compra 10 niveles del árbol cósmico', 10, G => TREE.filter(n => n.act === 2).reduce((sum, n) => sum + lvl(G, n.id), 0)), OBJ('Llega a 1.000 billones', 1e15, G => G.life)],
+      shards: 6,
+      boss: 3,
+    },
+    {
+      title: 'En órbita',
+      intro: 'La grieta no se cierra: crece hacia el cielo. Hay que pulsar desde el espacio. Zarpas (el de verdad) se ha hecho un casco con una pecera y quiere ir.',
+      objs: [OBJ('Ten 10 satélites', 10, helperCount('sat')), OBJ('Consigue 3 artefactos cósmicos', 3, G => ARTS.filter(a => a.act === 2 && art(G, a.id)).length), OBJ('Llega a 1 trillón (10¹⁸)', 1e18, G => G.life)],
+      shards: 7,
+    },
+    {
+      title: 'Otras dimensiones',
+      intro: 'Al otro lado de la grieta hay otros botones rojos, en otros mundos. Y en cada uno, un Zarpas. El Zarpas Dimensional los quiere todos.',
+      objs: [OBJ('Ten 10 portales', 10, helperCount('portal')), OBJ('Llena el combo hasta ×4', 4, G => G.bestCombo || 1), OBJ('Llega a 1 cuatrillón (10²⁴)', 1e24, G => G.life)],
+      shards: 8,
+      boss: 4,
+    },
+    {
+      title: 'El horizonte de sucesos',
+      intro: 'Tantas pulsaciones juntas han doblado el espacio. Nace un agujero negro… y pulsa. Nadie sabe cómo. Zarpas dice que es culpa del atún.',
+      objs: [OBJ('Ten 10 agujeros negros', 10, helperCount('hole')), OBJ('Abre 60 cofres', 60, G => G.chests || 0), OBJ('Llega a 1 quintillón (10³⁰)', 1e30, G => G.life)],
+      shards: 9,
+    },
+    {
+      title: 'Galaxias de botones',
+      intro: 'Cada estrella de la galaxia es un botón rojo. Y en el centro, en un trono de ovillos, te espera el Emperador Zarpas.',
+      objs: [OBJ('Ten 10 galaxias de botones', 10, helperCount('galaxy')), OBJ('Consigue 8 artefactos cósmicos', 8, G => ARTS.filter(a => a.act === 2 && art(G, a.id)).length), OBJ('Llega a 1 sextillón (10³⁶)', 1e36, G => G.life)],
+      shards: 10,
+      boss: 5,
+    },
+    {
+      title: 'Un octillón',
+      intro: 'El Emperador ha caído y se ha unido al patio (ahora hay dos Zarpas peleándose por el atún). Despierta al Gato cósmico y lleva el botón al octillón: un 1 con 48 ceros.',
+      objs: [OBJ('Despierta al Gato cósmico', 1, helperCount('cosmic')), OBJ('Llega a 1 octillón (10⁴⁸)', GOAL, G => G.life)],
       shards: 0,
     },
   ]
@@ -161,6 +259,9 @@
     { name: 'Doctor Zarpas', seconds: 30, k: 0.5, floor: 2000, shards: 3, taunts: ['¡Ese botón es MÍO!', '¡Miaaau-ja-ja!', '¿Eso es todo lo que pulsas?'], lose: '¡Volveré con armadura!' },
     { name: 'Zarpas Acorazado', seconds: 35, k: 0.6, floor: 200000, shards: 5, taunts: ['¡Mi armadura es de lata de atún premium!', '¡Pulsa, pulsa, que no me haces nada!', '¡Bola de pelo va!'], lose: '¡Esto no ha terminado, humano!' },
     { name: 'Zarpas Omega', seconds: 45, k: 0.7, floor: 2e7, shards: 10, taunts: ['¡SOY TODOS LOS GATOS!', '¡El botón será mi rascador!', '¡Siete vidas, siete botones!'], lose: 'Vale, vale… ¿me dejas quedarme si me das atún?' },
+    { name: 'Zarpas Mecha', seconds: 45, k: 0.7, floor: 1e13, shards: 12, taunts: ['¡TITANIO CON BIGOTES!', '¡Bip bup… MIAU!', '¡Mis pistones son más grandes!'], lose: 'Error 404: dignidad no encontrada.' },
+    { name: 'Zarpas Dimensional', seconds: 50, k: 0.75, floor: 1e22, shards: 15, taunts: ['¡En otro mundo ya he ganado!', '¡Soy mil Zarpas a la vez!', '¡Tu botón es MI botón en otra dimensión!'], lose: 'En alguna dimensión esto ha salido bien…' },
+    { name: 'Emperador Zarpas', seconds: 55, k: 0.8, floor: 1e33, shards: 25, taunts: ['¡ARRODÍLLATE ANTE EL OVILLO!', '¡Las galaxias son mi caja de arena!', '¡Un octillón de zarpazos te esperan!'], lose: 'Está bien… el patio es grande. ¿Hay atún para dos?' },
   ]
   // a fight scales with how hard you hit right now: beatable by pressing hard, not by idling
   const bossHp = (G, b) => Math.max(b.floor, Math.round((rate(G) + clickValue(G, { combo: comboMax(G) }) * 5) * b.seconds * b.k))
@@ -196,7 +297,13 @@
     G.tree[n.id] = lvl(G, n.id) + 1
     return true
   }
-  const storyCap = G => ((G.chapter || 0) >= CHAPTERS.length - 1 ? GOAL : GOAL / 2)
+  // the button stalls until the story catches up: half of the first goal until Zarpas Omega falls, then 1000 short of the octillion until the Emperor does
+  const ACT1_LAST = 6
+  const storyCap = G => {
+    const c = G.chapter || 0
+    if (!G.act1) return c >= ACT1_LAST ? ACT1 : ACT1 / 2
+    return c >= CHAPTERS.length - 1 ? GOAL : GOAL / 1000
+  }
   // presses count up to the goal and are spent as coins; returns what actually counted
   function earn(G, n) {
     if (G.ended) return 0
@@ -208,7 +315,7 @@
     return n
   }
 
-  const ECON = { HELPERS, TREE, TREE_BY_ID, ARTS, CHAPTERS, BOSSES, MILESTONES, GOAL, RARITIES, CHEST_SHARDS, fresh, lvl, count, art, milestoneMult, helperMult, helperCost, nodeCost, nodeShown, helperShown, comboMax, rate, helperRate, clickValue, critChance, critMult, comboCool, chestEvery, goldenEvery, offlineShare, frenzySeconds, rarityWeights, treeLevels, artCount, maxedAll, chapter, chapterDone, bossHp, advance, storyCap, buyArt, buyHelper, buyNode, earn }
+  const ECON = { ACT1, ACT1_LAST, artShown, goldenFrenzy, chestBonus, maxedAct1, helpersOf, HELPERS, TREE, TREE_BY_ID, ARTS, CHAPTERS, BOSSES, MILESTONES, GOAL, RARITIES, CHEST_SHARDS, fresh, lvl, count, art, milestoneMult, helperMult, helperCost, nodeCost, nodeShown, helperShown, comboMax, rate, helperRate, clickValue, critChance, critMult, comboCool, chestEvery, goldenEvery, offlineShare, frenzySeconds, rarityWeights, treeLevels, artCount, maxedAll, chapter, chapterDone, bossHp, advance, storyCap, buyArt, buyHelper, buyNode, earn }
   if (typeof module !== 'undefined') module.exports = ECON
   if (typeof window === 'undefined') return
 
@@ -217,12 +324,24 @@
 
   const SVG = 'http://www.w3.org/2000/svg'
   const RED_STEPS = [[10, 'red10'], [100, 'red100'], [1000, 'red1000'], [10000, 'red10000'], [77777, 'red77777']]
+  const UNITS = [
+    [1e48, 'Oc', 'octillones'],
+    [1e42, 'Sp', 'septillones'],
+    [1e36, 'Sx', 'sextillones'],
+    [1e30, 'Qi', 'quintillones'],
+    [1e24, 'Ct', 'cuatrillones'],
+    [1e18, 'T', 'trillones'],
+    [1e12, 'B', 'billones'],
+    [1e6, 'M', 'millones'],
+  ]
   const fmt = n => {
     n = Math.floor(n)
-    if (n < 1e6) return n.toLocaleString('es-ES')
-    if (n < 1e9) return `${(n / 1e6).toLocaleString('es-ES', { maximumFractionDigits: n < 1e7 ? 2 : 1 })} M`
-    return n >= GOAL ? '1.000 M' : `${(n / 1e6).toLocaleString('es-ES', { maximumFractionDigits: 0 })} M`
+    if (n < 1e6) return n.toLocaleString('es-ES', { useGrouping: 'always' })
+    const [u, sym] = UNITS.find(([x]) => n >= x)
+    const v = n / u
+    return `${v.toLocaleString('es-ES', { maximumFractionDigits: v < 10 ? 2 : v < 100 ? 1 : 0, useGrouping: 'always' })} ${sym}`
   }
+  const unitOf = n => UNITS.find(([x]) => n >= x)
   const fmtRate = n => (n < 10 ? n.toLocaleString('es-ES', { maximumFractionDigits: 1 }) : fmt(n))
   const SL = () => window.SL
   const calm = () => SL()?.calm() ?? false
@@ -250,11 +369,15 @@
       G = fresh()
     }
     if (!m['~rg']) migrate(m)
+    if (G.ended && !G.act1 && G.life < GOAL) {
+      G.act1 = G.ended
+      G.ended = 0
+    }
     return G
   }
   // players of the old in-map shop keep their presses, coins and helpers; the old golden buttons come back as coins
   function migrate(m) {
-    G.life = Math.min(GOAL, m['~red'] || 0)
+    G.life = Math.min(ACT1, m['~red'] || 0)
     G.coins = m['~redc'] ?? G.life
     if (m['~redend']) G.ended = m['~redend']
     G.start = m['~redstart'] || 0
@@ -279,7 +402,7 @@
   function checkMedals() {
     for (const [k, id] of RED_STEPS) if (G.life >= k) SL().unlock(id)
     if (rate(G, fx) >= 100) SL().unlock('redrate')
-    if (maxedAll(G)) SL().unlock('redmax')
+    if (maxedAct1(G)) SL().unlock('redmax')
   }
 
   // production keeps going while the panel shows the map; a long gap (panel closed) pays half, up to 8 h
@@ -316,7 +439,7 @@
     if (whole) earn(G, whole)
     if (fight && whole) hurtBoss(whole, false)
     if (fight && now > fight.until) loseFight(false)
-    if (G.life >= GOAL) return finish()
+    if (checkEnds()) return
     checkMedals()
     save()
     SL().mapLabel()
@@ -333,13 +456,16 @@
 
   // ---------- building the screen ----------
 
-  const SPRITES = { cat: () => `#pt-${SL().catCoat()}`, skill: () => '#ca', robot: () => '#ag', drone: () => '#sd0', claude: () => '#ag' }
+  const SPRITES = { cat: () => `#pt-${SL().catCoat()}`, skill: () => '#ca', robot: () => '#ag', drone: () => '#sd0', claude: () => '#ag', factory: () => '#ag', mech: () => '#ag', sat: () => '#sd0', portal: () => '#sd0', hole: () => '#sd0', galaxy: () => '#sd0', cosmic: () => `#pt-${SL().catCoat()}` }
   const COLORS = { skill: '#D97757', robot: '#3D85C6', drone: '#3D85C6', claude: '#F2C230' }
   // each kind stands on its own arc around the button (angles in degrees, 0 = right, 90 = down)
-  const ARCS = { cat: [105, 160], skill: [165, 215], robot: [220, 290], drone: [285, 335], claude: [15, 75] }
+  const ARCS = { cat: [105, 160], skill: [165, 215], robot: [220, 290], drone: [285, 335], claude: [15, 75], factory: [100, 145], mech: [150, 195], sat: [200, 245], portal: [250, 295], hole: [300, 345], galaxy: [350, 395], cosmic: [40, 85] }
   // a few sprites stand for the whole crew: more of them as the crew grows
   const SHOWN = 6
   const shownOf = n => (n ? Math.min(SHOWN, Math.ceil(Math.sqrt(n))) : 0)
+  // a crew at its maximum merges into one fat king with a crown: fewer sprites, same presses
+  const isKing = h => count(G, h) >= h.max
+  const shownFor = h => (isKing(h) ? 1 : shownOf(count(G, h)))
 
   function open() {
     start()
@@ -469,6 +595,9 @@
       ui.bubble = document.createElement('div')
       ui.bubble.className = 'rg-bubble3'
       root.append(ui.hint, ui.bubble)
+      // the button and the chest take clicks; anywhere else, dragging turns the camera round the stage
+      let drag = null
+      c3.title = 'Arrastra para girar la cámara · rueda para acercar · doble clic para volver'
       c3.addEventListener('pointerdown', e => {
         const r = c3.getBoundingClientRect()
         const hit = ui.g3.pick(e.clientX - r.left, e.clientY - r.top)
@@ -476,12 +605,42 @@
         else if (hit === 'button') {
           e.preventDefault()
           press(e)
+        } else {
+          drag = { x: e.clientX, y: e.clientY }
+          c3.setPointerCapture(e.pointerId)
+          c3.style.cursor = 'grabbing'
         }
       })
       c3.addEventListener('pointermove', e => {
+        if (drag) {
+          ui.g3.orbit(e.clientX - drag.x, e.clientY - drag.y)
+          drag = { x: e.clientX, y: e.clientY }
+          return
+        }
         const r = c3.getBoundingClientRect()
-        c3.style.cursor = ui.g3.pick(e.clientX - r.left, e.clientY - r.top) ? 'pointer' : ''
+        c3.style.cursor = ui.g3.pick(e.clientX - r.left, e.clientY - r.top) ? 'pointer' : 'grab'
       })
+      const endDrag = () => {
+        drag = null
+        c3.style.cursor = 'grab'
+      }
+      c3.addEventListener('pointerup', endDrag)
+      c3.addEventListener('pointercancel', endDrag)
+      c3.addEventListener('wheel', e => {
+        e.preventDefault()
+        ui.g3.zoom(e.deltaY > 0 ? 1.08 : 0.93)
+      })
+      c3.addEventListener('dblclick', e => {
+        const r = c3.getBoundingClientRect()
+        if (!ui.g3.pick(e.clientX - r.left, e.clientY - r.top)) ui.g3.resetView()
+      })
+      ui.viewBtn = document.createElement('button')
+      ui.viewBtn.className = 'rg-viewbtn'
+      ui.viewBtn.title = 'Volver a la vista de frente'
+      ui.viewBtn.textContent = '🧭 Recolocar vista'
+      ui.viewBtn.hidden = true
+      ui.viewBtn.addEventListener('click', () => ui.g3.resetView())
+      root.appendChild(ui.viewBtn)
     } else c3.remove()
     root.addEventListener('pointerdown', e => e.stopPropagation())
     root.addEventListener('wheel', e => e.stopPropagation(), { passive: true })
@@ -523,7 +682,8 @@
     }
     if (chestReady) showChest()
     refresh()
-    if (G.ended) setTimeout(showEnd, 300)
+    if (G.ended) setTimeout(() => showEnd(2), 300)
+    else if (G.act1 && !G.seenAct2) setTimeout(() => showEnd(1), 300)
     // the first time in, the story begins
     else if (!G.seenIntro) {
       G.seenIntro = 1
@@ -584,12 +744,13 @@
     if (ui.g3) {
       ui.g3.clearCrew()
       ui.sprites = []
+      ui.g3.setAct2(!!G.act1)
       for (const h of HELPERS) {
-        const n = shownOf(count(G, h))
+        const n = shownFor(h)
         const [a0, a1] = ARCS[h.id]
         for (let i = 0; i < n; i++) {
           const a = ((a0 + ((a1 - a0) * (i + 0.5)) / n) * Math.PI) / 180
-          const c = ui.g3.addHelper(h.id, a, SL().catCoat())
+          const c = ui.g3.addHelper(h.id, a, SL().catCoat(), isKing(h))
           ui.sprites.push({ h, c, x: Math.cos(a) * 205, y: 30 + Math.sin(a) * 92, next: performance.now() + rnd(200, h.every * 1000) })
         }
       }
@@ -600,7 +761,7 @@
     ui.front.innerHTML = ''
     ui.sprites = []
     for (const h of HELPERS) {
-      const n = shownOf(count(G, h))
+      const n = shownFor(h)
       const [a0, a1] = ARCS[h.id]
       for (let i = 0; i < n; i++) {
         const a = ((a0 + ((a1 - a0) * (i + 0.5)) / n) * Math.PI) / 180
@@ -608,7 +769,7 @@
         const y = 30 + Math.sin(a) * 92 + (h.id === 'drone' ? -70 : 0)
         const g = document.createElementNS(SVG, 'g')
         g.setAttribute('class', `rg-h rg-${h.id}`)
-        const scale = h.id === 'claude' ? 2 : 1.7
+        const scale = (h.id === 'claude' ? 2 : 1.7) * (isKing(h) ? 1.5 : 1)
         const flip = x > 0 ? -1 : 1
         const color = COLORS[h.id] ? ` color="${COLORS[h.id]}"` : ''
         g.innerHTML =
@@ -636,7 +797,7 @@
     const dur = Math.min(720, h.every * 520)
     const hitAt = (impact, head, muzzle) => {
       if (!ui) return
-      const share = (helperRate(G, h, fx) * h.every) / Math.max(1, shownOf(count(G, h)))
+      const share = (helperRate(G, h, fx) * h.every) / Math.max(1, shownFor(h))
       capHit(h.id === 'claude' ? 0.7 : 0.35)
       ledPulse(0.35)
       if (!ui.g3 || h.id === 'claude') flash(impact.x, impact.y, h.id === 'claude' ? 46 : 24, h.id === 'claude' ? '255,220,90' : '255,190,120')
@@ -725,7 +886,7 @@
     G.clicks++
     const got = earn(G, Math.max(1, Math.floor(value)))
     if (fight) hurtBoss(Math.max(1, Math.floor(value)), crit)
-    else if (!got && G.life >= storyCap(G)) floatNum(toScreen(0, -60), '🔒 Vence a Zarpas Omega', '#FF8A7A', 14)
+    else if (!got && G.life >= storyCap(G)) floatNum(toScreen(0, -60), G.act1 ? '🔒 Vence al Emperador Zarpas' : '🔒 Vence a Zarpas Omega', '#FF8A7A', 14)
     if (G.clicks <= 5 && ui) ui.hint.style.display = G.clicks >= 5 ? 'none' : ''
     if (G.clicks === 1 || G.life >= 10) checkMedals()
     chestTick()
@@ -753,7 +914,7 @@
     }
     shake(1.5 + fx.combo * 1.2)
     SL().beep([180 + combo * 9 + (crit ? 400 : 0)], 0.02)
-    if (G.life >= GOAL) finish()
+    checkEnds()
     refresh()
   }
   function pointer(e) {
@@ -949,6 +1110,8 @@
     })
     if (ui.g3) {
       ui.g3.frame({ heat, gold, rayBoost, ledFlash, speed, frozen })
+      const moved = ui.g3.viewMoved()
+      if (ui.viewBtn.hidden === moved) ui.viewBtn.hidden = !moved
       const hp = toScreen(0, -66)
       ui.hint.style.left = `${hp.x}px`
       ui.hint.style.top = `${hp.y}px`
@@ -1282,7 +1445,7 @@
     coinsBurst(x, y, 16)
     floatNum({ x, y: y - 30 }, '+1 💠', '#9FE8FF', 18, true)
     SL().beep([784, 988, 1175, 1568], 0.07)
-    if (Math.random() < 0.5) frenzy(7, frenzySeconds(G), '¡FRENESÍ ×7!')
+    if (Math.random() < 0.5) frenzy(goldenFrenzy(G), frenzySeconds(G), `¡FRENESÍ ×${goldenFrenzy(G)}!`)
     else {
       const lump = Math.max(rate(G, fx) * 60, clickValue(G, fx) * 10) * 2 ** lvl(G, 'l4')
       earn(G, Math.floor(lump))
@@ -1350,7 +1513,7 @@
     const rar = RARITIES[tier]
     const base = rate(G, fx)
     const click = clickValue(G, fx)
-    const reward = [base * 30 + click * 5, base * 120 + click * 15, base * 400 + click * 40, base * 1200 + click * 100][tier]
+    const reward = chestBonus(G) * [base * 30 + click * 5, base * 120 + click * 15, base * 400 + click * 40, base * 1200 + click * 100][tier]
     G.chests = (G.chests || 0) + 1
     earn(G, Math.floor(reward))
     const p = toScreen(0, 118)
@@ -1439,10 +1602,15 @@
     const m = ui.mission
     if (m.dataset.ch !== String(idx)) {
       m.dataset.ch = String(idx)
-      m.innerHTML = `<small>Capítulo ${idx + 1} de ${CHAPTERS.length}</small><b>${ch.title}</b><ul>${ch.objs
+      m.innerHTML = `<button class="rg-fold" title="Minimizar / desplegar"></button><small>Capítulo ${idx + 1} de ${CHAPTERS.length}<span class="sum"></span></small><b>${ch.title}</b><ul>${ch.objs
         .map(o => `<li><span class="tick"></span><span class="tx">${o.text}</span><em></em><i class="bar"><u></u></i></li>`)
         .join('')}</ul><button class="rg-next" hidden></button>`
       m.querySelector('.rg-next').addEventListener('click', onNext)
+      m.querySelector('.rg-fold').addEventListener('click', () => {
+        G.missionMin = !G.missionMin
+        save(true)
+        refreshMission()
+      })
       m.animate([{ opacity: 0, transform: 'translateX(-20px)' }, { opacity: 1, transform: 'none' }], { duration: 400, easing: 'cubic-bezier(.2,.9,.3,1.2)' })
     }
     ch.objs.forEach((o, k) => {
@@ -1463,6 +1631,10 @@
       li.querySelector('.bar u').style.width = `${(cur / o.target) * 100}%`
     })
     m.dataset.ready = '1'
+    m.classList.toggle('min', !!G.missionMin)
+    m.querySelector('.rg-fold').textContent = G.missionMin ? '▸' : '▾'
+    const doneN = ch.objs.filter(o => o.cur(G) >= o.target).length
+    m.querySelector('.sum').textContent = G.missionMin ? ` · ${doneN}/${ch.objs.length}` : ''
     const next = m.querySelector('.rg-next')
     const last = idx >= CHAPTERS.length - 1
     const pending = ch.boss !== undefined && !(G.beaten || {})[ch.boss]
@@ -1507,6 +1679,7 @@
     for (const b of ui.arts.querySelectorAll('[data-art]')) {
       const a = ARTS.find(x => x.id === b.dataset.art)
       const owned = art(G, a.id)
+      b.hidden = !artShown(G, a)
       b.classList.toggle('owned', owned)
       b.disabled = owned || (G.shards || 0) < a.cost
       b.querySelector('em').textContent = owned ? '✓ tuyo' : `${a.cost} 💠`
@@ -1585,7 +1758,8 @@
     ui.story.innerHTML = CHAPTERS.map((ch, i) => {
       const state = i < idx ? 'done' : i === idx ? 'now' : 'locked'
       const boss = ch.boss !== undefined ? `<span class="tag">${(G.beaten || {})[ch.boss] ? '😿 vencido' : `⚔️ ${BOSSES[ch.boss].name}`}</span>` : ''
-      return `<div class="rg-chapter ${state}"><b>${state === 'locked' ? '🔒' : state === 'done' ? '✓' : '▶'} ${i + 1}. ${state === 'locked' ? '???' : ch.title}</b>${state === 'locked' ? '' : boss}${state === 'now' ? `<p>${ch.intro}</p>` : ''}</div>`
+      const act = i === 0 ? '<h4 class="rg-act">Acto I · Mil millones</h4>' : i === ACT1_LAST + 1 ? `<h4 class="rg-act">${G.act1 ? 'Acto II · Hacia el octillón' : '🔒 Acto II'}</h4>` : ''
+      return `${act}<div class="rg-chapter ${state}"><b>${state === 'locked' ? '🔒' : state === 'done' ? '✓' : '▶'} ${i + 1}. ${state === 'locked' ? '???' : ch.title}</b>${state === 'locked' ? '' : boss}${state === 'now' ? `<p>${ch.intro}</p>` : ''}</div>`
     }).join('')
   }
 
@@ -1772,12 +1946,16 @@
           setTimeout(() => sparks(to.x, to.y, 14 + got, '#FFD84F', 4), 420)
           row.animate([{ transform: 'scale(1.05)', background: '#6a5a2a', boxShadow: '0 0 18px #ffd84f' }, { transform: 'scale(.98)', offset: 0.4 }, { transform: 'none' }], { duration: 420, easing: 'ease-out' })
           SL().beep([440, 660 + Math.min(got, 20) * 10], 0.05)
-          if (MILESTONES.includes(count(G, h))) bigText(`${h.icon} ×2 · nivel ${count(G, h)}`, '#FFE34F')
+          if (MILESTONES.includes(count(G, h))) bigText(`${h.icon} ×${h.ms || 2} · nivel ${count(G, h)}`, '#FFE34F')
+          if (isKing(h) && got) {
+            bigText(`👑 ¡${h.name}: al máximo!`, '#FFD84F')
+            whiteFlash(0.3)
+          }
           const shown = ui.sprites.filter(s => s.h === h).length
-          if (shown < shownOf(count(G, h))) {
+          if (shown !== shownFor(h)) {
             buildSprites()
             const s = ui.sprites.filter(q => q.h === h).at(-1)
-            if (s) {
+            if (s && s.g) {
               // a new crew member drops in from above and lands in a puff of dust
               s.g.animate([{ transform: `translate(${s.x}px,${s.y - 160}px) scale(.6,1.3)`, opacity: 0 }, { transform: `translate(${s.x}px,${s.y}px) scale(1.3,.7)`, opacity: 1, offset: 0.6 }, { transform: `translate(${s.x}px,${s.y - 12}px) scale(.95,1.08)`, offset: 0.8 }, { transform: `translate(${s.x}px,${s.y}px)` }], { duration: 650, easing: 'ease-in' })
               setTimeout(() => {
@@ -1808,16 +1986,19 @@
     }
     ui.coins.textContent = `🪙 ${fmt(G.coins)}`
     ui.shards.textContent = `💠 ${G.shards || 0}`
-    ui.rates.textContent = `pulsaciones · ${fmtRate(rate(G, fx))}/s · ${fmtRate(clickValue(G, fx))} por clic`
+    const unit = unitOf(G.life)
+    ui.rates.textContent = `${unit ? `${unit[1]} = ${unit[2]}` : 'pulsaciones'} · ${fmtRate(rate(G, fx))}/s · ${fmtRate(clickValue(G, fx))} por clic`
     ui.helpers.querySelectorAll('[data-h]').forEach((row, i) => {
       const h = HELPERS[i]
+      // the second act's crews stay out of the list until the first act is over
+      row.hidden = h.act === 2 && !G.act1
       const n = count(G, h)
       const shown = helperShown(G, i)
       row.classList.toggle('locked', !shown)
       const next = MILESTONES.find(m => m > n && m <= h.max)
       row.querySelector('.nm').textContent = shown ? h.name : '???'
       row.querySelector('i').textContent = shown ? `${n}/${h.max}` : ''
-      row.querySelector('small').textContent = !shown ? `Compra ${HELPERS[i - 1].name.toLowerCase()} para descubrirlo` : n >= h.max ? `${fmtRate(helperRate(G, h, fx))}/s · al máximo` : `${fmtRate(h.rate * helperMult(G, h))}/s cada uno · ${h.verb}${next ? ` · ×2 en ${next}` : ''}`
+      row.querySelector('small').textContent = !shown ? (h.act === 2 && !G.act1 ? 'Llega a los mil millones para descubrirlo' : `Compra ${HELPERS[i - 1].name.toLowerCase()} para descubrirlo`) : n >= h.max ? `${fmtRate(helperRate(G, h, fx))}/s · al máximo` : `${fmtRate(h.rate * helperMult(G, h))}/s cada uno · ${h.verb}${next ? ` · ×${h.ms || 2} en ${next}` : ''}`
       row.querySelector('.bar u').style.width = `${(n / h.max) * 100}%`
       const cost = helperCost(G, h)
       const one = row.querySelector('[data-n="1"]')
@@ -2029,6 +2210,15 @@
     if (G.life >= 1e6) pool.push('El botón rojo supera el millón de pulsaciones. Sigue sin hacer nada.')
     if (G.life >= 1e8) pool.push('Los economistas ya hablan de la «burbuja del botón».')
     if (lvl(G, 'sing')) pool.push('La Singularidad llega al laboratorio. Lo primero que hace: pulsar el botón.')
+    if (G.act1) pool.push('La grieta violeta del patio ya tiene su propia cuenta de Instagram.', 'Zarpas jura que la grieta no es suya. Tiene pelos violetas en el bigote.')
+    if (n('factory') >= 1) pool.push('Las fábricas de gatos piden más cartón. Los gatos piden más cajas.')
+    if (n('mech') >= 1) pool.push('Un mecha pulsador se queda atascado en la puerta del laboratorio. Otra vez.')
+    if (n('sat') >= 1) pool.push('La NASA pregunta por qué hay satélites apuntando a un botón rojo.')
+    if (n('portal') >= 1) pool.push('Por un portal sale otro tú. Te pide que pulses más flojo.')
+    if (n('hole') >= 1) pool.push('Un agujero negro se traga el teletipo de noticias. Este lo has leído de milagro.')
+    if (n('galaxy') >= 1) pool.push('Los astrónomos descubren una galaxia con forma de botón. Nadie se sorprende.')
+    if (n('cosmic') >= 1) pool.push('El Gato cósmico bosteza y nacen tres estrellas.')
+    if (G.life >= 1e24) pool.push('Ya no quedan nombres para tantos ceros. El botón se los inventa.')
     const text = first ? 'Bienvenido al juego del botón. Pulsa. Pulsa más. Todo lo que ves pulsa contigo.' : pool[Math.floor(Math.random() * pool.length)]
     ui.news.textContent = `📰 ${text}`
     ui.news.animate([{ transform: 'translateY(100%)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 400, easing: 'ease-out' })
@@ -2036,37 +2226,80 @@
 
   // ---------- the end ----------
 
-  function finish() {
-    if (G.ended) return
-    G.life = GOAL
-    G.ended = Date.now()
-    save(true)
-    SL().unlock('redend')
-    if (G.ended - G.start < SPEEDRUN_MS) SL().unlock('redspeed')
-    SL().mapLabel()
-    if (!ui) return
+  // returns true when the game is over
+  function checkEnds() {
+    if (!G.act1 && G.life >= ACT1) act1Done()
+    if (G.life >= GOAL) {
+      finish()
+      return true
+    }
+    return false
+  }
+  function celebrate(text) {
     SL().beep([523, 659, 784, 1047, 1319, 1568], 0.12)
     let k = 0
     const burst = setInterval(() => {
       if (!ui || k++ > 8) return clearInterval(burst)
       confetti(rnd(0.1, 0.9) * root.clientWidth, rnd(0.2, 0.6) * root.clientHeight, 80)
     }, 250)
-    bigText('🏁 ¡MIL MILLONES!', '#FFD84F')
-    setTimeout(showEnd, 2400)
+    bigText(text, '#FFD84F')
   }
-  function showEnd() {
+  function act1Done() {
+    G.act1 = Date.now()
+    save(true)
+    SL().unlock('redend')
+    if (G.act1 - G.start < SPEEDRUN_MS) SL().unlock('redspeed')
+    SL().mapLabel()
+    if (!ui) return
+    celebrate('🏁 ¡MIL MILLONES!')
+    setTimeout(() => {
+      if (!ui) return
+      buildSprites()
+      buildTree()
+      refresh()
+      showEnd(1)
+    }, 2400)
+  }
+  function finish() {
+    if (G.ended) return
+    G.life = GOAL
+    G.ended = Date.now()
+    save(true)
+    SL().unlock('redocti')
+    SL().mapLabel()
+    if (!ui) return
+    celebrate('🌌 ¡UN OCTILLÓN!')
+    setTimeout(() => showEnd(2), 2400)
+  }
+  const took = ms => {
+    const mins = Math.max(1, Math.round(ms / 60000))
+    return mins < 60 ? `${mins} min` : mins < 1440 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${Math.floor(mins / 1440)} d ${Math.floor((mins % 1440) / 60)} h`
+  }
+  // act 1: the thousand millions, with a way on; act 2: the octillion, the end
+  function showEnd(act = G.ended ? 2 : 1) {
     if (!ui) return
     root.querySelector('.rg-end')?.remove()
-    const mins = Math.max(1, Math.round(((G.ended || Date.now()) - (G.start || Date.now())) / 60000))
-    const took = mins < 60 ? `${mins} min` : mins < 1440 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${Math.floor(mins / 1440)} d ${Math.floor((mins % 1440) / 60)} h`
+    const speed = G.act1 && G.act1 - G.start < SPEEDRUN_MS
+    const stats = `<li><span>Clics a mano</span><b>${fmt(G.clicks)}</b></li><li><span>Botones dorados</span><b>${fmt(G.golden || 0)}</b></li><li><span>Cofres</span><b>${fmt(G.chests || 0)}</b></li><li><span>Combo máximo</span><b>×${(G.bestCombo || 1).toLocaleString('es-ES', { maximumFractionDigits: 1 })}</b></li>`
     const card = document.createElement('div')
     card.className = 'rg-end'
-    card.innerHTML = `<div class="big">🏁</div><h3>¡Mil millones!</h3><p>Has salvado el botón del Doctor Zarpas y lo has llevado a los mil millones.</p>
-      <ul><li><span>Pulsaciones</span><b>1.000.000.000</b></li><li><span>Clics a mano</span><b>${fmt(G.clicks)}</b></li><li><span>Tiempo</span><b>${took} <small>(media ~${AVERAGE_MIN} min)</small></b></li>${G.ended - G.start < SPEEDRUN_MS ? "<li class=\"speed\"><span>⏱️ Speedrunner</span><b>¡menos de 20 min!</b></li>" : ""}
-      <li><span>Botones dorados</span><b>${fmt(G.golden || 0)}</b></li><li><span>Cofres</span><b>${fmt(G.chests || 0)}</b></li><li><span>Combo máximo</span><b>×${(G.bestCombo || 1).toLocaleString('es-ES', { maximumFractionDigits: 1 })}</b></li>
+    card.innerHTML =
+      act === 1
+        ? `<div class="big">🏁</div><h3>¡Mil millones! · Acto I</h3><p>Has salvado el botón del Doctor Zarpas. Pero la grieta violeta del patio sigue abierta, y el botón quiere más: un octillón, un 1 con 48 ceros.</p>
+      <ul><li><span>Pulsaciones</span><b>1.000.000.000</b></li><li><span>Tiempo</span><b>${took((G.act1 || Date.now()) - (G.start || Date.now()))} <small>(media ~${AVERAGE_MIN} min)</small></b></li>${speed ? '<li class="speed"><span>⏱️ Speedrunner</span><b>¡menos de 20 min!</b></li>' : ''}${stats}</ul>
+      <div class="row"><button class="again">🔁 Volver a empezar</button><button class="primary done">Seguir hacia el octillón ▸</button></div>`
+        : `<div class="big">🌌</div><h3>¡Un octillón!</h3><p>De un botón en mitad de la nada a galaxias enteras pulsando contigo. Los dos Zarpas te aplauden (con la boca llena de atún).</p>
+      <ul><li><span>Pulsaciones</span><b>1 Oc</b></li><li><span>Tiempo total</span><b>${took(G.ended - (G.start || G.ended))} <small>(media ~${AVERAGE_TOTAL_MIN} min)</small></b></li><li><span>Mil millones en</span><b>${took((G.act1 || G.ended) - (G.start || G.ended))}</b></li>${stats}
       <li><span>Árbol y ayudantes</span><b>${maxedAll(G) ? 'completos' : 'a medias'}</b></li></ul>
       <div class="row"><button class="again">🔁 Volver a empezar</button><button class="primary done">Cerrar</button></div>`
-    card.querySelector('.done').addEventListener('click', () => card.remove())
+    card.querySelector('.done').addEventListener('click', () => {
+      card.remove()
+      if (act === 1 && !G.seenAct2) {
+        G.seenAct2 = 1
+        save(true)
+        setTimeout(() => say(NARRATOR, chapter(G).intro), 400)
+      }
+    })
     card.querySelector('.again').addEventListener('click', () => {
       G = fresh()
       combo = 0
@@ -2076,6 +2309,7 @@
       fight = null
       save(true)
       card.remove()
+      ui.g3?.chestHide()
       buildSprites()
       start()
       refresh()
@@ -2132,7 +2366,7 @@
     addPresses: n => {
       load()
       earn(G, n)
-      if (G.life >= GOAL) finish()
+      checkEnds()
       checkMedals()
       save(true)
       refresh()

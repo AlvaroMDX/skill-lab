@@ -1844,9 +1844,10 @@
     ['redcombo', '🔥', 'En racha', 'Llena el combo al máximo (×3)', 'button'],
     ['redchest', '🧰', 'Botín legendario', 'Abre un cofre legendario', 'button'],
     ['redboss', '😼', 'Domador de gatos', 'Vence a Zarpas Omega, el gato malvado', 'button'],
-    ['redspeed', '⏱️', 'Speedrunner', 'Termina el juego del botón en menos de 20 minutos (la media ronda los 35)', 'button'],
+    ['redspeed', '⏱️', 'Speedrunner', 'Termina el Acto I del juego del botón en menos de 20 minutos (la media ronda los 35)', 'button'],
     ['redmax', '🏪', 'Todo al máximo', 'Completa el árbol y todos los ayudantes', 'button'],
-    ['redend', '🏁', 'Mil millones', 'Llega a 1.000.000.000 pulsaciones y termina el juego', 'button'],
+    ['redend', '🏁', 'Mil millones', 'Llega a 1.000.000.000 pulsaciones y termina el Acto I', 'button'],
+    ['redocti', '🌌', 'Octillonario', 'Lleva el botón a un octillón: un 1 con 48 ceros', 'button'],
   ]
 
   // counters and sets behind the medals that need more than one go, kept with the medals as '~' keys
