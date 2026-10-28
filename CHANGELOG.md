@@ -1,5 +1,13 @@
 # Cambios
 
+## 1.4.0 — 2026-10-28
+- El juego del botón pasa a 3D: plataforma redonda con luces, botón de metal con tapa brillante que se hunde como un muelle, sombras reales y cámara que se balancea.
+- Ayudantes en 3D que pulsan de verdad: gatos que se agazapan y saltan con zarpazo, skills que brincan encima, robots que apuntan y disparan el pistón, drones con hélices y láser, y soles de Claude girando con rayos.
+- Los artefactos se ven en el escenario: la corona encima del botón, el guante que golpea contigo, los de cada ayudante en pedestales junto a su grupo y el resto orbitando sobre el botón. Al comprar uno aparece en grande, gira entre destellos y vuela a su sitio.
+- El Doctor Zarpas en 3D: cae del cielo, se le ondea la capa, se ilumina al recibir golpes, da zarpazos y sale despedido girando al vencerle. La cámara se acerca cuando llega.
+- Más animación: ondas en el suelo, esquirlas y monedas que rebotan, haces de luz en los cofres y cofre 3D con tapa que se abre. Si el equipo no tiene WebGL se usa el escenario de antes.
+- Árbol de mejoras: tu dinero y lo que ganas por segundo siempre arriba, el precio debajo de cada nodo, y los nodos y botones que aún no puedes pagar se ven apagados.
+
 ## 1.3.0 — 2026-10-28
 - Historia en 7 capítulos con objetivos claros siempre a la vista: el Doctor Zarpas, un gato malvado con monóculo, quiere el botón. Tres combates contra reloj (Doctor Zarpas, Zarpas Acorazado y Zarpas Omega) con barra de vida, pullas y zarpazos que te quitan el combo.
 - Tienda de artefactos: 13 reliquias únicas (atún eterno, guante de seda, reloj de arena roto…) que se compran con fragmentos 💠 de cofres raros, botones dorados, capítulos y jefes.
