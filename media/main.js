@@ -1848,6 +1848,7 @@
     ['redmax', '🏪', 'Todo al máximo', 'Completa el árbol y todos los ayudantes', 'button'],
     ['redend', '🏁', 'Mil millones', 'Llega a 1.000.000.000 pulsaciones y termina el Acto I', 'button'],
     ['redocti', '🌌', 'Octillonario', 'Lleva el botón a un octillón: un 1 con 48 ceros', 'button'],
+    ['redrebirth', '🔆', 'Renacido', 'Renace por primera vez en el juego del botón', 'button'],
   ]
 
   // counters and sets behind the medals that need more than one go, kept with the medals as '~' keys

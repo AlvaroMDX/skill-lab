@@ -1,5 +1,14 @@
 # Cambios
 
+## 1.6.0 — 2026-10-29
+- Arreglado el atasco del Acto II: al llegar al tope de la historia (esperando a un Zarpas) dejaban de entrar monedas y no se podía comprar nada. Ahora el contador se para pero las monedas siguen.
+- **Renacer** (prestigio), en la pestaña 🔆 Renacer: sueltas monedas, ayudantes y árbol, pero conservas lo pulsado, la historia, los artefactos y los fragmentos, y ganas **almas de botón** (+5 % a todo cada una, para siempre). El capítulo 9 te enseña a usarlo y la pestaña brilla cuando renacer merece la pena.
+- Balance del Acto II rehecho con simulaciones: las mejoras ×2 de cada ayudante ya no cuestan más que la meta, el salto de precio entre ayudantes cuenta con los multiplicadores y el juego completo ronda los 25 min jugando muy activo, 35 activo y una hora tranquilo.
+- Jefes rebalanceados: su vida se calcula con lo que haces de verdad (ayudantes más unos tres clics por segundo con críticos), sin mínimos fijos, y son inmunes al frenesí. Sin pulsar no se ganan; pulsando con ganas, sí.
+- 8 artefactos nuevos: Brújula del patio, Espejo de feria, Calcetín de la suerte, Despertador loco, Trofeo de Zarpas, Medalla del laboratorio (+2 % por cada medalla del lab), Cohete de feria y Pluma de fénix (más almas al renacer). Orbitan en un segundo anillo sobre el botón.
+- Fábrica de gatos nueva: un edificio con forma de gato, cola de chimenea, cinta con cajas-gatito y una pata gigante que estampa el botón.
+- Medalla nueva: Renacido (64 en total).
+
 ## 1.5.1 — 2026-10-28
 - Botón 🔁 en la cabecera del juego para empezar de cero: borra la partida (las medallas se quedan) y vuelve a la pantalla negra con el botón rojo.
 - La tapa del botón ya no se queda botando sola: muelle estable aunque el editor vaya a tirones y golpes de los ayudantes más suaves.

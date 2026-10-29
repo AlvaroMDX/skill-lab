@@ -249,3 +249,20 @@
 #rg .rg-act:first-child { margin-top: 0; color: #FFB02A; }
 #rg .rg-viewbtn[hidden] { display: none; }
 #rg .rg-hrow[hidden], #rg .rg-art[hidden] { display: none; }
+/* rebirth */
+#rg .rg-tabs button { font-size: 10px; padding: 5px 2px; }
+#rg .rg-rebirth-tab.ready { animation: rg-soulglow 1.2s ease-in-out infinite; border-color: #FFE7A0; color: #FFE7A0; }
+@keyframes rg-soulglow { 50% { box-shadow: 0 0 12px #ffe7a0, inset 0 0 8px #ffe7a066; } }
+#rg .rg-soul { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px; }
+#rg .rg-soul .big { font-size: 34px; text-align: center; }
+#rg .rg-soul p { margin: 0; line-height: 1.45; }
+#rg .rg-soul .lore { color: #e8d6c4; }
+#rg .rg-soul .stats { display: grid; grid-template-columns: 2fr 1fr; gap: 6px; }
+#rg .rg-soul .stats div { background: rgba(255, 231, 160, .08); border: 2px solid #5a4a2a; padding: 6px 8px; display: flex; flex-direction: column; }
+#rg .rg-soul .stats small { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+#rg .rg-soul .stats b { color: #FFE7A0; font-size: 16px; }
+#rg .rg-soul .stats em { font-style: normal; color: #7FE37F; font-weight: 700; }
+#rg .rg-soul .gain { padding: 6px 8px; border: 2px dashed #FFE7A0; color: #FFE7A0; }
+#rg .rg-soul .gain.none { border-color: #5a4a3a; color: var(--muted); }
+#rg .rg-soul ul { margin: 0; padding-left: 4px; list-style: none; display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: #d8c8b4; }
+#rg .rg-rebirth-btn { padding: 9px; font-size: 13px; font-weight: 900; background: linear-gradient(#FFE7A0, #E8B84A); color: #3a2a10; border-color: #8a6a2a; }

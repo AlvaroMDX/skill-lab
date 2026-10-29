@@ -10,12 +10,12 @@
     { id: 'claude', icon: '✴️', name: 'Claude en bucle', verb: 'pulsa sin descanso', rate: 200, base: 1100000, growth: 1.15, max: 25, every: 0.6 },
     // second act: past the thousand millions, each crew is worth hundreds of thousands of the one before; milestones ×4
     { id: 'factory', icon: '🏭', name: 'Fábrica de gatos', verb: 'estampa el botón', rate: 2e6, base: 6e10, growth: 1.3, max: 50, every: 1.6, act: 2, ms: 4 },
-    { id: 'mech', icon: '🦾', name: 'Mecha pulsador', verb: 'puñetazo de titanio', rate: 5e10, base: 3.8e15, growth: 1.3, max: 50, every: 1.5, act: 2, ms: 4 },
-    { id: 'sat', icon: '🛰️', name: 'Satélite de pulsar', verb: 'rayo orbital', rate: 1.3e15, base: 2.3e20, growth: 1.3, max: 50, every: 1.3, act: 2, ms: 4 },
-    { id: 'portal', icon: '🌀', name: 'Portal dimensional', verb: 'manos de otros mundos', rate: 3.1e19, base: 1.5e25, growth: 1.3, max: 50, every: 1.2, act: 2, ms: 4 },
-    { id: 'hole', icon: '🕳️', name: 'Agujero negro', verb: 'gravedad que pulsa', rate: 7.8e23, base: 9.2e29, growth: 1.3, max: 50, every: 1.1, act: 2, ms: 4 },
-    { id: 'galaxy', icon: '🌌', name: 'Galaxia de botones', verb: 'lluvia de estrellas', rate: 2e28, base: 5.7e34, growth: 1.3, max: 50, every: 1, act: 2, ms: 4 },
-    { id: 'cosmic', icon: '😺', name: 'Gato cósmico', verb: 'zarpazo estelar', rate: 4.9e32, base: 3.6e39, growth: 1.3, max: 50, every: 0.9, act: 2, ms: 4 },
+    { id: 'mech', icon: '🦾', name: 'Mecha pulsador', verb: 'puñetazo de titanio', rate: 5e10, base: 1.5e16, growth: 1.3, max: 50, every: 1.5, act: 2, ms: 4 },
+    { id: 'sat', icon: '🛰️', name: 'Satélite de pulsar', verb: 'rayo orbital', rate: 1.3e15, base: 3.8e21, growth: 1.3, max: 50, every: 1.3, act: 2, ms: 4 },
+    { id: 'portal', icon: '🌀', name: 'Portal dimensional', verb: 'manos de otros mundos', rate: 3.1e19, base: 9.4e26, growth: 1.3, max: 50, every: 1.2, act: 2, ms: 4 },
+    { id: 'hole', icon: '🕳️', name: 'Agujero negro', verb: 'gravedad que pulsa', rate: 7.8e23, base: 2.3e32, growth: 1.3, max: 50, every: 1.1, act: 2, ms: 4 },
+    { id: 'galaxy', icon: '🌌', name: 'Galaxia de botones', verb: 'lluvia de estrellas', rate: 2e28, base: 5.9e37, growth: 1.3, max: 50, every: 1, act: 2, ms: 4 },
+    { id: 'cosmic', icon: '😺', name: 'Gato cósmico', verb: 'zarpazo estelar', rate: 4.9e32, base: 1.5e43, growth: 1.3, max: 50, every: 0.9, act: 2, ms: 4 },
   ]
   const MILESTONES = [10, 25, 50]
   // the first act ends at a thousand millions; the game goes on to one octillion (10^48)
@@ -25,8 +25,8 @@
   // simulated with tools: about 35 min on average from the first press to the end, 12–19 min playing hard
   const SPEEDRUN_MS = 20 * 60000
   const AVERAGE_MIN = 35
-  // the second act on top: about 20 min more playing hard, 40 at an easy pace
-  const AVERAGE_TOTAL_MIN = 60
+  // the whole game, rebirths included: about 25 min playing hard, 35 active, an hour at an easy pace
+  const AVERAGE_TOTAL_MIN = 40
 
   // the upgrade tree: each node appears once all the nodes it needs are bought
   const NODE = (id, icon, name, max, base, growth, req, x, y, desc, act = 1) => ({ id, icon, name, max, base, growth, req, x, y, desc, act })
@@ -78,8 +78,8 @@
       const h = HELPERS.find(q => q.id === id)
       const label = h.name.split(' ')[0]
       return [
-        NODE(`${id}U`, icon, name, 5, h.base * 300, 120, [i ? `${all[i - 1][0]}U` : 'act2'], x, y, l => `${label}s ×${2 ** l}`, 2),
-        NODE(`${id}C`, '🏷️', `${label}s de saldo`, 4, h.base * 50, 60, [`${id}U`], x + 0.1, y + 1.05, l => `${label}s un ${5 * l} % más baratos`, 2),
+        NODE(`${id}U`, icon, name, 5, h.base * 300, 25, [i ? `${all[i - 1][0]}U` : 'act2'], x, y, l => `${label}s ×${2 ** l}`, 2),
+        NODE(`${id}C`, '🏷️', `${label}s de saldo`, 4, h.base * 50, 20, [`${id}U`], x + 0.1, y + 1.05, l => `${label}s un ${5 * l} % más baratos`, 2),
       ]
     }),
   ]
@@ -117,15 +117,41 @@
     { id: 'starmap', icon: '🗺️', name: 'Mapa estelar', desc: 'Galaxias ×3', cost: 18, act: 2 },
     { id: 'yarn', icon: '🧶', name: 'Ovillo infinito', desc: 'Gatos cósmicos ×3', cost: 20, act: 2 },
     { id: 'egg', icon: '🥚', name: 'Huevo cósmico', desc: 'Todo ×2', cost: 30, act: 2 },
+    { id: 'compass', icon: '🧭', name: 'Brújula del patio', desc: 'Los botones dorados salen un 20 % más a menudo', cost: 6 },
+    { id: 'mirror', icon: '🪞', name: 'Espejo de feria', desc: '+10 % de que un clic cuente doble', cost: 7 },
+    { id: 'sock', icon: '🧦', name: 'Calcetín de la suerte', desc: 'Los cofres raros o mejores dan +1 fragmento', cost: 8 },
+    { id: 'alarm', icon: '⏰', name: 'Despertador loco', desc: 'El frenesí dura la mitad más', cost: 9 },
+    { id: 'trophy', icon: '🏆', name: 'Trofeo de Zarpas', desc: 'Los Zarpas tienen un 25 % menos de vida', cost: 12 },
+    { id: 'medal', icon: '🎖️', name: 'Medalla del laboratorio', desc: 'Todo +2 % por cada medalla del laboratorio', cost: 14, act: 2 },
+    { id: 'rocket', icon: '🚀', name: 'Cohete de feria', desc: 'Satélites, portales y agujeros negros ×2', cost: 22, act: 2 },
+    { id: 'feather', icon: '🪶', name: 'Pluma de fénix', desc: 'Al renacer ganas un 50 % más de almas', cost: 25, act: 2 },
   ]
   const ART_OF = { cat: 'tuna', skill: 'scroll', robot: 'oil', drone: 'battery', claude: 'chip', factory: 'gear', mech: 'fusion', sat: 'antenna', portal: 'tesseract', hole: 'lens', galaxy: 'starmap', cosmic: 'yarn' }
 
-  const fresh = () => ({ life: 0, coins: 0, helpers: {}, tree: { core: 1 }, arts: {}, shards: 0, chapter: 0, beaten: {}, at: 0, start: 0, clicks: 0, chestClicks: 0, golden: 0, chests: 0, bestCombo: 1, ended: 0 })
+  const fresh = () => ({ life: 0, coins: 0, helpers: {}, tree: { core: 1 }, arts: {}, shards: 0, chapter: 0, beaten: {}, at: 0, start: 0, clicks: 0, chestClicks: 0, golden: 0, chests: 0, bestCombo: 1, ended: 0, souls: 0, rebirths: 0 })
+  // souls of the button: one at a million millions presses, growing with the square of the digits; each one is +5 % to everything
+  const SOUL_PCT = 0.05
+  const REBIRTH_AT = 1e12
+  const soulsFor = (G, life) => (life < REBIRTH_AT ? 0 : Math.floor((Math.log10(life) - 11) ** 2 * (art(G, 'feather') ? 1.5 : 1)))
+  const pendingSouls = G => Math.max(0, soulsFor(G, G.life) - (G.souls || 0))
+  const soulMult = G => 1 + SOUL_PCT * (G.souls || 0)
+  function rebirth(G) {
+    const gain = pendingSouls(G)
+    if (!G.act1 || gain < 1) return 0
+    G.souls = (G.souls || 0) + gain
+    G.rebirths = (G.rebirths || 0) + 1
+    G.coins = 0
+    G.helpers = {}
+    G.tree = { core: 1 }
+    G.chestClicks = 0
+    return gain
+  }
   const lvl = (G, id) => G.tree[id] || 0
   const count = (G, h) => G.helpers[h.id] || 0
   const art = (G, id) => !!(G.arts && G.arts[id])
   const milestoneMult = (n, ms = 2) => ms ** MILESTONES.filter(m => n >= m).length
-  const helperMult = (G, h) => milestoneMult(count(G, h), h.ms) * 2 ** lvl(G, `${h.id}U`) * (art(G, ART_OF[h.id]) ? 3 : 1)
+  const ROCKET = ['sat', 'portal', 'hole']
+  const helperMult = (G, h) => (art(G, 'rocket') && ROCKET.includes(h.id) ? 2 : 1) * milestoneMult(count(G, h), h.ms) * 2 ** lvl(G, `${h.id}U`) * (art(G, ART_OF[h.id]) ? 3 : 1)
   const helperCost = (G, h) => Math.ceil(h.base * h.growth ** count(G, h) * 0.95 ** lvl(G, `${h.id}C`))
   const nodeCost = (G, n) => Math.ceil(n.base * n.growth ** lvl(G, n.id))
   const nodeShown = (G, n) => (n.act !== 2 || !!G.act1) && n.req.every(r => lvl(G, r) > 0)
@@ -133,7 +159,7 @@
   const artShown = (G, a) => a.act !== 2 || !!G.act1
   const comboMax = G => 1 + 0.5 * lvl(G, 'c1') + 0.5 * lvl(G, 'c4') + (art(G, 'bell') ? 1 : 0)
   // fx: the moment's boosts that the screen owns (frenzy, combo heat)
-  const globalMult = (G, fx) => 2 ** lvl(G, 'sing') * 3 ** lvl(G, 'bang') * (art(G, 'relic') ? 1.5 : 1) * (art(G, 'egg') ? 2 : 1) * (fx.frenzy || 1)
+  const globalMult = (G, fx) => 2 ** lvl(G, 'sing') * 3 ** lvl(G, 'bang') * (art(G, 'relic') ? 1.5 : 1) * (art(G, 'egg') ? 2 : 1) * (art(G, 'medal') ? 1 + 0.02 * (G.labMedals || 0) : 1) * soulMult(G) * (fx.frenzy || 1)
   const fever = (G, fx) => (fx.comboFull && lvl(G, 'c3') ? 1 + lvl(G, 'c3') : 1)
   const helperRate = (G, h, fx) => h.rate * count(G, h) * helperMult(G, h) * globalMult(G, fx) * fever(G, fx)
   const rate = (G, fx = {}) => HELPERS.reduce((sum, h) => sum + helperRate(G, h, fx), 0)
@@ -143,9 +169,10 @@
   const critMult = G => (10 + 3 * lvl(G, 'f4')) * (art(G, 'dice') ? 2 : 1)
   const comboCool = G => 1.2 * (1 + 0.25 * lvl(G, 'c2')) * (art(G, 'hourglass') ? 2 : 1)
   const chestEvery = G => Math.round(200 * 0.85 ** lvl(G, 'k2') * (art(G, 'key') ? 0.6 : 1))
-  const goldenEvery = G => 90 * 0.85 ** lvl(G, 'l2') * (art(G, 'magnet') ? 0.7 : 1)
+  const goldenEvery = G => 90 * 0.85 ** lvl(G, 'l2') * (art(G, 'magnet') ? 0.7 : 1) * (art(G, 'compass') ? 0.8 : 1)
   const offlineShare = G => (art(G, 'pillow') ? 1 : 0.5)
-  const frenzySeconds = G => 10 + 3 * lvl(G, 'l3')
+  const frenzySeconds = G => (10 + 3 * lvl(G, 'l3')) * (art(G, 'alarm') ? 1.5 : 1)
+  const doubleChance = G => 0.1 * lvl(G, 'f5') + (art(G, 'mirror') ? 0.1 : 0)
   const goldenFrenzy = G => 7 + 3 * lvl(G, 'l5')
   const chestBonus = G => 1 + lvl(G, 'k5')
   const rarityWeights = G => {
@@ -217,8 +244,8 @@
     },
     {
       title: 'Titanes de titanio',
-      intro: 'De la grieta sale un gato de metal del tamaño de un edificio: Zarpas Mecha, el primo lejano de Zarpas. Tus mechas tienen que pulsar más fuerte que él.',
-      objs: [OBJ('Ten 10 mechas pulsadores', 10, helperCount('mech')), OBJ('Compra 10 niveles del árbol cósmico', 10, G => TREE.filter(n => n.act === 2).reduce((sum, n) => sum + lvl(G, n.id), 0)), OBJ('Llega a 1.000 billones', 1e15, G => G.life)],
+      intro: 'De la grieta sale un gato de metal del tamaño de un edificio: Zarpas Mecha, el primo lejano de Zarpas. Antes de pelear, la grieta te susurra un trato: «Suéltalo todo y vuelve más fuerte». Abre la pestaña 🔆 Renacer: pierdes ayudantes, árbol y monedas, pero no lo que llevas pulsado, y cada alma de botón te da +5 % para siempre.',
+      objs: [OBJ('Renace una vez (pestaña 🔆 Renacer)', 1, G => G.rebirths || 0), OBJ('Ten 10 mechas pulsadores', 10, helperCount('mech')), OBJ('Llega a 1.000 billones', 1e15, G => G.life)],
       shards: 6,
       boss: 3,
     },
@@ -256,15 +283,15 @@
     },
   ]
   const BOSSES = [
-    { name: 'Doctor Zarpas', seconds: 30, k: 0.5, floor: 2000, shards: 3, taunts: ['¡Ese botón es MÍO!', '¡Miaaau-ja-ja!', '¿Eso es todo lo que pulsas?'], lose: '¡Volveré con armadura!' },
-    { name: 'Zarpas Acorazado', seconds: 35, k: 0.6, floor: 200000, shards: 5, taunts: ['¡Mi armadura es de lata de atún premium!', '¡Pulsa, pulsa, que no me haces nada!', '¡Bola de pelo va!'], lose: '¡Esto no ha terminado, humano!' },
-    { name: 'Zarpas Omega', seconds: 45, k: 0.7, floor: 2e7, shards: 10, taunts: ['¡SOY TODOS LOS GATOS!', '¡El botón será mi rascador!', '¡Siete vidas, siete botones!'], lose: 'Vale, vale… ¿me dejas quedarme si me das atún?' },
-    { name: 'Zarpas Mecha', seconds: 45, k: 0.7, floor: 1e13, shards: 12, taunts: ['¡TITANIO CON BIGOTES!', '¡Bip bup… MIAU!', '¡Mis pistones son más grandes!'], lose: 'Error 404: dignidad no encontrada.' },
-    { name: 'Zarpas Dimensional', seconds: 50, k: 0.75, floor: 1e22, shards: 15, taunts: ['¡En otro mundo ya he ganado!', '¡Soy mil Zarpas a la vez!', '¡Tu botón es MI botón en otra dimensión!'], lose: 'En alguna dimensión esto ha salido bien…' },
-    { name: 'Emperador Zarpas', seconds: 55, k: 0.8, floor: 1e33, shards: 25, taunts: ['¡ARRODÍLLATE ANTE EL OVILLO!', '¡Las galaxias son mi caja de arena!', '¡Un octillón de zarpazos te esperan!'], lose: 'Está bien… el patio es grande. ¿Hay atún para dos?' },
+    { name: 'Doctor Zarpas', seconds: 30, k: 0.5, floor: 400, shards: 3, taunts: ['¡Ese botón es MÍO!', '¡Miaaau-ja-ja!', '¿Eso es todo lo que pulsas?'], lose: '¡Volveré con armadura!' },
+    { name: 'Zarpas Acorazado', seconds: 35, k: 0.55, floor: 0, shards: 5, taunts: ['¡Mi armadura es de lata de atún premium!', '¡Pulsa, pulsa, que no me haces nada!', '¡Bola de pelo va!'], lose: '¡Esto no ha terminado, humano!' },
+    { name: 'Zarpas Omega', seconds: 45, k: 0.48, floor: 0, shards: 10, taunts: ['¡SOY TODOS LOS GATOS!', '¡El botón será mi rascador!', '¡Siete vidas, siete botones!'], lose: 'Vale, vale… ¿me dejas quedarme si me das atún?' },
+    { name: 'Zarpas Mecha', seconds: 45, k: 0.58, floor: 0, shards: 12, taunts: ['¡TITANIO CON BIGOTES!', '¡Bip bup… MIAU!', '¡Mis pistones son más grandes!'], lose: 'Error 404: dignidad no encontrada.' },
+    { name: 'Zarpas Dimensional', seconds: 50, k: 0.64, floor: 0, shards: 15, taunts: ['¡En otro mundo ya he ganado!', '¡Soy mil Zarpas a la vez!', '¡Tu botón es MI botón en otra dimensión!'], lose: 'En alguna dimensión esto ha salido bien…' },
+    { name: 'Emperador Zarpas', seconds: 55, k: 0.66, floor: 0, shards: 25, taunts: ['¡ARRODÍLLATE ANTE EL OVILLO!', '¡Las galaxias son mi caja de arena!', '¡Un octillón de zarpazos te esperan!'], lose: 'Está bien… el patio es grande. ¿Hay atún para dos?' },
   ]
-  // a fight scales with how hard you hit right now: beatable by pressing hard, not by idling
-  const bossHp = (G, b) => Math.max(b.floor, Math.round((rate(G) + clickValue(G, { combo: comboMax(G) }) * 5) * b.seconds * b.k))
+  // a fight scales with how hard you hit right now (crits and doubles included; frenzies do not hurt him): helpers plus three clicks a second at a fair combo
+  const bossHp = (G, b) => Math.max(b.floor, Math.round((rate(G) + clickValue(G, { combo: Math.min(3, comboMax(G)) }) * (1 + critChance(G) * (critMult(G) - 1)) * (1 + doubleChance(G)) * 3) * b.seconds * b.k * (art(G, 'trophy') ? 0.75 : 1)))
   const chapter = G => CHAPTERS[Math.min(G.chapter || 0, CHAPTERS.length - 1)]
   const chapterDone = G => chapter(G).objs.every(o => o.cur(G) >= o.target)
   // moves on to the next chapter once its objectives (and its fight) are done; returns the shards it paid
@@ -307,15 +334,16 @@
   // presses count up to the goal and are spent as coins; returns what actually counted
   function earn(G, n) {
     if (G.ended) return 0
-    // until Zarpas Omega is beaten the button stalls at half the goal: the story comes first
-    n = Math.max(0, Math.min(n, storyCap(G) - G.life))
-    G.life += n
+    // the count towards the goal stalls until the story catches up, but the coins keep coming
+    n = Math.max(0, n)
     G.coins += n
+    const counted = Math.min(n, Math.max(0, storyCap(G) - G.life))
+    G.life += counted
     if (!G.start && n) G.start = Date.now()
-    return n
+    return counted
   }
 
-  const ECON = { ACT1, ACT1_LAST, artShown, goldenFrenzy, chestBonus, maxedAct1, helpersOf, HELPERS, TREE, TREE_BY_ID, ARTS, CHAPTERS, BOSSES, MILESTONES, GOAL, RARITIES, CHEST_SHARDS, fresh, lvl, count, art, milestoneMult, helperMult, helperCost, nodeCost, nodeShown, helperShown, comboMax, rate, helperRate, clickValue, critChance, critMult, comboCool, chestEvery, goldenEvery, offlineShare, frenzySeconds, rarityWeights, treeLevels, artCount, maxedAll, chapter, chapterDone, bossHp, advance, storyCap, buyArt, buyHelper, buyNode, earn }
+  const ECON = { SOUL_PCT, REBIRTH_AT, soulsFor, pendingSouls, soulMult, rebirth, doubleChance, ACT1, ACT1_LAST, artShown, goldenFrenzy, chestBonus, maxedAct1, helpersOf, HELPERS, TREE, TREE_BY_ID, ARTS, CHAPTERS, BOSSES, MILESTONES, GOAL, RARITIES, CHEST_SHARDS, fresh, lvl, count, art, milestoneMult, helperMult, helperCost, nodeCost, nodeShown, helperShown, comboMax, rate, helperRate, clickValue, critChance, critMult, comboCool, chestEvery, goldenEvery, offlineShare, frenzySeconds, rarityWeights, treeLevels, artCount, maxedAll, chapter, chapterDone, bossHp, advance, storyCap, buyArt, buyHelper, buyNode, earn }
   if (typeof module !== 'undefined') module.exports = ECON
   if (typeof window === 'undefined') return
 
@@ -360,8 +388,12 @@
   let chestReady = 0
   let saveAt = 0
 
+  const labMedals = () => Object.keys(SL().medals || {}).filter(k => !k.startsWith('~')).length
   function load() {
-    if (G) return G
+    if (G) {
+      G.labMedals = labMedals()
+      return G
+    }
     const m = SL().medals
     try {
       G = { ...fresh(), ...JSON.parse(m['~rg'] || 'null') }
@@ -369,6 +401,7 @@
       G = fresh()
     }
     if (!m['~rg']) migrate(m)
+    G.labMedals = labMedals()
     if (G.ended && !G.act1 && G.life < GOAL) {
       G.act1 = G.ended
       G.ended = 0
@@ -521,10 +554,11 @@
       <div class="rg-bosshud" hidden><b class="name"></b><div class="hp"><i></i><span></span></div><div class="time"></div></div>
       <div class="rg-talk" hidden><div class="who"></div><p></p><button>Continuar ▸</button></div>
       <aside class="rg-side">
-        <nav class="rg-tabs"><button data-tab="helpers" class="on">🐾 Ayudantes</button><button data-tab="arts">🏺 Artefactos</button><button data-tab="story">📖 Historia</button></nav>
+        <nav class="rg-tabs"><button data-tab="helpers" class="on">🐾 Ayudantes</button><button data-tab="arts">🏺 Artefactos</button><button data-tab="story">📖 Historia</button><button data-tab="rebirth" class="rg-rebirth-tab">🔆 Renacer</button></nav>
         <div class="rg-pane rg-helpers" data-pane="helpers"></div>
         <div class="rg-pane rg-arts" data-pane="arts" hidden></div>
         <div class="rg-pane rg-story" data-pane="story" hidden></div>
+        <div class="rg-pane rg-rebirth" data-pane="rebirth" hidden></div>
       </aside>
       <footer class="rg-news"><span></span></footer>
       <div class="rg-tree" hidden>
@@ -557,6 +591,8 @@
       talk: root.querySelector('.rg-talk'),
       arts: root.querySelector('.rg-arts'),
       story: root.querySelector('.rg-story'),
+      rebirth: root.querySelector('.rg-rebirth'),
+      rebirthTab: root.querySelector('.rg-rebirth-tab'),
       helpers: root.querySelector('.rg-helpers'),
       news: root.querySelector('.rg-news span'),
       tree: root.querySelector('.rg-tree'),
@@ -884,7 +920,7 @@
     updateCombo()
     let value = clickValue(G, fx)
     const crit = Math.random() < critChance(G)
-    const dbl = Math.random() < 0.1 * lvl(G, 'f5')
+    const dbl = Math.random() < doubleChance(G)
     if (crit) value *= critMult(G)
     if (dbl) value *= 2
     G.clicks++
@@ -1521,7 +1557,7 @@
     G.chests = (G.chests || 0) + 1
     earn(G, Math.floor(reward))
     const p = toScreen(0, 118)
-    const shards = [0, 1, 3, 8][tier]
+    const shards = CHEST_SHARDS[tier] + (tier >= 1 && art(G, 'sock') ? 1 : 0)
     G.shards = (G.shards || 0) + shards
     hitstop(40 + tier * 30)
     flash(p.x, p.y, 60 + tier * 40, rar.color === '#C9CED6' ? '230,235,240' : tier === 1 ? '79,163,255' : tier === 2 ? '180,108,255' : '255,176,32')
@@ -1751,6 +1787,73 @@
     refresh()
   }
 
+  // ---------- rebirth: let it all go and come back with souls ----------
+
+  function refreshRebirth() {
+    const pend = pendingSouls(G)
+    // the tab glows when a rebirth would at least double your souls
+    ui.rebirthTab.classList.toggle('ready', !!G.act1 && pend >= Math.max(3, G.souls || 0))
+    if (ui.rebirth.hidden) return
+    const key = `${G.act1 ? 1 : 0}:${G.souls}:${pend}:${G.rebirths}`
+    if (ui.rebirth.dataset.key === key) return
+    ui.rebirth.dataset.key = key
+    if (!G.act1) {
+      ui.rebirth.innerHTML = '<div class="rg-soul"><div class="big">🔒</div><p>La grieta del patio aún está cerrada. Lleva el botón a los mil millones para abrirla.</p></div>'
+      return
+    }
+    const next = (G.souls || 0) + pend
+    ui.rebirth.innerHTML = `<div class="rg-soul">
+      <p class="lore">La grieta te ofrece un trato: suéltalo todo y vuelve más fuerte. Cada <b>alma de botón</b> 🔆 da <b>+5 %</b> a todo, para siempre.</p>
+      <div class="stats"><div><small>Almas</small><b>🔆 ${fmt(G.souls || 0)}</b><em>×${soulMult(G).toLocaleString('es-ES', { maximumFractionDigits: 2 })}</em></div><div><small>Renaceres</small><b>${G.rebirths || 0}</b></div></div>
+      <div class="gain ${pend ? '' : 'none'}">${pend ? `Si renaces ahora: <b>+${fmt(pend)} almas</b> → ×${(1 + SOUL_PCT * next).toLocaleString('es-ES', { maximumFractionDigits: 2 })}` : G.life < REBIRTH_AT ? 'Las almas empiezan a salir al llegar a 1 billón (10¹²).' : 'Sigue pulsando: cuanto más lejos llegues, más almas.'}</div>
+      <ul><li>✅ Conservas lo pulsado, la historia, los artefactos, los fragmentos y las almas.</li><li>♻️ Pierdes las monedas, los ayudantes y el árbol.</li><li>💡 Renace cuando las almas nuevas al menos dupliquen las que tienes.</li></ul>
+      <button class="rg-rebirth-btn"${pend ? '' : ' disabled'}>🔆 Renacer${pend ? ` (+${fmt(pend)})` : ''}</button></div>`
+    ui.rebirth.querySelector('.rg-rebirth-btn').addEventListener('click', askRebirth)
+  }
+  function askRebirth() {
+    if (!ui || fight || root.querySelector('.rg-end')) return
+    const pend = pendingSouls(G)
+    if (!pend) return
+    const card = document.createElement('div')
+    card.className = 'rg-end'
+    card.innerHTML = `<div class="big">🔆</div><h3>¿Renacer?</h3><p>Ganas <b>${fmt(pend)} almas</b> y todo irá ×${(1 + SOUL_PCT * ((G.souls || 0) + pend)).toLocaleString('es-ES', { maximumFractionDigits: 2 })}. Se van tus monedas, ayudantes y árbol; lo pulsado, la historia y los artefactos se quedan.</p>
+      <div class="row"><button class="done">Ahora no</button><button class="primary again">🔆 Renacer</button></div>`
+    card.querySelector('.done').addEventListener('click', () => card.remove())
+    card.querySelector('.again').addEventListener('click', () => {
+      card.remove()
+      doRebirth()
+    })
+    root.appendChild(card)
+    card.animate([{ opacity: 0, transform: 'translate(-50%,-46%) scale(.9)' }, { opacity: 1, transform: 'translate(-50%,-50%)' }], { duration: 300, easing: 'cubic-bezier(.2,.9,.3,1)' })
+  }
+  function doRebirth() {
+    // the crew goes up in light before the stage is cleared
+    const p = toScreen(0, -10)
+    for (const sp of ui.sprites) {
+      const q = toScreen(sp.x, sp.y - 20)
+      sparks(q.x, q.y, 8, '#FFF4C8', 4)
+      puff(q.x, q.y, 'rgba(255,240,200,', 0.7)
+    }
+    const gain = rebirth(G)
+    if (!gain) return
+    combo = 0
+    chestReady = 0
+    ui.g3?.chestHide()
+    SL().unlock('redrebirth')
+    save(true)
+    hitstop(160)
+    whiteFlash(0.9)
+    punch(1.1)
+    flash(p.x, p.y, 260, '255,240,180')
+    beams(p.x, p.y, '#FFE7A0')
+    confetti(p.x, p.y, 90)
+    bigText(`🔆 ¡Renaces! +${fmt(gain)} almas`, '#FFE7A0')
+    SL().beep([262, 392, 523, 784, 1047, 1568], 0.09)
+    buildSprites()
+    if (!ui.tree.hidden) buildTree()
+    refresh()
+  }
+
   // ---------- the story tab ----------
 
   function refreshStory() {
@@ -1839,8 +1942,10 @@
     bub.querySelector('text').textContent = text
     bub.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none', offset: 0.15 }, { opacity: 1, offset: 0.85 }, { opacity: 0 }], { duration: 2600, easing: 'ease-out' })
   }
+  // Zarpas shrugs off frenzies: what a frenzy adds does not hurt him
   function hurtBoss(n, crit) {
     if (!fight) return
+    n = Math.max(1, Math.floor(n / (fx.frenzy || 1)))
     fight.hp -= n
     if (ui) {
       if (!calm() && performance.now() - (fight.hitAt || 0) > 90) {
@@ -2016,6 +2121,7 @@
     refreshMission()
     refreshArts()
     refreshStory()
+    refreshRebirth()
   }
   function updateComboBar() {
     if (!ui) return

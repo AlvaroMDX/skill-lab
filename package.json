@@ -3,7 +3,7 @@
   "displayName": "Skill Lab",
   "description": "Un laboratorio isométrico donde ves trabajar a Claude Code: cada skill es un muñeco que va al puesto de tu proyecto cuando se usa.",
   "publisher": "skill-lab",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "author": {
     "name": "Alvaro Martos Diez"
   },

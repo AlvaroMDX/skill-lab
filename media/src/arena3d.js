@@ -215,31 +215,71 @@ function robotModel(shellColor = '#3D85C6', visorColor = '#7FF0FF') {
 
 // ---------- the second act's crews ----------
 
+// the cat factory: a building shaped like a cat, a tail for a chimney, a belt of boxed kittens and a giant paw that stamps the button
 function factoryModel() {
   const g = new THREE.Group()
-  const brick = mat('#9A4A32', { roughness: 0.85 })
-  const dark = mat('#3A3036', { metalness: 0.5, roughness: 0.4 })
-  const steel = mat('#B9C3CF', { metalness: 0.9, roughness: 0.25 })
-  g.add(mesh(box(0.7, 0.5, 0.5), brick, 0, 0.25, -0.05))
-  for (let k = 0; k < 3; k++) {
-    const roof = mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.5, 3), dark, -0.23 + k * 0.23, 0.55, -0.05)
-    roof.rotation.x = Math.PI / 2
-    g.add(roof)
+  const wall = mat('#F2A65A', { roughness: 0.7 })
+  const dark = mat('#5A3A2A', { roughness: 0.6 })
+  const pink = basic('#F58AA0')
+  g.add(mesh(new THREE.BoxGeometry(0.66, 0.46, 0.5), wall, 0, 0.23, -0.05))
+  const roof = mesh(new THREE.SphereGeometry(0.34, 28, 12, 0, TAU, 0, Math.PI / 2), wall, 0, 0.46, -0.05)
+  roof.scale.set(1, 0.75, 0.78)
+  g.add(roof)
+  for (const sd of [-1, 1]) {
+    const ear = mesh(cone(0.11, 0.24, 4), wall, sd * 0.2, 0.7, -0.05)
+    ear.rotation.z = -sd * 0.3
+    const inner = mesh(cone(0.06, 0.14, 4), pink, sd * 0.2, 0.68, 0)
+    inner.rotation.z = -sd * 0.3
+    const eye = mesh(new THREE.CircleGeometry(0.065, 20), basic('#FFE07A'), sd * 0.12, 0.58, 0.215)
+    const pupil = mesh(box(0.02, 0.08, 0.01), basic('#2A1A10'), sd * 0.12, 0.58, 0.22)
+    const shine = glow('#FFE07A', 0.3, 0.6)
+    shine.position.set(sd * 0.12, 0.58, 0.24)
+    g.add(ear, inner, eye, pupil, shine)
+    for (const k of [-1, 0, 1]) {
+      const w = mesh(cyl(0.006, 0.006, 0.22, 4), mat('#D8DEE6', { metalness: 0.8 }), sd * 0.3, 0.5 + k * 0.03, 0.2)
+      w.rotation.z = Math.PI / 2 + sd * k * 0.2
+      g.add(w)
+    }
   }
-  g.add(mesh(cyl(0.06, 0.07, 0.5, 12), brick, 0.24, 0.75, -0.18))
-  for (const x of [-0.2, 0.2]) g.add(mesh(box(0.14, 0.12, 0.01), basic('#FFD86A'), x, 0.32, 0.205))
-  g.add(mesh(box(0.2, 0.12, 0.02), basic('#FF8A3A'), 0, 0.12, 0.21))
+  g.add(mesh(sphere(0.03, 10), pink, 0, 0.52, 0.23))
+  g.add(mesh(box(0.16, 0.2, 0.02), dark, -0.18, 0.1, 0.205))
+  const tail = new THREE.CatmullRomCurve3([new THREE.Vector3(0.26, 0.2, -0.28), new THREE.Vector3(0.42, 0.45, -0.34), new THREE.Vector3(0.32, 0.75, -0.3), new THREE.Vector3(0.36, 0.92, -0.2)])
+  g.add(mesh(new THREE.TubeGeometry(tail, 24, 0.045, 10), wall))
   const smoke = [0, 1, 2].map(i => {
-    const p = glow('#CFC8C0', 0.3, 0.3)
+    const p = glow('#E8E2DA', 0.3, 0.3)
     p.material.blending = THREE.NormalBlending
-    p.position.set(0.24, 1.05 + i * 0.18, -0.18)
+    p.position.set(0.36, 1.0 + i * 0.18, -0.2)
     g.add(p)
     return p
   })
-  const { arm, rod, fist } = pistonArm(dark, steel, 0.16)
-  arm.position.set(0, 0.25, 0.25)
+  // the belt runs out of the door towards the button
+  g.add(mesh(box(0.2, 0.04, 0.5), mat('#2A2A30', { roughness: 0.5 }), -0.18, 0.03, 0.42))
+  const belt = [0, 1, 2].map(() => {
+    const b = new THREE.Group()
+    b.add(mesh(box(0.1, 0.08, 0.1), mat('#C9A06A', { roughness: 0.9 }), 0, 0.04, 0))
+    for (const sd of [-1, 1]) b.add(mesh(cone(0.02, 0.04, 4), wall, sd * 0.03, 0.1, 0))
+    b.position.set(-0.18, 0.05, 0.3)
+    g.add(b)
+    return b
+  })
+  // the stamp: a piston that ends in a big paw with pink beans
+  const arm = new THREE.Group()
+  arm.position.set(0.12, 0.3, 0.22)
+  const rod = mesh(cyl(0.035, 0.035, 1, 12), mat('#B9C3CF', { metalness: 0.9, roughness: 0.25 }))
+  rod.rotation.x = Math.PI / 2
+  rod.position.z = 0.5
+  const holder = new THREE.Group()
+  holder.add(rod)
+  holder.scale.z = 0.12
+  const fist = new THREE.Group()
+  fist.position.z = 0.14
+  const palm = mesh(sphere(0.09, 16), wall)
+  palm.scale.set(1.1, 1, 0.8)
+  fist.add(palm, mesh(sphere(0.035, 10), pink, 0, -0.01, 0.07))
+  for (const k of [-1, 0, 1]) fist.add(mesh(sphere(0.02, 8), pink, k * 0.04, 0.05, 0.065))
+  arm.add(holder, fist)
   g.add(arm)
-  return { g, parts: { arm, rod, fist, smoke } }
+  return { g, parts: { arm, rod: holder, fist, smoke, belt } }
 }
 function mechModel() {
   const m = robotModel('#C8352B', '#FFD84F')
@@ -599,6 +639,71 @@ function artModel(id) {
     for (let k = 0; k < 5; k++) g.add(mesh(sphere(0.02, 6), basic('#FFD84F'), Math.cos(k) * 0.2, rnd(-0.15, 0.2), Math.sin(k) * 0.2))
     color = '#FFD84F'
   }
+  else if (id === 'compass') {
+    g.add(mesh(cyl(0.2, 0.2, 0.05, 28), gold))
+    const face = mesh(cyl(0.17, 0.17, 0.052, 28), mat('#F4EEDC'))
+    g.add(face)
+    const needle = mesh(cone(0.03, 0.3, 4), basic('#D02A2A'), 0, 0.03, 0)
+    needle.rotation.x = Math.PI / 2
+    g.add(needle)
+    g.rotation.x = 1.1
+    color = '#FFD84F'
+  } else if (id === 'mirror') {
+    g.add(mesh(torus(0.2, 0.035), mat('#B8862B', { metalness: 0.9, roughness: 0.25 })))
+    g.add(mesh(new THREE.CircleGeometry(0.19, 28), mat('#DDEEFF', { metalness: 1, roughness: 0.05, side: THREE.DoubleSide })))
+    g.add(mesh(cyl(0.025, 0.025, 0.2, 8), mat('#B8862B', { metalness: 0.9 }), 0, -0.3, 0))
+    color = '#DDEEFF'
+  } else if (id === 'sock') {
+    const leg = mesh(cyl(0.08, 0.08, 0.3, 16), mat('#3AA0FF', { roughness: 0.9 }), 0, 0.08, 0)
+    const foot = mesh(capsule(0.08, 0.14), mat('#3AA0FF', { roughness: 0.9 }), 0.08, -0.1, 0)
+    foot.rotation.z = Math.PI / 2
+    g.add(leg, foot, mesh(cyl(0.085, 0.085, 0.06, 16), mat('#FFFFFF'), 0, 0.2, 0), mesh(sphere(0.05, 10), mat('#FF5A6A'), 0.15, -0.1, 0))
+    color = '#7FC8FF'
+  } else if (id === 'alarm') {
+    g.add(mesh(cyl(0.18, 0.18, 0.1, 28), mat('#E8352B', { roughness: 0.35 })))
+    g.children[g.children.length - 1].rotation.x = Math.PI / 2
+    const face = mesh(new THREE.CircleGeometry(0.15, 24), mat('#FFFFFF'), 0, 0, 0.052)
+    g.add(face, mesh(box(0.015, 0.11, 0.01), basic('#141010'), 0, 0.04, 0.06), mesh(box(0.08, 0.015, 0.01), basic('#141010'), 0.03, 0, 0.06))
+    for (const sd of [-1, 1]) g.add(mesh(sphere(0.06, 12), gold, sd * 0.12, 0.17, 0))
+    color = '#FF6A5A'
+  } else if (id === 'trophy') {
+    const cup = mesh(new THREE.CylinderGeometry(0.16, 0.06, 0.22, 24, 1, true), gold, 0, 0.1, 0)
+    cup.material.side = THREE.DoubleSide
+    g.add(cup, mesh(cyl(0.025, 0.025, 0.12, 8), gold, 0, -0.06, 0), mesh(box(0.18, 0.06, 0.12), mat('#3A2A20'), 0, -0.14, 0))
+    for (const sd of [-1, 1]) g.add(mesh(torus(0.06, 0.015), gold, sd * 0.17, 0.12, 0))
+    color = '#FFD84F'
+  } else if (id === 'medal') {
+    g.add(mesh(cyl(0.14, 0.14, 0.03, 28), gold))
+    g.children[g.children.length - 1].rotation.x = Math.PI / 2
+    g.add(mesh(new THREE.CircleGeometry(0.09, 5), basic('#D97757'), 0, 0, 0.02))
+    for (const sd of [-1, 1]) {
+      const r = mesh(box(0.07, 0.22, 0.01), mat(sd < 0 ? '#3A6AD0' : '#D03A3A'), sd * 0.05, 0.22, 0)
+      r.rotation.z = sd * 0.25
+      g.add(r)
+    }
+    color = '#FFD84F'
+  } else if (id === 'rocket') {
+    g.add(mesh(capsule(0.08, 0.22), mat('#F2F2F2', { roughness: 0.3 })), mesh(cone(0.08, 0.14, 16), mat('#D02A2A'), 0, 0.25, 0), mesh(new THREE.CircleGeometry(0.04, 16), basic('#7FC8FF'), 0, 0.06, 0.08))
+    for (let k = 0; k < 3; k++) {
+      const fin = mesh(box(0.01, 0.1, 0.08), mat('#D02A2A'), Math.cos((k * TAU) / 3) * 0.08, -0.14, Math.sin((k * TAU) / 3) * 0.08)
+      fin.rotation.y = (-k * TAU) / 3
+      g.add(fin)
+    }
+    const fire = glow('#FFB020', 0.35, 0.9)
+    fire.position.y = -0.24
+    g.add(fire)
+    g.rotation.z = 0.5
+    color = '#FFB020'
+  } else if (id === 'feather') {
+    const vane = mesh(sphere(0.12, 16), mat('#FF7A2A', { emissive: '#FF4A1A', emissiveIntensity: 0.7, side: THREE.DoubleSide }))
+    vane.scale.set(0.45, 1.6, 0.08)
+    g.add(vane, mesh(cyl(0.008, 0.008, 0.42, 6), mat('#FFE07A'), 0, -0.05, 0.01))
+    const tip = glow('#FF7A2A', 0.5, 0.7)
+    tip.position.y = 0.15
+    g.add(tip)
+    g.rotation.z = -0.5
+    color = '#FF7A2A'
+  }
   const halo = glow(color, 0.9, 0.35)
   g.add(halo)
   return { g, color, halo }
@@ -606,7 +711,7 @@ function artModel(id) {
 
 // the helper artifacts sit on pedestals behind their crew; the rest circle above the button
 const ART_HOME = { tuna: 'cat', scroll: 'skill', oil: 'robot', battery: 'drone', chip: 'claude', gear: 'factory', fusion: 'mech', antenna: 'sat', tesseract: 'portal', lens: 'hole', starmap: 'galaxy', yarn: 'cosmic' }
-const ORBITERS = ['pillow', 'hourglass', 'magnet', 'clover', 'key', 'relic', 'dice', 'bell', 'egg']
+const ORBITERS = ['pillow', 'hourglass', 'magnet', 'clover', 'key', 'relic', 'dice', 'bell', 'egg', 'compass', 'mirror', 'sock', 'alarm', 'trophy', 'medal', 'rocket', 'feather']
 const HOME_ANGLE = { cat: 2.3, skill: 3.3, robot: 4.4, drone: 5.4, claude: 0.8, factory: 2.13, mech: 3.0, sat: 3.87, portal: 4.75, hole: 5.62, galaxy: 0.21, cosmic: 1.08 }
 
 // ---------- the evil cat ----------
@@ -1134,8 +1239,14 @@ export function create(canvas, opts) {
     }
     const owned = ORBITERS.filter(o => arts[o])
     const k = owned.indexOf(id)
-    const a = now * 0.00035 + (k / Math.max(1, owned.length)) * TAU
-    return new THREE.Vector3(Math.cos(a) * 1.45, 1.75 + Math.sin(now * 0.0021 + k) * 0.1, Math.sin(a) * 1.15)
+    const inner = owned.slice(0, 9)
+    const outerRing = owned.slice(9)
+    if (k < 9) {
+      const a = now * 0.00035 + (k / Math.max(1, inner.length)) * TAU
+      return new THREE.Vector3(Math.cos(a) * 1.45, 1.75 + Math.sin(now * 0.0021 + k) * 0.1, Math.sin(a) * 1.15)
+    }
+    const a = -now * 0.00025 + ((k - 9) / Math.max(1, outerRing.length)) * TAU
+    return new THREE.Vector3(Math.cos(a) * 2.1, 2.45 + Math.sin(now * 0.0019 + k) * 0.1, Math.sin(a) * 1.7)
   }
   function setArts(ids, reveal, onLand) {
     // a restarted game takes its relics off the stage
@@ -1362,6 +1473,12 @@ export function create(canvas, opts) {
         P.head.rotation.y = Math.sin(t * 0.9) * 0.3
       }
       if (P.spin) for (const sp of P.spin) sp.o.rotation[sp.axis] += sp.speed * (1 + st.heat)
+      if (P.belt)
+        P.belt.forEach((b, i) => {
+          const k = (t * 0.3 + i / 3) % 1
+          b.position.z = 0.2 + k * 0.45
+          b.scale.setScalar(k < 0.12 ? k / 0.12 : k > 0.88 ? (1 - k) / 0.12 : 1)
+        })
       if (P.smoke)
         P.smoke.forEach((p, i) => {
           const k = (t * 0.5 + i / 3) % 1
