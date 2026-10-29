@@ -1,5 +1,8 @@
 # Cambios
 
+## 1.8.2 — 2026-10-29
+- Las fotos de los modelos 3D ya se ven en las estanterías: la política de seguridad del panel bloqueaba las imágenes.
+
 ## 1.8.1 — 2026-10-29
 - El panel lateral es ahora un mueble de madera con estanterías, al estilo de la tienda de Bills Must Be Paid. Los ayudantes y los artefactos salen con su modelo 3D en una balda, los que aún no tienes son una silueta negra, y abajo un mostrador explica el que tienes bajo el ratón.
 - Los logros son trofeos en las baldas, las pestañas son texto con el subrayado ámbar del menú del juego y el capítulo en curso de la historia es una nota de papel.
