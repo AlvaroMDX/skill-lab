@@ -1,5 +1,9 @@
 # Cambios
 
+## 1.8.1 — 2026-10-29
+- El panel lateral es ahora un mueble de madera con estanterías, al estilo de la tienda de Bills Must Be Paid. Los ayudantes y los artefactos salen con su modelo 3D en una balda, los que aún no tienes son una silueta negra, y abajo un mostrador explica el que tienes bajo el ratón.
+- Los logros son trofeos en las baldas, las pestañas son texto con el subrayado ámbar del menú del juego y el capítulo en curso de la historia es una nota de papel.
+
 ## 1.8.0 — 2026-10-29
 - El renacer con almas se sustituye por un prestigio como el de Bills Must Be Paid: en el segundo acto llegan **facturas** con fecha de vencimiento. Si se pasa el plazo, el cobrador se lleva del 20 al 50 % de todo lo que ganas; con tres días de retraso te embarga.
 - Cada factura pagada suma **legado** ⚜️ (la 1.ª da 1, la 2.ª da 2…) y te deja **elegir una carta** entre tres: interés, horas extra, nudillos de hierro, rebaja, prórroga, ganzúa, racha, congelación o trato con Zarpas.

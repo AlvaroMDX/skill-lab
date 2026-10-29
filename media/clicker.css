@@ -426,3 +426,58 @@
 #rg .rg-achlist div.got i { filter: none; }
 #rg .rg-achlist div.got b { color: var(--amber); }
 #rg .rg-ach-tab { font-size: 15px !important; }
+/* the side panel as a wooden cabinet with shelves */
+#rg .rg-side { background: linear-gradient(90deg, #22140a, #36210f 5%, #3a2414 50%, #36210f 95%, #22140a); border: 5px solid #1a0f07; box-shadow: inset 0 0 36px rgba(0, 0, 0, .75), 0 10px 28px rgba(0, 0, 0, .6); padding: 6px 8px 8px; }
+#rg .rg-tabs { gap: 0; margin: 0 -2px 8px; border-bottom: 1px solid #5a3a20; }
+#rg .rg-tabs button, #rg .rg-tabs button.on { flex: 1 1 auto; padding: 6px 2px 7px; font: 600 13px var(--cond) !important; color: #8a7a64; background: none; border: none; box-shadow: none; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+#rg .rg-tabs button:hover { color: #d8c8b4; background: none; }
+#rg .rg-tabs button.on { color: #fff; border-bottom-color: #FFB02A; }
+#rg .rg-tabs button.ready { color: var(--amber); }
+/* shelves: three cells a row, each standing on a plank */
+#rg .rg-shelves { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 6px; padding: 6px 6px 2px; background: repeating-linear-gradient(90deg, rgba(0, 0, 0, .09) 0 3px, transparent 3px 12px), linear-gradient(#2e1c10, #24160c); border: 3px solid #1a0f07; box-shadow: inset 0 6px 14px rgba(0, 0, 0, .55); }
+#rg .rg-shelves.trophies { grid-template-columns: repeat(4, 1fr); }
+#rg .rg-helpers { gap: 8px; }
+#rg .rg-shelves .rg-hrow { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 2px 6px; background: none; border: none; border-bottom: 8px solid #4a2c16; box-shadow: 0 5px 0 -2px #1a0f07; text-align: center; }
+#rg .rg-shelves .rg-hrow:hover, #rg .rg-shelves .rg-coin:hover, #rg .rg-trophy:hover { background: radial-gradient(ellipse at 50% 55%, rgba(255, 220, 150, .13), transparent 70%); }
+#rg .rg-shelves .rg-hrow.afford { border-color: #4a2c16; }
+#rg .rg-shelves .rg-hrow.afford .ic img { filter: drop-shadow(0 0 7px rgba(255, 220, 140, .6)) drop-shadow(0 4px 3px rgba(0, 0, 0, .6)); }
+#rg .rg-shelves .ic { grid-row: auto; height: 60px; display: flex; align-items: flex-end; justify-content: center; font-size: 34px; }
+#rg .rg-shelves .ic img { width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 4px 3px rgba(0, 0, 0, .6)); }
+#rg .rg-shelves .rg-hrow.locked { opacity: 1; }
+#rg .rg-shelves .rg-hrow.locked .ic { filter: brightness(0); opacity: .8; }
+#rg .rg-shelves .rg-hrow.locked .buy { display: none; }
+#rg .rg-shelves .tx { width: 100%; }
+#rg .rg-shelves .rg-hrow b { font: 600 12px var(--cond); color: #f2e6cf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+#rg .rg-shelves .rg-hrow b i { display: block; color: #c8a878; font-size: 11px; }
+#rg .rg-shelves .rg-hrow small { display: none; }
+#rg .rg-shelves .rg-hrow .bar { height: 3px; margin: 2px 6px 0; background: #1a0f07; }
+#rg .rg-shelves .rg-hrow .bar u { background: linear-gradient(90deg, #A8761E, #FFE7A0); }
+#rg .rg-shelves .buy { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+#rg .rg-shelves .buy button { padding: 2px 2px; font: 600 11px var(--cond); color: #c8a878; background: #1a120c; border: 1px solid #3a2a1a; box-shadow: none; justify-content: center; }
+#rg .rg-shelves .buy button[data-n="1"] { grid-column: 1 / 3; color: #FFE7A0; border-color: #8a6a3a; font-size: 12px; }
+#rg .rg-shelves .buy button:disabled { color: #6a5a4a; border-color: #2a1e14; filter: none; opacity: .7; }
+/* the counter under the shelves: what the item under the mouse does */
+#rg .rg-counter { position: sticky; bottom: -8px; margin-top: 6px; padding: 7px 9px; background: #120c08; border: 1px solid #5a4a2a; font-family: var(--cond); display: flex; flex-direction: column; gap: 2px; box-shadow: 0 -6px 12px rgba(0, 0, 0, .45); }
+#rg .rg-counter b { color: var(--amber); font-size: 15px; }
+#rg .rg-counter small { color: #d8c8b4; font-size: 12px; line-height: 1.35; }
+/* artifacts on the shelves */
+#rg .rg-shelves.arts { grid-template-columns: repeat(4, 1fr); }
+#rg .rg-shelves .rg-coin { aspect-ratio: auto; border-radius: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 4px; background: none; border: none; border-bottom: 8px solid #4a2c16; box-shadow: 0 5px 0 -2px #1a0f07; animation: none; }
+#rg .rg-shelves .rg-coin .ic { height: 48px; font-size: 28px; opacity: 1; filter: brightness(0); }
+#rg .rg-shelves .rg-coin .ic img { width: 50px; height: 50px; }
+#rg .rg-shelves .rg-coin.owned .ic { filter: none; }
+#rg .rg-shelves .rg-coin.afford .ic { filter: brightness(0) drop-shadow(0 0 6px rgba(255, 220, 140, .9)); }
+#rg .rg-shelves .rg-coin em { padding: 0 5px; font: 600 10px var(--cond); font-style: normal; color: #8a7a64; background: #1a120c; border: 1px solid #3a2a1a; white-space: nowrap; }
+#rg .rg-shelves .rg-coin.afford em { color: #9FE8FF; border-color: #3a6a7a; }
+#rg .rg-shelves .rg-coin.owned em { color: #fff; }
+/* trophies */
+#rg .rg-trophy { display: flex; align-items: flex-end; justify-content: center; height: 54px; padding-bottom: 2px; border-bottom: 8px solid #4a2c16; box-shadow: 0 5px 0 -2px #1a0f07; }
+#rg .rg-trophy i { font-style: normal; font-size: 30px; filter: brightness(0); opacity: .75; }
+#rg .rg-trophy.got i { filter: drop-shadow(0 3px 2px rgba(0, 0, 0, .6)); opacity: 1; }
+#rg .rg-hintline { font-family: var(--cond); font-size: 12px; color: #b8a894; }
+/* story: the chapters as notes on the shelf */
+#rg .rg-chapter { font-family: var(--cond); font-size: 13px; }
+#rg .rg-chapter.now { background: linear-gradient(#EED3AE, #E2BF95); color: #1a1310; border-color: #7a1a14; }
+#rg .rg-chapter.now p { color: #3a2a20; font-family: var(--mono); font-size: 11px; }
+#rg .rg-chapter.now b { color: #1a1310; }
+#rg .rg-act { font-family: var(--cond); font-size: 13px; letter-spacing: 2px; }

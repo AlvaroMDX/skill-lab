@@ -1574,6 +1574,67 @@ export function create(canvas, opts) {
     return null
   }
 
+  // ---------- pictures of the models for the shelves ----------
+
+  // rendered once with the stage's own renderer into a small target, then kept as images
+  const thumbs = {}
+  function thumb(key, build) {
+    if (thumbs[key]) return thumbs[key]
+    const size = 192
+    const rt = new THREE.WebGLRenderTarget(size, size)
+    rt.texture.colorSpace = THREE.SRGBColorSpace
+    const sc = new THREE.Scene()
+    sc.environment = scene.environment
+    const sun = new THREE.DirectionalLight('#FFE2B8', 2.4)
+    sun.position.set(2, 4, 3)
+    const rim = new THREE.DirectionalLight('#9FC8FF', 0.9)
+    rim.position.set(-3, 2, -2)
+    sc.add(sun, rim, new THREE.AmbientLight('#FFFFFF', 0.35))
+    const obj = build()
+    obj.traverse(o => {
+      if (o.isSprite) o.visible = false
+    })
+    sc.add(obj)
+    // frame the solid parts only: glows, halos and beams would make the model tiny
+    obj.updateMatrixWorld(true)
+    const box = new THREE.Box3()
+    obj.traverse(o => {
+      if (!o.isMesh || !o.visible) return
+      const m = [].concat(o.material)[0]
+      if (m && (m.blending === THREE.AdditiveBlending || (m.transparent && m.opacity < 0.6))) return
+      box.expandByObject(o, true)
+    })
+    if (box.isEmpty()) box.setFromObject(obj, true)
+    const c = box.getCenter(new THREE.Vector3())
+    const r = Math.max(...box.getSize(new THREE.Vector3()).toArray()) || 1
+    const cam2 = new THREE.PerspectiveCamera(28, 1, 0.01, 100)
+    cam2.position.set(c.x + r * 0.7, c.y + r * 0.55, c.z + r * 2.1)
+    cam2.lookAt(c)
+    const prev = renderer.getRenderTarget()
+    const prevColor = renderer.getClearColor(new THREE.Color())
+    const prevAlpha = renderer.getClearAlpha()
+    renderer.setRenderTarget(rt)
+    renderer.setClearColor(0x000000, 0)
+    renderer.clear()
+    renderer.render(sc, cam2)
+    const px = new Uint8Array(size * size * 4)
+    renderer.readRenderTargetPixels(rt, 0, 0, size, size, px)
+    renderer.setRenderTarget(prev)
+    renderer.setClearColor(prevColor, prevAlpha)
+    const cv = document.createElement('canvas')
+    cv.width = cv.height = size
+    const img = cv.getContext('2d').createImageData(size, size)
+    for (let y = 0; y < size; y++) img.data.set(px.subarray((size - 1 - y) * size * 4, (size - y) * size * 4), y * size * 4)
+    cv.getContext('2d').putImageData(img, 0, 0)
+    thumbs[key] = cv.toDataURL()
+    rt.dispose()
+    obj.traverse(o => {
+      o.geometry?.dispose()
+      for (const m of [].concat(o.material || [])) m.dispose()
+    })
+    return thumbs[key]
+  }
+
   // ---------- the frame ----------
 
   const gold = new THREE.Color('#FFC21A')
@@ -1998,6 +2059,8 @@ export function create(canvas, opts) {
     bossStagger,
     bossGone,
     bossHead,
+    thumbHelper: (kind, coat) => thumb(`h:${kind}:${coat}`, () => KIND[kind].model(coat, 0).g),
+    thumbArt: id => thumb(`a:${id}`, () => artModel(id).g),
     arena: (x, y) => toPx(arenaWorld(x, y)),
     point: (x, y, z) => toPx(new THREE.Vector3(x, y, z)),
     setAct2(on) {

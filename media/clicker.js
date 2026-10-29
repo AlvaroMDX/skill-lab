@@ -738,7 +738,7 @@
       <div class="rg-banner" hidden><b></b><small></small></div>
       <div class="rg-talk" hidden><div class="who"></div><p></p><button>Continuar ▸</button></div>
       <aside class="rg-side">
-        <nav class="rg-tabs"><button data-tab="helpers" class="on">🐾 Ayudantes</button><button data-tab="arts">🏺 Artefactos</button><button data-tab="story">📖 Historia</button><button data-tab="bills" class="rg-bills-tab">🧾 Facturas</button><button data-tab="ach" class="rg-ach-tab" title="Logros del juego">🏆</button></nav>
+        <nav class="rg-tabs"><button data-tab="helpers" class="on">Ayudantes</button><button data-tab="arts">Artefactos</button><button data-tab="story">Historia</button><button data-tab="bills" class="rg-bills-tab">Facturas</button><button data-tab="ach" class="rg-ach-tab">Logros</button></nav>
         <div class="rg-pane rg-helpers" data-pane="helpers"></div>
         <div class="rg-pane rg-arts" data-pane="arts" hidden></div>
         <div class="rg-pane rg-story" data-pane="story" hidden></div>
@@ -1934,8 +1934,8 @@
   // ---------- artifacts ----------
 
   function buildArts() {
-    ui.arts.innerHTML = `<div class="rg-album"><div class="felt">${ARTS.map(a => `<button class="rg-coin" data-art="${a.id}"><span class="ic">${a.icon}</span></button>`).join('')}</div></div>
-      <div class="rg-coininfo"><b>Colección de artefactos</b><small>Pasa por encima de un hueco para verlo. Los fragmentos 💠 salen de los cofres raros, de los botones dorados, de los capítulos y de vencer a Zarpas.</small><em></em></div>`
+    ui.arts.innerHTML = `<div class="rg-shelves arts">${ARTS.map(a => `<button class="rg-coin" data-art="${a.id}"><span class="ic">${thumbOf('a', a.id) ? `<img src="${thumbOf('a', a.id)}" alt="">` : a.icon}</span><em>${a.cost} 💠</em></button>`).join('')}</div>
+      <div class="rg-coininfo rg-counter"><b>Artefactos</b><small>Pasa por encima de un hueco para verlo. Los fragmentos 💠 salen de los cofres raros, de los botones dorados, de los capítulos y de vencer a Zarpas.</small><em></em></div>`
     ui.arts.querySelectorAll('[data-art]').forEach(b => {
       b.addEventListener('mouseenter', () => artInfo(b.dataset.art))
       b.addEventListener('click', () => buyArtifact(b.dataset.art))
@@ -1956,6 +1956,7 @@
       b.hidden = !artShown(G, a)
       b.classList.toggle('owned', owned)
       b.classList.toggle('afford', !owned && (G.shards || 0) >= a.cost)
+      b.querySelector('em').textContent = owned ? 'Tuyo' : `${a.cost} 💠`
     }
   }
   function buyArtifact(id) {
@@ -2032,7 +2033,16 @@
     const got = ACH.filter(a => (G.ach || {})[a[0]]).length
     ui.ach.innerHTML = `<div class="rg-achhead"><b>Logros</b><span>${got} / ${ACH.length}</span><i style="width:${((got / ACH.length) * 100).toFixed(1)}%"></i></div>
       <p class="rg-hintline">Al conseguirlos todos, el laboratorio te da su medalla 🏆 Platino del botón.</p>
-      <div class="rg-achlist">${ACH.map(a => `<div class="${(G.ach || {})[a[0]] ? 'got' : ''}"><i>${a[1]}</i><span><b>${a[2]}</b><small>${a[3]}</small></span></div>`).join('')}</div>`
+      <div class="rg-shelves trophies">${ACH.map(a => `<div class="rg-trophy${(G.ach || {})[a[0]] ? ' got' : ''}" data-a="${a[0]}"><i>${a[1]}</i></div>`).join('')}</div>
+      <div class="rg-counter"><b>Pasa por encima de un trofeo</b><small></small></div>`
+    ui.ach.querySelectorAll('[data-a]').forEach(t =>
+      t.addEventListener('mouseenter', () => {
+        const a = ACH.find(x => x[0] === t.dataset.a)
+        const box = ui.ach.querySelector('.rg-counter')
+        box.querySelector('b').textContent = `${a[1]} ${a[2]}${(G.ach || {})[a[0]] ? ' ✓' : ''}`
+        box.querySelector('small').textContent = a[3]
+      }),
+    )
   }
 
   // ---------- bills, bankruptcy and the legacy jeweller ----------
@@ -2774,11 +2784,31 @@
 
   // ---------- the side list of helpers ----------
 
+  // a picture of the 3D model for the shelves, when the stage is in 3D
+  function thumbOf(kind, id) {
+    if (!ui?.g3) return null
+    try {
+      return kind === 'h' ? ui.g3.thumbHelper(id, SL().catCoat()) : ui.g3.thumbArt(id)
+    } catch {
+      return null
+    }
+  }
+  function helperInfo() {
+    const row = ui.hsel
+    if (!row) return
+    const box = ui.helpers.querySelector('.rg-counter')
+    box.querySelector('b').textContent = `${row.querySelector('.nm').textContent} ${row.querySelector('i').textContent}`
+    box.querySelector('small').textContent = row.querySelector('small').textContent
+  }
   function buildHelpers() {
-    ui.helpers.innerHTML = HELPERS.map(
-      h => `<div class="rg-hrow" data-h="${h.id}"><span class="ic">${h.icon}</span><span class="tx"><b><span class="nm"></span> <i></i></b><small></small><em class="bar"><u></u></em></span>
+    ui.helpers.innerHTML = `<div class="rg-shelves">${HELPERS.map(
+      h => `<div class="rg-hrow" data-h="${h.id}"><span class="ic">${thumbOf('h', h.id) ? `<img src="${thumbOf('h', h.id)}" alt="">` : h.icon}</span><span class="tx"><b><span class="nm"></span> <i></i></b><small></small><em class="bar"><u></u></em></span>
         <span class="buy"><button data-n="1"></button><button data-n="10">×10</button><button data-n="max">MÁX</button></span></div>`,
-    ).join('')
+    ).join('')}</div><div class="rg-counter"><b>Ayudantes</b><small>Pasa por encima de uno para ver lo que hace.</small></div>`
+    ui.helpers.querySelectorAll('[data-h]').forEach(row => row.addEventListener('mouseenter', () => {
+      ui.hsel = row
+      helperInfo()
+    }))
     ui.helpers.querySelectorAll('[data-h]').forEach(row => {
       const h = HELPERS.find(x => x.id === row.dataset.h)
       row.querySelectorAll('button').forEach(b =>
@@ -2857,6 +2887,7 @@
       row.querySelector('[data-n="max"]').disabled = one.disabled
       row.classList.toggle('afford', !one.disabled)
     })
+    helperInfo()
     if (!ui.tree.hidden) refreshTree()
     refreshMission()
     refreshArts()

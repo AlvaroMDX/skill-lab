@@ -20,9 +20,9 @@
 
 ## Instalación
 
-1. Descarga `skill-lab-1.8.0.vsix` de la última [release](https://github.com/AlvaroMDX/skill-lab/releases/latest).
+1. Descarga `skill-lab-1.8.1.vsix` de la última [release](https://github.com/AlvaroMDX/skill-lab/releases/latest).
 2. En VS Code: **Extensiones → ··· → Install from VSIX…** y elige el fichero.
-   También desde un terminal: `code --install-extension skill-lab-1.8.0.vsix`.
+   También desde un terminal: `code --install-extension skill-lab-1.8.1.vsix`.
 3. Recarga la ventana (**Developer: Reload Window**).
 
 Para compilarla desde el código:
