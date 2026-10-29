@@ -8,25 +8,25 @@
     { id: 'robot', icon: '🤖', name: 'Robot de turno', verb: 'pistón hidráulico', rate: 5, base: 8500, growth: 1.15, max: 50, every: 1.25 },
     { id: 'drone', icon: '🛸', name: 'Escuadrón de drones', verb: 'láser de precisión', rate: 30, base: 85000, growth: 1.15, max: 40, every: 0.95 },
     { id: 'claude', icon: '✴️', name: 'Claude en bucle', verb: 'pulsa sin descanso', rate: 200, base: 1100000, growth: 1.15, max: 25, every: 0.6 },
-    // second act: past the thousand millions, each crew is worth hundreds of thousands of the one before; milestones ×4
-    { id: 'factory', icon: '🏭', name: 'Fábrica de gatos', verb: 'estampa el botón', rate: 2e6, base: 6e10, growth: 1.3, max: 50, every: 1.6, act: 2, ms: 4 },
-    { id: 'mech', icon: '🦾', name: 'Mecha pulsador', verb: 'puñetazo de titanio', rate: 5e10, base: 1.5e16, growth: 1.3, max: 50, every: 1.5, act: 2, ms: 4 },
-    { id: 'sat', icon: '🛰️', name: 'Satélite de pulsar', verb: 'rayo orbital', rate: 1.3e15, base: 3.8e21, growth: 1.3, max: 50, every: 1.3, act: 2, ms: 4 },
-    { id: 'portal', icon: '🌀', name: 'Portal dimensional', verb: 'manos de otros mundos', rate: 3.1e19, base: 9.4e26, growth: 1.3, max: 50, every: 1.2, act: 2, ms: 4 },
-    { id: 'hole', icon: '🕳️', name: 'Agujero negro', verb: 'gravedad que pulsa', rate: 7.8e23, base: 2.3e32, growth: 1.3, max: 50, every: 1.1, act: 2, ms: 4 },
-    { id: 'galaxy', icon: '🌌', name: 'Galaxia de botones', verb: 'lluvia de estrellas', rate: 2e28, base: 5.9e37, growth: 1.3, max: 50, every: 1, act: 2, ms: 4 },
-    { id: 'cosmic', icon: '😺', name: 'Gato cósmico', verb: 'zarpazo estelar', rate: 4.9e32, base: 1.5e43, growth: 1.3, max: 50, every: 0.9, act: 2, ms: 4 },
+    // second act: past the thousand millions, each crew is worth hundreds of thousands of the one before; milestones ×4, ×1,25 per unit
+    { id: 'factory', icon: '🏭', name: 'Fábrica de gatos', verb: 'estampa el botón', rate: 2e6, base: 6e10, growth: 1.25, max: 50, every: 1.6, act: 2, ms: 4 },
+    { id: 'mech', icon: '🦾', name: 'Mecha pulsador', verb: 'puñetazo de titanio', rate: 5e10, base: 1.5e16, growth: 1.25, max: 50, every: 1.5, act: 2, ms: 4 },
+    { id: 'sat', icon: '🛰️', name: 'Satélite de pulsar', verb: 'rayo orbital', rate: 1.3e15, base: 3.8e21, growth: 1.25, max: 50, every: 1.3, act: 2, ms: 4 },
+    { id: 'portal', icon: '🌀', name: 'Portal dimensional', verb: 'manos de otros mundos', rate: 3.1e19, base: 9.4e26, growth: 1.25, max: 50, every: 1.2, act: 2, ms: 4 },
+    { id: 'hole', icon: '🕳️', name: 'Agujero negro', verb: 'gravedad que pulsa', rate: 7.8e23, base: 2.3e32, growth: 1.25, max: 50, every: 1.1, act: 2, ms: 4 },
+    { id: 'galaxy', icon: '🌌', name: 'Galaxia de botones', verb: 'lluvia de estrellas', rate: 2e28, base: 5.9e37, growth: 1.25, max: 50, every: 1, act: 2, ms: 4 },
+    { id: 'cosmic', icon: '😺', name: 'Gato cósmico', verb: 'zarpazo estelar', rate: 4.9e32, base: 1.5e43, growth: 1.25, max: 50, every: 0.9, act: 2, ms: 4 },
   ]
   const MILESTONES = [10, 25, 50]
   // the first act ends at a thousand millions; the game goes on to one octillion (10^48)
   const ACT1 = 1e9
   const GOAL = 1e48
   const OFFLINE_MAX_S = 8 * 3600
-  // simulated with tools: about 35 min on average from the first press to the end, 12–19 min playing hard
+  // simulated with tools: about 30 min on average to the thousand millions, 17 min playing hard
   const SPEEDRUN_MS = 20 * 60000
-  const AVERAGE_MIN = 35
-  // the whole game, rebirths included: about 25 min playing hard, 35 active, an hour at an easy pace
-  const AVERAGE_TOTAL_MIN = 40
+  const AVERAGE_MIN = 30
+  // the whole game, rebirths included: about 28 min playing hard, 40 active, an hour at an easy pace
+  const AVERAGE_TOTAL_MIN = 45
 
   // the upgrade tree: each node appears once all the nodes it needs are bought
   const NODE = (id, icon, name, max, base, growth, req, x, y, desc, act = 1) => ({ id, icon, name, max, base, growth, req, x, y, desc, act })
@@ -44,7 +44,7 @@
     NODE('l1', '🌟', 'Botón dorado', 1, 1000, 1, ['core'], 0, -1.5, () => 'De vez en cuando cruza un botón dorado: ¡atrápalo!'),
     NODE('l2', '🧲', 'Imán dorado', 4, 25000, 3, ['l1'], -0.5, -2.6, l => `Salen un ${15 * l} % más a menudo`),
     NODE('l3', '⚡', 'Frenesí largo', 4, 60000, 3, ['l1'], 0.6, -2.6, l => `El frenesí dura ${10 + 3 * l} s`),
-    NODE('l4', '💰', 'Premio gordo', 3, 300000, 4, ['l2', 'l3'], 0, -3.6, l => `Los premios dorados valen ×${2 ** l}`),
+    NODE('l4', '💰', 'Premio gordo', 3, 300000, 4, ['l2', 'l3'], 0, -3.6, l => `Los premios dorados valen ×${(1.5 ** l).toLocaleString('es-ES', { maximumFractionDigits: 2 })}`),
     NODE('k1', '🧰', 'Cofres', 1, 3000, 1, ['core'], 1.0, -1.2, () => 'Cada cierto número de clics cae un cofre'),
     NODE('k2', '🗝️', 'Cofres frecuentes', 4, 30000, 3, ['k1'], 1.7, -2.2, l => `Hacen falta un ${15 * l} % menos de clics`),
     NODE('k3', '💎', 'Mejor botín', 4, 80000, 3, ['k1'], 2.5, -1.5, l => `Más probabilidad de épicos y legendarios (nivel ${l})`),
@@ -61,12 +61,12 @@
     NODE('sing', '🌀', 'Singularidad', 3, 3000000, 5, ['claudeU', 'c3', 'l4'], 4.2, -2.9, l => `Todo ×${2 ** l}`),
     // the knight's branch: what you buy here only shows in the duels
     NODE('duel', '⚔️', 'Caballero del Botón', 1, 300, 1, ['core'], -1.5, 1.8, () => 'Un caballero lucha por ti contra Zarpas: abre su rama'),
-    NODE('dHp', '🛡️', 'Armadura forjada', 10, 600, 3, ['duel'], -2.6, 1.9, l => `El caballero tiene un ${15 * l} % más de vida`),
+    NODE('dHp', '🛡️', 'Armadura forjada', 10, 600, 3, ['duel'], -2.6, 1.9, l => `El caballero tiene un ${10 * l} % más de vida`),
     NODE('dFlask', '🐟', 'Más atún', 3, 5000, 12, ['dHp'], -3.6, 2.3, l => `+${l} frascos de atún por duelo`),
-    NODE('dSta', '🫁', 'Buen fuelle', 5, 2000, 5, ['duel'], -2.4, 2.9, l => `La estamina se recupera un ${20 * l} % más rápido`),
+    NODE('dSta', '🫁', 'Buen fuelle', 5, 2000, 5, ['duel'], -2.4, 2.9, l => `La estamina se recupera un ${10 * l} % más rápido`),
     NODE('dRoll', '🌀', 'Voltereta ágil', 3, 4000, 8, ['dSta'], -3.4, 3.3, l => `Rodar gasta ${5 * l} de estamina menos y te hace invulnerable más tiempo`),
     NODE('dParry', '🤺', 'Parada maestra', 3, 8000, 10, ['dFlask', 'dRoll'], -4.5, 2.8, l => `Más margen para parar (+${60 * l} ms) y cada parada rompe más la guardia`),
-    NODE('dRip', '🗡️', 'Estocada', 3, 20000, 15, ['dParry'], -4.5, 3.9, l => `El golpe crítico tras romper la guardia hace ×${5 + 2 * l} y cada golpe castiga más su postura`),
+    NODE('dRip', '🗡️', 'Estocada', 3, 20000, 15, ['dParry'], -4.5, 3.9, l => `El golpe crítico tras romper la guardia hace ×${5 + l} y cada golpe castiga más su postura`),
     // second act
     NODE('act2', '🌌', 'Más allá', 1, 1e9, 1, ['core'], 1.5, 2.7, () => 'Abre la segunda mitad del árbol', 2),
     NODE('f6', '🖐️', 'Mano cósmica', 10, 2e10, 30, ['act2'], 0.2, 3.1, l => `Cada clic suma además el ${(l * 0.2).toLocaleString('es-ES')} % de lo que haces por segundo`, 2),
@@ -292,25 +292,28 @@
     },
   ]
   const BOSSES = [
-    { name: 'Doctor Zarpas', seconds: 30, k: 0.5, floor: 400, shards: 3, taunts: ['¡Ese botón es MÍO!', '¡Miaaau-ja-ja!', '¿Eso es todo lo que pulsas?'], lose: '¡Volveré con armadura!' },
-    { name: 'Zarpas Acorazado', seconds: 35, k: 0.55, floor: 0, shards: 5, taunts: ['¡Mi armadura es de lata de atún premium!', '¡Pulsa, pulsa, que no me haces nada!', '¡Bola de pelo va!'], lose: '¡Esto no ha terminado, humano!' },
-    { name: 'Zarpas Omega', seconds: 45, k: 0.48, floor: 0, shards: 10, taunts: ['¡SOY TODOS LOS GATOS!', '¡El botón será mi rascador!', '¡Siete vidas, siete botones!'], lose: 'Vale, vale… ¿me dejas quedarme si me das atún?' },
-    { name: 'Zarpas Mecha', seconds: 45, k: 0.58, floor: 0, shards: 12, taunts: ['¡TITANIO CON BIGOTES!', '¡Bip bup… MIAU!', '¡Mis pistones son más grandes!'], lose: 'Error 404: dignidad no encontrada.' },
-    { name: 'Zarpas Dimensional', seconds: 50, k: 0.64, floor: 0, shards: 15, taunts: ['¡En otro mundo ya he ganado!', '¡Soy mil Zarpas a la vez!', '¡Tu botón es MI botón en otra dimensión!'], lose: 'En alguna dimensión esto ha salido bien…' },
-    { name: 'Emperador Zarpas', seconds: 55, k: 0.66, floor: 0, shards: 25, taunts: ['¡ARRODÍLLATE ANTE EL OVILLO!', '¡Las galaxias son mi caja de arena!', '¡Un octillón de zarpazos te esperan!'], lose: 'Está bien… el patio es grande. ¿Hay atún para dos?' },
+    { name: 'Doctor Zarpas', seconds: 30, k: 0.35, floor: 280, shards: 3, taunts: ['¡Ese botón es MÍO!', '¡Miaaau-ja-ja!', '¿Eso es todo lo que pulsas?'], lose: '¡Volveré con armadura!' },
+    { name: 'Zarpas Acorazado', seconds: 35, k: 0.385, floor: 0, shards: 5, taunts: ['¡Mi armadura es de lata de atún premium!', '¡Pulsa, pulsa, que no me haces nada!', '¡Bola de pelo va!'], lose: '¡Esto no ha terminado, humano!' },
+    { name: 'Zarpas Omega', seconds: 45, k: 0.336, floor: 0, shards: 10, taunts: ['¡SOY TODOS LOS GATOS!', '¡El botón será mi rascador!', '¡Siete vidas, siete botones!'], lose: 'Vale, vale… ¿me dejas quedarme si me das atún?' },
+    { name: 'Zarpas Mecha', seconds: 45, k: 0.406, floor: 0, shards: 12, taunts: ['¡TITANIO CON BIGOTES!', '¡Bip bup… MIAU!', '¡Mis pistones son más grandes!'], lose: 'Error 404: dignidad no encontrada.' },
+    { name: 'Zarpas Dimensional', seconds: 50, k: 0.448, floor: 0, shards: 15, taunts: ['¡En otro mundo ya he ganado!', '¡Soy mil Zarpas a la vez!', '¡Tu botón es MI botón en otra dimensión!'], lose: 'En alguna dimensión esto ha salido bien…' },
+    { name: 'Emperador Zarpas', seconds: 55, k: 0.462, floor: 0, shards: 25, taunts: ['¡ARRODÍLLATE ANTE EL OVILLO!', '¡Las galaxias son mi caja de arena!', '¡Un octillón de zarpazos te esperan!'], lose: 'Está bien… el patio es grande. ¿Hay atún para dos?' },
   ]
   // a fight scales with how hard you hit right now (crits and doubles included; frenzies do not hurt him): helpers plus three clicks a second at a fair combo
   const bossHp = (G, b) => Math.max(b.floor, Math.round((rate(G) + clickValue(G, { combo: Math.min(3, comboMax(G)) }) * (1 + critChance(G) * (critMult(G) - 1)) * (1 + doubleChance(G)) * 3) * b.seconds * b.k * (art(G, 'trophy') ? 0.75 : 1)))
-  const knightHp = G => Math.round((100 + 30 * Object.keys(G.beaten || {}).length) * (1 + 0.15 * lvl(G, 'dHp')))
-  const knightFlasks = G => 3 + Math.min(3, Math.floor((G.chests || 0) / 25)) + (art(G, 'tuna') ? 1 : 0) + lvl(G, 'dFlask')
+  const knightHp = G => Math.round((100 + 35 * Object.keys(G.beaten || {}).length) * (1 + 0.1 * lvl(G, 'dHp')))
+  const knightFlasks = G => 2 + Math.min(2, Math.floor((G.chests || 0) / 40)) + (art(G, 'tuna') ? 1 : 0) + lvl(G, 'dFlask')
+  // how hard each Zarpas hits: a move takes its share of this, whatever the knight's life
+  const zarpasPower = i => 100 + 55 * i
+  const FLASK_HEAL = 0.35
   // the knight's numbers in a duel, from his branch of the tree
   const duelStats = G => ({
-    regen: 40 * (1 + 0.2 * lvl(G, 'dSta')),
+    regen: 50 * (1 + 0.1 * lvl(G, 'dSta')),
     rollCost: 28 - 5 * lvl(G, 'dRoll'),
     iframes: 420 + 60 * lvl(G, 'dRoll'),
     parryMs: 230 + 60 * lvl(G, 'dParry'),
     parryPosture: 45 + 15 * lvl(G, 'dParry'),
-    riposte: 5 + 2 * lvl(G, 'dRip'),
+    riposte: 5 + lvl(G, 'dRip'),
     hitPosture: 7 + 2 * lvl(G, 'dRip'),
   })
   const chapter = G => CHAPTERS[Math.min(G.chapter || 0, CHAPTERS.length - 1)]
@@ -364,7 +367,7 @@
     return counted
   }
 
-  const ECON = { duelStats, knightHp, knightFlasks, SOUL_PCT, REBIRTH_AT, soulsFor, pendingSouls, soulMult, rebirth, doubleChance, ACT1, ACT1_LAST, artShown, goldenFrenzy, chestBonus, maxedAct1, helpersOf, HELPERS, TREE, TREE_BY_ID, ARTS, CHAPTERS, BOSSES, MILESTONES, GOAL, RARITIES, CHEST_SHARDS, fresh, lvl, count, art, milestoneMult, helperMult, helperCost, nodeCost, nodeShown, helperShown, comboMax, rate, helperRate, clickValue, critChance, critMult, comboCool, chestEvery, goldenEvery, offlineShare, frenzySeconds, rarityWeights, treeLevels, artCount, maxedAll, chapter, chapterDone, bossHp, advance, storyCap, buyArt, buyHelper, buyNode, earn }
+  const ECON = { zarpasPower, FLASK_HEAL, duelStats, knightHp, knightFlasks, SOUL_PCT, REBIRTH_AT, soulsFor, pendingSouls, soulMult, rebirth, doubleChance, ACT1, ACT1_LAST, artShown, goldenFrenzy, chestBonus, maxedAct1, helpersOf, HELPERS, TREE, TREE_BY_ID, ARTS, CHAPTERS, BOSSES, MILESTONES, GOAL, RARITIES, CHEST_SHARDS, fresh, lvl, count, art, milestoneMult, helperMult, helperCost, nodeCost, nodeShown, helperShown, comboMax, rate, helperRate, clickValue, critChance, critMult, comboCool, chestEvery, goldenEvery, offlineShare, frenzySeconds, rarityWeights, treeLevels, artCount, maxedAll, chapter, chapterDone, bossHp, advance, storyCap, buyArt, buyHelper, buyNode, earn }
   if (typeof module !== 'undefined') module.exports = ECON
   if (typeof window === 'undefined') return
 
@@ -895,7 +898,7 @@
       if (!ui.g3 || h.id === 'claude') flash(impact.x, impact.y, h.id === 'claude' ? 46 : 24, h.id === 'claude' ? '255,220,90' : '255,190,120')
       sparks(impact.x, impact.y, h.id === 'claude' ? 16 : 8, h.id === 'claude' ? '#FFD84F' : '#FFB35A', 3)
       floatNum(head, `+${fmtRate(share)}`, '#FFF4C8', 13)
-      if (lvl(G, 'k4')) chestTick()
+      if (lvl(G, 'k4')) chestTick(LOCKSMITH)
       if (h.id === 'cat') slash(impact.x, impact.y, back)
       if (h.id === 'skill') for (let i = 0; i < 4; i++) puff(impact.x + rnd(-16, 16), impact.y + rnd(0, 6), 'rgba(230,220,210,', 0.6)
       if (h.id === 'robot') for (let i = 0; i < 3; i++) puff(head.x + back * 10, head.y + 20, 'rgba(255,255,255,', 0.5)
@@ -1543,7 +1546,7 @@
     SL().beep([784, 988, 1175, 1568], 0.07)
     if (Math.random() < 0.5) frenzy(goldenFrenzy(G), frenzySeconds(G), `¡FRENESÍ ×${goldenFrenzy(G)}!`)
     else {
-      const lump = Math.max(rate(G, fx) * 60, clickValue(G, fx) * 10) * 2 ** lvl(G, 'l4')
+      const lump = (Math.max(rate(G, fx) * 40, clickValue(G, fx) * 10) / (fx.frenzy || 1)) * 1.5 ** lvl(G, 'l4')
       earn(G, Math.floor(lump))
       bigText(`¡PREMIO! +${fmt(lump)}`, '#FFD84F')
     }
@@ -1560,9 +1563,10 @@
 
   // ---------- chests ----------
 
-  function chestTick() {
+  const LOCKSMITH = 0.15
+  function chestTick(n = 1) {
     if (!lvl(G, 'k1') || G.ended) return
-    G.chestClicks = (G.chestClicks || 0) + 1
+    G.chestClicks = (G.chestClicks || 0) + n
     if (G.chestClicks >= chestEvery(G) && !chestReady) {
       G.chestClicks = 0
       chestReady = 1
@@ -1607,9 +1611,9 @@
     let tier = 0
     while (tier < 3 && roll > w[tier]) roll -= w[tier++]
     const rar = RARITIES[tier]
-    const base = rate(G, fx)
-    const click = clickValue(G, fx)
-    const reward = chestBonus(G) * [base * 30 + click * 5, base * 120 + click * 15, base * 400 + click * 40, base * 1200 + click * 100][tier]
+    const base = rate(G, fx) / (fx.frenzy || 1)
+    const click = clickValue(G, fx) / (fx.frenzy || 1)
+    const reward = chestBonus(G) * [base * 15 + click * 5, base * 45 + click * 15, base * 120 + click * 40, base * 300 + click * 100][tier]
     G.chests = (G.chests || 0) + 1
     earn(G, Math.floor(reward))
     const p = toScreen(0, 118)
@@ -2102,7 +2106,7 @@
     SL().beep([523, 659], 0.05)
     setTimeout(() => {
       if (!fight || fight.me !== me) return
-      const gain = Math.round(me.max * 0.5)
+      const gain = Math.round(me.max * FLASK_HEAL)
       me.hp = Math.min(me.max, me.hp + gain)
       floatNum(toScreen(-60, -50), `+${gain} ❤`, '#7FFF8A', 16, true)
       updateMeHud()
@@ -2227,7 +2231,7 @@
       addPosture(me.ds.parryPosture)
       return
     }
-    const dmg = Math.round(me.max * mv.M.dmg * (f.phase === 2 ? 1.15 : 1))
+    const dmg = Math.round(zarpasPower(f.i) * mv.M.dmg * (f.phase === 2 ? 1.15 : 1))
     me.hp -= dmg
     me.hits++
     combo = 0
