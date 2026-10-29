@@ -8,14 +8,14 @@
     { id: 'robot', icon: '🤖', name: 'Robot de turno', verb: 'pistón hidráulico', rate: 5, base: 8500, growth: 1.15, max: 50, every: 1.25 },
     { id: 'drone', icon: '🛸', name: 'Escuadrón de drones', verb: 'láser de precisión', rate: 30, base: 85000, growth: 1.15, max: 40, every: 0.95 },
     { id: 'claude', icon: '✴️', name: 'Claude en bucle', verb: 'pulsa sin descanso', rate: 200, base: 1100000, growth: 1.15, max: 25, every: 0.6 },
-    // second act: past the thousand millions, each crew is worth hundreds of thousands of the one before; milestones ×4, ×1,25 per unit
-    { id: 'factory', icon: '🏭', name: 'Fábrica de gatos', verb: 'estampa el botón', rate: 2e6, base: 6e10, growth: 1.25, max: 50, every: 1.6, act: 2, ms: 4 },
-    { id: 'mech', icon: '🦾', name: 'Mecha pulsador', verb: 'puñetazo de titanio', rate: 5e10, base: 1.5e16, growth: 1.25, max: 50, every: 1.5, act: 2, ms: 4 },
-    { id: 'sat', icon: '🛰️', name: 'Satélite de pulsar', verb: 'rayo orbital', rate: 1.3e15, base: 3.8e21, growth: 1.25, max: 50, every: 1.3, act: 2, ms: 4 },
-    { id: 'portal', icon: '🌀', name: 'Portal dimensional', verb: 'manos de otros mundos', rate: 3.1e19, base: 9.4e26, growth: 1.25, max: 50, every: 1.2, act: 2, ms: 4 },
-    { id: 'hole', icon: '🕳️', name: 'Agujero negro', verb: 'gravedad que pulsa', rate: 7.8e23, base: 2.3e32, growth: 1.25, max: 50, every: 1.1, act: 2, ms: 4 },
-    { id: 'galaxy', icon: '🌌', name: 'Galaxia de botones', verb: 'lluvia de estrellas', rate: 2e28, base: 5.9e37, growth: 1.25, max: 50, every: 1, act: 2, ms: 4 },
-    { id: 'cosmic', icon: '😺', name: 'Gato cósmico', verb: 'zarpazo estelar', rate: 4.9e32, base: 1.5e43, growth: 1.25, max: 50, every: 0.9, act: 2, ms: 4 },
+    // second act: past the thousand millions, each crew is worth hundreds of thousands of the one before; milestones ×4, ×1,3 per unit
+    { id: 'factory', icon: '🏭', name: 'Fábrica de gatos', verb: 'estampa el botón', rate: 2e6, base: 6e10, growth: 1.3, max: 50, every: 1.6, act: 2, ms: 4 },
+    { id: 'mech', icon: '🦾', name: 'Mecha pulsador', verb: 'puñetazo de titanio', rate: 5e10, base: 1.5e16, growth: 1.3, max: 50, every: 1.5, act: 2, ms: 4 },
+    { id: 'sat', icon: '🛰️', name: 'Satélite de pulsar', verb: 'rayo orbital', rate: 1.3e15, base: 3.8e21, growth: 1.3, max: 50, every: 1.3, act: 2, ms: 4 },
+    { id: 'portal', icon: '🌀', name: 'Portal dimensional', verb: 'manos de otros mundos', rate: 3.1e19, base: 9.4e26, growth: 1.3, max: 50, every: 1.2, act: 2, ms: 4 },
+    { id: 'hole', icon: '🕳️', name: 'Agujero negro', verb: 'gravedad que pulsa', rate: 7.8e23, base: 2.3e32, growth: 1.3, max: 50, every: 1.1, act: 2, ms: 4 },
+    { id: 'galaxy', icon: '🌌', name: 'Galaxia de botones', verb: 'lluvia de estrellas', rate: 2e28, base: 5.9e37, growth: 1.3, max: 50, every: 1, act: 2, ms: 4 },
+    { id: 'cosmic', icon: '😺', name: 'Gato cósmico', verb: 'zarpazo estelar', rate: 4.9e32, base: 1.5e43, growth: 1.3, max: 50, every: 0.9, act: 2, ms: 4 },
   ]
   const MILESTONES = [10, 25, 50]
   // the first act ends at a thousand millions; the game goes on to one octillion (10^48)
@@ -25,7 +25,7 @@
   // simulated with tools: about 30 min on average to the thousand millions, 17 min playing hard
   const SPEEDRUN_MS = 20 * 60000
   const AVERAGE_MIN = 30
-  // the whole game, rebirths included: about 28 min playing hard, 40 active, an hour at an easy pace
+  // the whole game, bankruptcies included: about 28 min playing hard, 40 active, an hour at an easy pace
   const AVERAGE_TOTAL_MIN = 45
 
   // the upgrade tree: each node appears once all the nodes it needs are bought
@@ -132,35 +132,132 @@
     { id: 'trophy', icon: '🏆', name: 'Trofeo de Zarpas', desc: 'Los Zarpas tienen un 25 % menos de vida', cost: 12 },
     { id: 'medal', icon: '🎖️', name: 'Medalla del laboratorio', desc: 'Todo +2 % por cada medalla del laboratorio', cost: 14, act: 2 },
     { id: 'rocket', icon: '🚀', name: 'Cohete de feria', desc: 'Satélites, portales y agujeros negros ×2', cost: 22, act: 2 },
-    { id: 'feather', icon: '🪶', name: 'Pluma de fénix', desc: 'Al renacer ganas un 50 % más de almas', cost: 25, act: 2 },
+    { id: 'ledger', icon: '📒', name: 'Libro de cuentas', desc: 'Cada factura pagada da un 50 % más de legado', cost: 25, act: 2 },
   ]
   const ART_OF = { cat: 'tuna', skill: 'scroll', robot: 'oil', drone: 'battery', claude: 'chip', factory: 'gear', mech: 'fusion', sat: 'antenna', portal: 'tesseract', hole: 'lens', galaxy: 'starmap', cosmic: 'yarn' }
 
-  const fresh = () => ({ life: 0, coins: 0, helpers: {}, tree: { core: 1 }, arts: {}, shards: 0, chapter: 0, beaten: {}, at: 0, start: 0, clicks: 0, chestClicks: 0, golden: 0, chests: 0, bestCombo: 1, ended: 0, souls: 0, rebirths: 0 })
-  // souls of the button: one at a million millions presses, growing with the square of the digits; each one is +5 % to everything
-  const SOUL_PCT = 0.05
-  const REBIRTH_AT = 1e12
-  const soulsFor = (G, life) => (life < REBIRTH_AT ? 0 : Math.floor((Math.log10(life) - 11) ** 2 * (art(G, 'feather') ? 1.5 : 1)))
-  const pendingSouls = G => Math.max(0, soulsFor(G, G.life) - (G.souls || 0))
-  const soulMult = G => 1 + SOUL_PCT * (G.souls || 0)
-  function rebirth(G) {
-    const gain = pendingSouls(G)
-    if (!G.act1 || gain < 1) return 0
-    G.souls = (G.souls || 0) + gain
-    G.rebirths = (G.rebirths || 0) + 1
+  const fresh = () => ({ life: 0, coins: 0, helpers: {}, tree: { core: 1 }, arts: {}, shards: 0, chapter: 0, beaten: {}, at: 0, start: 0, clicks: 0, chestClicks: 0, golden: 0, chests: 0, bestCombo: 1, ended: 0, playS: 0, bill: null, nextBillAt: 0, paid: 0, pending: 0, legacy: 0, legacyTotal: 0, bankrupts: 0, jewels: {}, perks: {}, ach: {} })
+  // bills: in the second act the lab gets bills with a due date; pay them or the collector takes a cut of everything you earn
+  const DAY_S = 90
+  const BILL_FROM = [
+    ['Patio Zarpas S.L.', 'Alquiler del patio'],
+    ['Eléctrica del Botón', 'Luz del laboratorio'],
+    ['Atunes Mishi', '400 latas de atún'],
+    ['Red Grieta', 'Internet dimensional'],
+    ['Talleres Mecha', 'Revisión del mecha'],
+    ['Agencia Orbital', 'Combustible del satélite'],
+    ['Seguros Siete Vidas', 'Seguro del gato'],
+    ['Hacienda Felina', 'Impuesto sobre el pulsar'],
+    ['Portales y Grietas', 'Peaje dimensional'],
+    ['Ovillos de Lujo', 'Trono de ovillos'],
+  ]
+  // rings and bracelets: bought with legacy points, they stay through every bankruptcy
+  const JEWELS = [
+    { id: 'copper', kind: 'ring', icon: '💍', name: 'Anillo de cobre', max: 5, cost: l => 2 + 2 * l, desc: l => `Tus clics ×${2 ** l}`, color: '#C8763A' },
+    { id: 'silver', kind: 'ring', icon: '💍', name: 'Anillo de plata', max: 6, cost: l => 3 + 3 * l, desc: l => `Ayudantes ×${2 ** l}`, color: '#D8DCE4' },
+    { id: 'gold', kind: 'ring', icon: '💍', name: 'Anillo de oro', max: 8, cost: l => 4 + 4 * l, desc: l => `Todo ×${(1.5 ** l).toLocaleString('es-ES', { maximumFractionDigits: 1 })}`, color: '#FFC83A' },
+    { id: 'heir', kind: 'ring', icon: '💍', name: 'Anillo de la herencia', max: 1, cost: () => 8, desc: () => 'Todo +3 % por cada punto de legado que hayas ganado', color: '#B8141E' },
+    { id: 'seal', kind: 'ring', icon: '💍', name: 'Sello del botón', max: 5, cost: l => 3 + 2 * l, desc: l => `Las facturas son un ${10 * l} % más pequeñas`, color: '#E8352B' },
+    { id: 'leather', kind: 'bracelet', icon: '📿', name: 'Pulsera de cuero', max: 3, cost: l => 4 + 4 * l, desc: l => `+${l} día${l === 1 ? '' : 's'} de plazo en cada factura`, color: '#8A5A2B' },
+    { id: 'beads', kind: 'bracelet', icon: '📿', name: 'Pulsera de cuentas', max: 1, cost: () => 6, desc: () => 'El cobrador se lleva la mitad', color: '#4FA3FF' },
+    { id: 'chain', kind: 'bracelet', icon: '📿', name: 'Pulsera de eslabones', max: 3, cost: l => 6 + 6 * l, desc: l => `+${l} de legado por cada factura pagada`, color: '#FFE7A0' },
+    { id: 'charm', kind: 'bracelet', icon: '📿', name: 'Pulsera de dijes', max: 1, cost: () => 10, desc: () => 'Eliges entre cuatro cartas en vez de tres', color: '#B46CFF' },
+    { id: 'paw', kind: 'bracelet', icon: '📿', name: 'Pulsera de Zarpas', max: 1, cost: () => 12, desc: () => 'Tras la bancarrota empiezas con 10 de cada ayudante del primer acto', color: '#1a1310' },
+  ]
+  const JEWEL_BY_ID = Object.fromEntries(JEWELS.map(j => [j.id, j]))
+  // perks: paying a bill lets you choose one of three cards; they last until the next bankruptcy
+  const PERKS = [
+    { id: 'interest', icon: '💰', name: 'Tipo de interés', max: 3, desc: 'Cada minuto ganas el 5 % de tus monedas ahorradas' },
+    { id: 'overtime', icon: '🐾', name: 'Horas extra', max: 3, desc: 'Ayudantes ×1,5' },
+    { id: 'knuckles', icon: '✊', name: 'Nudillos de hierro', max: 3, desc: 'Tus clics ×2' },
+    { id: 'discount', icon: '🧾', name: 'Rebaja', max: 3, desc: 'Las facturas son un 15 % más pequeñas' },
+    { id: 'extension', icon: '📅', name: 'Prórroga', max: 2, desc: '+1 día de plazo en cada factura' },
+    { id: 'lockpick', icon: '🗝️', name: 'Ganzúa', max: 3, desc: 'Los cofres salen un 20 % antes' },
+    { id: 'lucky', icon: '🍀', name: 'Racha', max: 3, desc: '+4 % de probabilidad de crítico' },
+    { id: 'freeze', icon: '❄️', name: 'Congelación', max: 3, desc: 'El frenesí dura 5 s más' },
+    { id: 'deal', icon: '🤝', name: 'Trato con Zarpas', max: 2, desc: 'Cada factura pagada da también 1 fragmento 💠' },
+  ]
+  const PERK_BY_ID = Object.fromEntries(PERKS.map(p => [p.id, p]))
+  const jewel = (G, id) => (G.jewels || {})[id] || 0
+  const perk = (G, id) => (G.perks || {})[id] || 0
+  const legacyMult = G => 1.5 ** jewel(G, 'gold') * (jewel(G, 'heir') ? 1 + 0.03 * (G.legacyTotal || 0) : 1)
+  const dueDays = G => 3 + jewel(G, 'leather') + perk(G, 'extension')
+  // a bill is minutes of what you make right now (it grows with you), longer with every one you pay
+  const billSecs = (G, n) => 60 * 1.6 ** n * (1 - 0.1 * jewel(G, 'seal')) * 0.85 ** perk(G, 'discount')
+  const legacyFor = (G, n) => Math.round((n + 1 + jewel(G, 'chain')) * (art(G, 'ledger') ? 1.5 : 1))
+  const billsOn = G => !!G.act1 && !G.ended
+  function issueBill(G) {
+    const n = G.paid || 0
+    const [from, name] = BILL_FROM[n % BILL_FROM.length]
+    G.bill = { n, from, name, secs: billSecs(G, n), at: G.playS || 0, due: dueDays(G) }
+    return G.bill
+  }
+  const billAmount = G => (G.bill ? Math.max(100, Math.ceil((rate(G) + clickValue(G) * 3) * G.bill.secs)) : 0)
+  // days past the due date, as a fraction
+  const overdue = G => (G.bill ? Math.max(0, ((G.playS || 0) - G.bill.at) / DAY_S - G.bill.due) : 0)
+  const daysLeft = G => (G.bill ? G.bill.due - ((G.playS || 0) - G.bill.at) / DAY_S : 0)
+  const collectorCut = G => (overdue(G) > 0 ? Math.min(0.5, 0.2 + 0.15 * Math.floor(overdue(G))) * (jewel(G, 'beads') ? 0.5 : 1) : 0)
+  // three days late and the collector takes it all
+  const FORECLOSE_DAYS = 3
+  function payBill(G) {
+    const b = G.bill
+    const amount = billAmount(G)
+    if (!b || G.coins < amount) return 0
+    G.coins -= amount
+    const gain = legacyFor(G, b.n)
+    G.paid = (G.paid || 0) + 1
+    G.pending = (G.pending || 0) + gain
+    if (perk(G, 'deal')) G.shards = (G.shards || 0) + perk(G, 'deal')
+    G.bill = null
+    G.nextBillAt = (G.playS || 0) + DAY_S
+    return gain
+  }
+  // bankruptcy: the pending legacy is yours; coins, helpers, tree, perks and the bill count go
+  function bankrupt(G) {
+    if (!G.act1) return 0
+    const gain = G.pending || 0
+    G.legacy = (G.legacy || 0) + gain
+    G.legacyTotal = (G.legacyTotal || 0) + gain
+    G.pending = 0
+    G.paid = 0
+    G.bill = null
+    G.nextBillAt = (G.playS || 0) + DAY_S
+    G.bankrupts = (G.bankrupts || 0) + 1
     G.coins = 0
     G.helpers = {}
+    if (jewel(G, 'paw')) for (const h of HELPERS) if (!h.act) G.helpers[h.id] = 10
     G.tree = { core: 1 }
+    G.perks = {}
     G.chestClicks = 0
     G.stain = null
     return gain
+  }
+  function buyJewel(G, j) {
+    const l = jewel(G, j.id)
+    if (l >= j.max || (G.legacy || 0) < j.cost(l)) return false
+    G.legacy -= j.cost(l)
+    G.jewels = { ...G.jewels, [j.id]: l + 1 }
+    return true
+  }
+  // the cards on offer after a paid bill: perks not yet at their top
+  function perkOffer(G, rand = Math.random) {
+    const open = PERKS.filter(p => perk(G, p.id) < p.max)
+    const out = []
+    while (out.length < (jewel(G, 'charm') ? 4 : 3) && open.length) out.push(open.splice(Math.floor(rand() * open.length), 1)[0])
+    return out
+  }
+  function takePerk(G, id) {
+    const p = PERK_BY_ID[id]
+    if (!p || perk(G, id) >= p.max) return false
+    G.perks = { ...G.perks, [id]: perk(G, id) + 1 }
+    return true
   }
   const lvl = (G, id) => G.tree[id] || 0
   const count = (G, h) => G.helpers[h.id] || 0
   const art = (G, id) => !!(G.arts && G.arts[id])
   const milestoneMult = (n, ms = 2) => ms ** MILESTONES.filter(m => n >= m).length
   const ROCKET = ['sat', 'portal', 'hole']
-  const helperMult = (G, h) => (art(G, 'rocket') && ROCKET.includes(h.id) ? 2 : 1) * milestoneMult(count(G, h), h.ms) * 2 ** lvl(G, `${h.id}U`) * (art(G, ART_OF[h.id]) ? 3 : 1)
+  const helperMult = (G, h) => 2 ** jewel(G, 'silver') * 1.5 ** perk(G, 'overtime') * (art(G, 'rocket') && ROCKET.includes(h.id) ? 2 : 1) * milestoneMult(count(G, h), h.ms) * 2 ** lvl(G, `${h.id}U`) * (art(G, ART_OF[h.id]) ? 3 : 1)
   const helperCost = (G, h) => Math.ceil(h.base * h.growth ** count(G, h) * 0.95 ** lvl(G, `${h.id}C`))
   const nodeCost = (G, n) => Math.ceil(n.base * n.growth ** lvl(G, n.id))
   const nodeShown = (G, n) => (n.act !== 2 || !!G.act1) && n.req.every(r => lvl(G, r) > 0)
@@ -168,19 +265,19 @@
   const artShown = (G, a) => a.act !== 2 || !!G.act1
   const comboMax = G => 1 + 0.5 * lvl(G, 'c1') + 0.5 * lvl(G, 'c4') + (art(G, 'bell') ? 1 : 0)
   // fx: the moment's boosts that the screen owns (frenzy, combo heat)
-  const globalMult = (G, fx) => 2 ** lvl(G, 'sing') * 3 ** lvl(G, 'bang') * (art(G, 'relic') ? 1.5 : 1) * (art(G, 'egg') ? 2 : 1) * (art(G, 'medal') ? 1 + 0.02 * (G.labMedals || 0) : 1) * soulMult(G) * (fx.frenzy || 1)
+  const globalMult = (G, fx) => 2 ** lvl(G, 'sing') * 3 ** lvl(G, 'bang') * (art(G, 'relic') ? 1.5 : 1) * (art(G, 'egg') ? 2 : 1) * (art(G, 'medal') ? 1 + 0.02 * (G.labMedals || 0) : 1) * legacyMult(G) * (fx.frenzy || 1)
   const fever = (G, fx) => (fx.comboFull && lvl(G, 'c3') ? 1 + lvl(G, 'c3') : 1)
   const helperRate = (G, h, fx) => h.rate * count(G, h) * helperMult(G, h) * globalMult(G, fx) * fever(G, fx)
   const rate = (G, fx = {}) => HELPERS.reduce((sum, h) => sum + helperRate(G, h, fx), 0)
   // the share of production a click adds already carries the global multipliers: they are not applied twice
-  const clickValue = (G, fx = {}) => ((1 + lvl(G, 'f1')) * globalMult(G, fx) + rate(G, fx) * (0.005 * lvl(G, 'f2') + 0.002 * lvl(G, 'f6') + (art(G, 'crown') ? 0.02 : 0))) * (art(G, 'glove') ? 1.5 : 1) * (fx.combo || 1)
-  const critChance = G => 0.03 * lvl(G, 'f3') + (art(G, 'clover') ? 0.05 : 0)
+  const clickValue = (G, fx = {}) => ((1 + lvl(G, 'f1')) * globalMult(G, fx) + rate(G, fx) * (0.005 * lvl(G, 'f2') + 0.002 * lvl(G, 'f6') + (art(G, 'crown') ? 0.02 : 0))) * (art(G, 'glove') ? 1.5 : 1) * 2 ** (jewel(G, 'copper') + perk(G, 'knuckles')) * (fx.combo || 1)
+  const critChance = G => 0.03 * lvl(G, 'f3') + (art(G, 'clover') ? 0.05 : 0) + 0.04 * perk(G, 'lucky')
   const critMult = G => (10 + 3 * lvl(G, 'f4')) * (art(G, 'dice') ? 2 : 1)
   const comboCool = G => 1.2 * (1 + 0.25 * lvl(G, 'c2')) * (art(G, 'hourglass') ? 2 : 1)
-  const chestEvery = G => Math.round(200 * 0.85 ** lvl(G, 'k2') * (art(G, 'key') ? 0.6 : 1))
+  const chestEvery = G => Math.round(200 * 0.85 ** lvl(G, 'k2') * (art(G, 'key') ? 0.6 : 1) * 0.8 ** perk(G, 'lockpick'))
   const goldenEvery = G => 90 * 0.85 ** lvl(G, 'l2') * (art(G, 'magnet') ? 0.7 : 1) * (art(G, 'compass') ? 0.8 : 1)
   const offlineShare = G => (art(G, 'pillow') ? 1 : 0.5)
-  const frenzySeconds = G => (10 + 3 * lvl(G, 'l3')) * (art(G, 'alarm') ? 1.5 : 1)
+  const frenzySeconds = G => (10 + 3 * lvl(G, 'l3') + 5 * perk(G, 'freeze')) * (art(G, 'alarm') ? 1.5 : 1)
   const doubleChance = G => 0.1 * lvl(G, 'f5') + (art(G, 'mirror') ? 0.1 : 0)
   const goldenFrenzy = G => 7 + 3 * lvl(G, 'l5')
   const chestBonus = G => 1 + lvl(G, 'k5')
@@ -247,14 +344,14 @@
     // second act
     {
       title: 'Más allá del botón',
-      intro: 'Mil millones… y el botón sigue pidiendo más. Al fondo del patio se abre una grieta violeta. Zarpas la mira, con el atún a medio comer: «Eso no lo he hecho yo». Hay que fabricar gatos a escala industrial.',
+      intro: 'Mil millones… y el botón sigue pidiendo más. Al fondo del patio se abre una grieta violeta. Zarpas la mira, con el atún a medio comer: «Eso no lo he hecho yo». Hay que fabricar gatos a escala industrial. Y por la grieta, además, empiezan a llegar facturas (pestaña 🧾 Facturas).',
       objs: [OBJ('Compra «Más allá» en el árbol', 1, G => lvl(G, 'act2')), OBJ('Ten 10 fábricas de gatos', 10, helperCount('factory')), OBJ('Llega a 1 billón (10¹²)', 1e12, G => G.life)],
       shards: 5,
     },
     {
       title: 'Titanes de titanio',
-      intro: 'De la grieta sale un gato de metal del tamaño de un edificio: Zarpas Mecha, el primo lejano de Zarpas. Antes de pelear, la grieta te susurra un trato: «Suéltalo todo y vuelve más fuerte». Abre la pestaña 🔆 Renacer: pierdes ayudantes, árbol y monedas, pero no lo que llevas pulsado, y cada alma de botón te da +5 % para siempre.',
-      objs: [OBJ('Renace una vez (pestaña 🔆 Renacer)', 1, G => G.rebirths || 0), OBJ('Ten 10 mechas pulsadores', 10, helperCount('mech')), OBJ('Llega a 1.000 billones', 1e15, G => G.life)],
+      intro: 'De la grieta sale un gato de metal del tamaño de un edificio: Zarpas Mecha, el primo lejano de Zarpas. Antes de pelear te enseña un papel: si no puedes con las facturas, declárate en bancarrota (pestaña 🧾 Facturas). Pierdes monedas, ayudantes y árbol, pero no lo que llevas pulsado, y cada factura pagada se convierte en legado ⚜️ para anillos y pulseras que duran para siempre.',
+      objs: [OBJ('Declárate en bancarrota una vez', 1, G => G.bankrupts || 0), OBJ('Ten 10 mechas pulsadores', 10, helperCount('mech')), OBJ('Llega a 1.000 billones', 1e15, G => G.life)],
       shards: 6,
       boss: 3,
     },
@@ -359,7 +456,7 @@
   function earn(G, n) {
     if (G.ended) return 0
     // the count towards the goal stalls until the story catches up, but the coins keep coming
-    n = Math.max(0, n)
+    n = Math.max(0, n) * (1 - collectorCut(G))
     G.coins += n
     const counted = Math.min(n, Math.max(0, storyCap(G) - G.life))
     G.life += counted
@@ -367,7 +464,30 @@
     return counted
   }
 
-  const ECON = { zarpasPower, FLASK_HEAL, duelStats, knightHp, knightFlasks, SOUL_PCT, REBIRTH_AT, soulsFor, pendingSouls, soulMult, rebirth, doubleChance, ACT1, ACT1_LAST, artShown, goldenFrenzy, chestBonus, maxedAct1, helpersOf, HELPERS, TREE, TREE_BY_ID, ARTS, CHAPTERS, BOSSES, MILESTONES, GOAL, RARITIES, CHEST_SHARDS, fresh, lvl, count, art, milestoneMult, helperMult, helperCost, nodeCost, nodeShown, helperShown, comboMax, rate, helperRate, clickValue, critChance, critMult, comboCool, chestEvery, goldenEvery, offlineShare, frenzySeconds, rarityWeights, treeLevels, artCount, maxedAll, chapter, chapterDone, bossHp, advance, storyCap, buyArt, buyHelper, buyNode, earn }
+  // the game's own achievements: separate from the lab's medals, which only get the platinum
+  const ACH = [
+    ['red10', '🔴', 'Curiosidad', 'Pulsa 10 veces el botón que no se debe pulsar'],
+    ['red100', '👆', 'Insistente', '100 pulsaciones'],
+    ['red1000', '💪', 'Dedo de hierro', '1.000 pulsaciones'],
+    ['red10000', '🦾', 'Leyenda del botón', '10.000 pulsaciones'],
+    ['red77777', '🎆', '77.777', 'Llega a 77.777 pulsaciones'],
+    ['redshop', '🛒', 'Primera compra', 'Compra un ayudante, una mejora del árbol o un artefacto'],
+    ['redrate', '⚙️', 'Fábrica de pulsar', 'Llega a 100 pulsaciones por segundo'],
+    ['redgold', '✨', 'Botón dorado', 'Atrapa un botón dorado al vuelo'],
+    ['redcombo', '🔥', 'En racha', 'Llena el combo al máximo (×3)'],
+    ['redchest', '🧰', 'Botín legendario', 'Abre un cofre legendario'],
+    ['redmax', '🏪', 'Todo al máximo', 'Completa el árbol y todos los ayudantes del Acto I'],
+    ['redend', '🏁', 'Mil millones', 'Llega a 1.000.000.000 pulsaciones y termina el Acto I'],
+    ['redspeed', '⏱️', 'Speedrunner', 'Termina el Acto I en menos de 20 minutos (la media ronda los 30)'],
+    ['redrebirth', '💼', 'En bancarrota', 'Declárate en bancarrota por primera vez'],
+    ['redbills', '🧾', 'Al día', 'Paga 10 facturas sin quebrar'],
+    ['redjewel', '💍', 'Joyero', 'Compra tu primera joya del legado'],
+    ['reddied', '💀', 'Has muerto', 'Cae en un duelo contra Zarpas'],
+    ['rednohit', '🛡️', 'Sin un rasguño', 'Vence a un Zarpas sin que te toque'],
+    ['redboss', '😼', 'Domador de gatos', 'Vence al Emperador Zarpas'],
+    ['redocti', '🌌', 'Octillonario', 'Lleva el botón a un octillón: un 1 con 48 ceros'],
+  ]
+  const ECON = { ACH, DAY_S, BILL_FROM, JEWELS, JEWEL_BY_ID, PERKS, PERK_BY_ID, jewel, perk, legacyMult, dueDays, billSecs, legacyFor, billsOn, issueBill, billAmount, overdue, daysLeft, collectorCut, FORECLOSE_DAYS, payBill, bankrupt, buyJewel, perkOffer, takePerk, zarpasPower, FLASK_HEAL, duelStats, knightHp, knightFlasks, doubleChance, ACT1, ACT1_LAST, artShown, goldenFrenzy, chestBonus, maxedAct1, helpersOf, HELPERS, TREE, TREE_BY_ID, ARTS, CHAPTERS, BOSSES, MILESTONES, GOAL, RARITIES, CHEST_SHARDS, fresh, lvl, count, art, milestoneMult, helperMult, helperCost, nodeCost, nodeShown, helperShown, comboMax, rate, helperRate, clickValue, critChance, critMult, comboCool, chestEvery, goldenEvery, offlineShare, frenzySeconds, rarityWeights, treeLevels, artCount, maxedAll, chapter, chapterDone, bossHp, advance, storyCap, buyArt, buyHelper, buyNode, earn }
   if (typeof module !== 'undefined') module.exports = ECON
   if (typeof window === 'undefined') return
 
@@ -425,6 +545,23 @@
       G = fresh()
     }
     if (!m['~rg']) migrate(m)
+    if (G.souls || G.rebirths) {
+      const lg = Math.round(2 * Math.sqrt(G.souls || 0))
+      G.legacy = (G.legacy || 0) + lg
+      G.legacyTotal = (G.legacyTotal || 0) + lg
+      G.bankrupts = Math.max(G.bankrupts || 0, G.rebirths || 0)
+      delete G.souls
+      delete G.rebirths
+    }
+    const old = Object.keys(m).filter(k => ACH.some(a => a[0] === k))
+    if (old.length) {
+      G.ach = { ...Object.fromEntries(old.map(k => [k, m[k]])), ...G.ach }
+      SL().setMedals(Object.fromEntries(Object.entries(SL().medals).filter(([k]) => !old.includes(k))))
+    }
+    if (G.arts && G.arts.feather) {
+      G.arts = { ...G.arts, ledger: G.arts.feather }
+      delete G.arts.feather
+    }
     G.labMedals = labMedals()
     if (G.ended && !G.act1 && G.life < GOAL) {
       G.act1 = G.ended
@@ -448,6 +585,23 @@
     if (old.gold) G.coins += 50000 * (8 ** old.gold - 1) / 7
     G.at = m['~redat'] || 0
   }
+  function ach(id) {
+    if (!G || (G.ach || {})[id]) return
+    const def = ACH.find(a => a[0] === id)
+    if (!def) return
+    G.ach = { ...G.ach, [id]: Date.now() }
+    save(true)
+    if (ui) {
+      const el = document.createElement('div')
+      el.className = 'rg-achtoast'
+      el.innerHTML = `<i>${def[1]}</i><span><small>Logro desbloqueado</small><b>${def[2]}</b></span>`
+      root.appendChild(el)
+      el.animate([{ transform: 'translate(-50%,-80px)', opacity: 0 }, { transform: 'translate(-50%,0)', opacity: 1, offset: 0.12 }, { transform: 'translate(-50%,0)', opacity: 1, offset: 0.85 }, { transform: 'translate(-50%,-30px)', opacity: 0 }], { duration: 3200, easing: 'ease-out' }).onfinish = () => el.remove()
+      SL().beep([659, 880, 1175], 0.06)
+      if (ui.achTab) ui.achTab.classList.add('ready')
+    }
+    if (ACH.every(a => G.ach[a[0]])) SL().unlock('redplat')
+  }
   function save(force) {
     const now = Date.now()
     if (!force && now - saveAt < 1000) return
@@ -457,9 +611,9 @@
     SL().setMedals(m)
   }
   function checkMedals() {
-    for (const [k, id] of RED_STEPS) if (G.life >= k) SL().unlock(id)
-    if (rate(G, fx) >= 100) SL().unlock('redrate')
-    if (maxedAct1(G)) SL().unlock('redmax')
+    for (const [k, id] of RED_STEPS) if (G.life >= k) ach(id)
+    if (rate(G, fx) >= 100) ach('redrate')
+    if (maxedAct1(G)) ach('redmax')
   }
 
   // production keeps going while the panel shows the map; a long gap (panel closed) pays half, up to 8 h
@@ -495,6 +649,8 @@
     carry -= whole
     if (whole) earn(G, whole)
     if (fight && whole && !fight.paused) hurtBoss(whole, false)
+    if (ui && dt <= 5) G.playS = (G.playS || 0) + dt
+    if (ui && billsOn(G) && !fight) billsTick()
     if (checkEnds()) return
     checkMedals()
     save()
@@ -506,7 +662,7 @@
     const fill = Math.min(1, combo / 50)
     fx.combo = lvl(G, 'c1') ? 1 + fill * (top - 1) : 1
     fx.comboFull = lvl(G, 'c1') > 0 && fill >= 1
-    if (fx.comboFull && lvl(G, 'c1') >= 4) SL().unlock('redcombo')
+    if (fx.comboFull && lvl(G, 'c1') >= 4) ach('redcombo')
     G.bestCombo = Math.max(G.bestCombo || 1, fx.combo)
   }
 
@@ -567,6 +723,7 @@
       <header class="rg-top">
         <div class="rg-count"><b class="rg-life">0</b><small class="rg-rates"></small></div>
         <div class="rg-wallet"><span class="rg-coins" title="Pulsaciones para gastar en ayudantes y en el árbol"></span><span class="rg-shards" title="Fragmentos: se gastan en artefactos"></span></div>
+        <button class="rg-billchip" title="La factura que tienes encima de la mesa" hidden></button>
         <div class="rg-combo" title="Combo: pulsa rápido para llenarlo"><i></i><span>×1</span></div>
         <span class="rg-spacer"></span>
         <button class="rg-treebtn" title="Árbol de mejoras">🌳 Árbol</button>
@@ -581,11 +738,12 @@
       <div class="rg-banner" hidden><b></b><small></small></div>
       <div class="rg-talk" hidden><div class="who"></div><p></p><button>Continuar ▸</button></div>
       <aside class="rg-side">
-        <nav class="rg-tabs"><button data-tab="helpers" class="on">🐾 Ayudantes</button><button data-tab="arts">🏺 Artefactos</button><button data-tab="story">📖 Historia</button><button data-tab="rebirth" class="rg-rebirth-tab">🔆 Renacer</button></nav>
+        <nav class="rg-tabs"><button data-tab="helpers" class="on">🐾 Ayudantes</button><button data-tab="arts">🏺 Artefactos</button><button data-tab="story">📖 Historia</button><button data-tab="bills" class="rg-bills-tab">🧾 Facturas</button><button data-tab="ach" class="rg-ach-tab" title="Logros del juego">🏆</button></nav>
         <div class="rg-pane rg-helpers" data-pane="helpers"></div>
         <div class="rg-pane rg-arts" data-pane="arts" hidden></div>
         <div class="rg-pane rg-story" data-pane="story" hidden></div>
-        <div class="rg-pane rg-rebirth" data-pane="rebirth" hidden></div>
+        <div class="rg-pane rg-bills" data-pane="bills" hidden></div>
+        <div class="rg-pane rg-ach" data-pane="ach" hidden></div>
       </aside>
       <footer class="rg-news"><span></span></footer>
       <div class="rg-tree" hidden>
@@ -622,8 +780,11 @@
       talk: root.querySelector('.rg-talk'),
       arts: root.querySelector('.rg-arts'),
       story: root.querySelector('.rg-story'),
-      rebirth: root.querySelector('.rg-rebirth'),
-      rebirthTab: root.querySelector('.rg-rebirth-tab'),
+      bills: root.querySelector('.rg-bills'),
+      billsTab: root.querySelector('.rg-bills-tab'),
+      billChip: root.querySelector('.rg-billchip'),
+      ach: root.querySelector('.rg-ach'),
+      achTab: root.querySelector('.rg-ach-tab'),
       helpers: root.querySelector('.rg-helpers'),
       news: root.querySelector('.rg-news span'),
       tree: root.querySelector('.rg-tree'),
@@ -752,6 +913,7 @@
       }),
     )
     ui.talk.querySelector('button').addEventListener('click', () => nextTalk())
+    ui.billChip.addEventListener('click', () => ui.billsTab.click())
     buildHelpers()
     buildArts()
     buildSprites()
@@ -1532,7 +1694,7 @@
   function catchGolden(x, y) {
     G.golden = (G.golden || 0) + 1
     G.shards = (G.shards || 0) + 1
-    SL().unlock('redgold')
+    ach('redgold')
     hitstop(110)
     whiteFlash(0.6)
     punch(1.07)
@@ -1634,7 +1796,7 @@
     const lid = ui.g3 ? null : ui.chest.querySelector('.rg-lid')
     lid?.animate([{ transform: 'none' }, { transform: 'translate(-20px,-60px) rotate(-70deg)', opacity: 1, offset: 0.6 }, { transform: 'translate(-34px,-30px) rotate(-120deg)', opacity: 0 }], { duration: 500, easing: 'ease-out', fill: 'forwards' })
     if (tier === 3) {
-      SL().unlock('redchest')
+      ach('redchest')
       frenzy(7, 20, '¡LEGENDARIO! ×7')
     } else if (tier === 2) frenzy(3, 15, '¡ÉPICO! ×3')
     bigText(`${rar.name}: +${fmt(reward)}`, rar.color)
@@ -1772,10 +1934,19 @@
   // ---------- artifacts ----------
 
   function buildArts() {
-    ui.arts.innerHTML = `<p class="rg-hintline">Los fragmentos 💠 salen de los cofres raros, de los botones dorados, de los capítulos y de vencer a Zarpas.</p><div class="rg-artgrid">${ARTS.map(
-      a => `<button class="rg-art" data-art="${a.id}"><span class="ic">${a.icon}</span><b>${a.name}</b><small>${a.desc}</small><em></em></button>`,
-    ).join('')}</div>`
-    ui.arts.querySelectorAll('[data-art]').forEach(b => b.addEventListener('click', () => buyArtifact(b.dataset.art)))
+    ui.arts.innerHTML = `<div class="rg-album"><div class="felt">${ARTS.map(a => `<button class="rg-coin" data-art="${a.id}"><span class="ic">${a.icon}</span></button>`).join('')}</div></div>
+      <div class="rg-coininfo"><b>Colección de artefactos</b><small>Pasa por encima de un hueco para verlo. Los fragmentos 💠 salen de los cofres raros, de los botones dorados, de los capítulos y de vencer a Zarpas.</small><em></em></div>`
+    ui.arts.querySelectorAll('[data-art]').forEach(b => {
+      b.addEventListener('mouseenter', () => artInfo(b.dataset.art))
+      b.addEventListener('click', () => buyArtifact(b.dataset.art))
+    })
+  }
+  function artInfo(id) {
+    const a = ARTS.find(x => x.id === id)
+    const box = ui.arts.querySelector('.rg-coininfo')
+    box.querySelector('b').textContent = `${a.icon} ${a.name}`
+    box.querySelector('small').textContent = a.desc
+    box.querySelector('em').textContent = art(G, a.id) ? '✓ En tu colección' : `${a.cost} 💠 · tienes ${G.shards || 0}`
   }
   function refreshArts() {
     if (ui.arts.hidden) return
@@ -1784,14 +1955,14 @@
       const owned = art(G, a.id)
       b.hidden = !artShown(G, a)
       b.classList.toggle('owned', owned)
-      b.disabled = owned || (G.shards || 0) < a.cost
-      b.querySelector('em').textContent = owned ? '✓ tuyo' : `${a.cost} 💠`
+      b.classList.toggle('afford', !owned && (G.shards || 0) >= a.cost)
     }
   }
   function buyArtifact(id) {
     const a = ARTS.find(x => x.id === id)
     if (!buyArt(G, a)) return
-    SL().unlock('redshop')
+    ach('redshop')
+    artInfo(id)
     if (ui.g3) {
       // in 3D the artifact appears over the button, spins in a burst of light and flies to its place on the stage
       ui.g3.setArts(Object.keys(G.arts), id, land => {
@@ -1850,72 +2021,282 @@
     refresh()
   }
 
-  // ---------- rebirth: let it all go and come back with souls ----------
+  // ---------- the game's achievements ----------
 
-  function refreshRebirth() {
-    const pend = pendingSouls(G)
-    // the tab glows when a rebirth would at least double your souls
-    ui.rebirthTab.classList.toggle('ready', !!G.act1 && pend >= Math.max(3, G.souls || 0))
-    if (ui.rebirth.hidden) return
-    const key = `${G.act1 ? 1 : 0}:${G.souls}:${pend}:${G.rebirths}`
-    if (ui.rebirth.dataset.key === key) return
-    ui.rebirth.dataset.key = key
+  function refreshAch() {
+    if (ui.ach.hidden) return
+    ui.achTab.classList.remove('ready')
+    const key = Object.keys(G.ach || {}).length
+    if (ui.ach.dataset.key === String(key)) return
+    ui.ach.dataset.key = key
+    const got = ACH.filter(a => (G.ach || {})[a[0]]).length
+    ui.ach.innerHTML = `<div class="rg-achhead"><b>Logros</b><span>${got} / ${ACH.length}</span><i style="width:${((got / ACH.length) * 100).toFixed(1)}%"></i></div>
+      <p class="rg-hintline">Al conseguirlos todos, el laboratorio te da su medalla 🏆 Platino del botón.</p>
+      <div class="rg-achlist">${ACH.map(a => `<div class="${(G.ach || {})[a[0]] ? 'got' : ''}"><i>${a[1]}</i><span><b>${a[2]}</b><small>${a[3]}</small></span></div>`).join('')}</div>`
+  }
+
+  // ---------- bills, bankruptcy and the legacy jeweller ----------
+
+  const daysTxt = (d, up) => {
+    const n = up ? Math.ceil(d) : Math.floor(d)
+    return d < 1 ? 'menos de 1 día' : `${n} día${n === 1 ? '' : 's'}`
+  }
+  function billsTick() {
+    if (!G.bill && G.playS >= (G.nextBillAt || 0)) {
+      issueBill(G)
+      if (!G.billTut) {
+        G.billTut = 1
+        say(ZARPAS, '¿Facturas? ¡A mí no me mires! Bueno… el alquiler del patio sí es mío. Págalas antes de que venzan o el cobrador se quedará con parte de todo lo que ganes. Y si no llegas, siempre puedes declararte en bancarrota.')
+      }
+      setTimeout(showBill, 400)
+      SL().beep([392, 330], 0.06)
+    }
+    if (G.bill && overdue(G) >= FORECLOSE_DAYS) return doBankrupt(true)
+    if (perk(G, 'interest') && G.playS - (G.interestAt || 0) >= 60) {
+      G.interestAt = G.playS
+      const v = Math.floor(Math.min(G.coins * 0.05 * perk(G, 'interest'), (rate(G) + clickValue(G) * 3) * 120))
+      if (v > 0) {
+        earn(G, v)
+        floatNum(toScreen(0, -90), `💰 +${fmt(v)} de intereses`, '#E8C870', 14)
+      }
+    }
+  }
+  // the bill as a sheet of paper on the desk
+  function billPaper(big) {
+    const b = G.bill
+    const late = overdue(G) > 0
+    return `<div class="rg-paper${big ? ' big' : ''}${late ? ' late' : ''}">
+      <div class="from">${b.from}</div>
+      <div class="title"><b>${b.name}</b><span>····${String(4271 + b.n * 37).slice(-4)}</span></div>
+      <p class="notice">Aviso: las facturas se pagan o el cobrador se lleva <em>20 %–50 %</em> de todo lo que ganes.</p>
+      <div class="lbl">Importe</div><div class="amount">${fmt(billAmount(G))}</div><small class="sub">${Math.round(b.secs / 60).toLocaleString('es-ES')} min de tu producción · sube con ella</small>
+      <div class="lbl">${late ? 'Vencida hace' : 'Vence en'}</div><div class="due">${daysTxt(late ? overdue(G) : daysLeft(G), !late)}</div>
+      ${late ? `<div class="stamp">VENCIDA · −${Math.round(collectorCut(G) * 100)} %</div>` : ''}
+      <div class="foot">POR FAVOR, PAGUE PUNTUALMENTE</div></div>`
+  }
+  function refreshBills() {
+    const b = G.bill
+    const amount = billAmount(G)
+    const can = !!b && G.coins >= amount
+    const late = overdue(G) > 0
+    const chip = ui.billChip
+    if (chip.hidden !== !b) chip.hidden = !b
+    if (b) {
+      chip.textContent = late ? `🧾 Vencida · el cobrador −${Math.round(collectorCut(G) * 100)} %` : `🧾 ${fmt(amount)} · ${daysTxt(daysLeft(G), true)}`
+      chip.classList.toggle('late', late)
+      chip.classList.toggle('soon', !late && daysLeft(G) < 1)
+      chip.classList.toggle('can', can)
+    }
+    ui.billsTab.classList.toggle('ready', can)
+    // the sheet on the table follows the amount as it grows
+    const sheet = root.querySelector('.rg-sheet')
+    if (sheet) {
+      if (!b) sheet.remove()
+      else {
+        sheet.querySelector('.amount').textContent = fmt(amount)
+        sheet.querySelector('.pay').disabled = !can
+      }
+    }
+    if (ui.bills.hidden) return
     if (!G.act1) {
-      ui.rebirth.innerHTML = '<div class="rg-soul"><div class="big">🔒</div><p>La grieta del patio aún está cerrada. Lleva el botón a los mil millones para abrirla.</p></div>'
+      if (ui.bills.dataset.key !== 'locked') {
+        ui.bills.dataset.key = 'locked'
+        ui.bills.innerHTML = '<div class="rg-billpane"><div class="rg-nobill">📭 Aún no llegan facturas. Llegarán por la grieta del patio cuando el botón pase de los mil millones.</div></div>'
+      }
       return
     }
-    const next = (G.souls || 0) + pend
-    ui.rebirth.innerHTML = `<div class="rg-soul">
-      <p class="lore">La grieta te ofrece un trato: suéltalo todo y vuelve más fuerte. Cada <b>alma de botón</b> 🔆 da <b>+5 %</b> a todo, para siempre.</p>
-      <div class="stats"><div><small>Almas</small><b>🔆 ${fmt(G.souls || 0)}</b><em>×${soulMult(G).toLocaleString('es-ES', { maximumFractionDigits: 2 })}</em></div><div><small>Renaceres</small><b>${G.rebirths || 0}</b></div></div>
-      <div class="gain ${pend ? '' : 'none'}">${pend ? `Si renaces ahora: <b>+${fmt(pend)} almas</b> → ×${(1 + SOUL_PCT * next).toLocaleString('es-ES', { maximumFractionDigits: 2 })}` : G.life < REBIRTH_AT ? 'Las almas empiezan a salir al llegar a 1 billón (10¹²).' : 'Sigue pulsando: cuanto más lejos llegues, más almas.'}</div>
-      <ul><li>✅ Conservas lo pulsado, la historia, los artefactos, los fragmentos y las almas.</li><li>♻️ Pierdes las monedas, los ayudantes y el árbol.</li><li>💡 Renace cuando las almas nuevas al menos dupliquen las que tienes.</li></ul>
-      <button class="rg-rebirth-btn"${pend ? '' : ' disabled'}>🔆 Renacer${pend ? ` (+${fmt(pend)})` : ''}</button></div>`
-    ui.rebirth.querySelector('.rg-rebirth-btn').addEventListener('click', askRebirth)
+    const next = Math.max(0, Math.ceil((G.nextBillAt || 0) - (G.playS || 0)))
+    // only a change of state rebuilds the pane; the amount, the days and the countdown are updated in place
+    const key = [b ? b.n : -1, late, late ? collectorCut(G) : 0, can, G.pending, G.legacy, G.paid, JSON.stringify(G.perks)].join('|')
+    if (ui.bills.dataset.key === key) {
+      const pane = ui.bills
+      if (b) {
+        pane.querySelector('.amount').textContent = fmt(amount)
+        pane.querySelector('.due').textContent = daysTxt(late ? overdue(G) : daysLeft(G), !late)
+      } else pane.querySelector('.rg-nobill b').textContent = next
+      return
+    }
+    ui.bills.dataset.key = key
+    const perks = PERKS.filter(p => perk(G, p.id))
+    ui.bills.innerHTML = `<div class="rg-billpane">
+      ${b ? billPaper(false) + `<button class="rg-paybtn"${can ? '' : ' disabled'}>Pagar factura</button>` : `<div class="rg-nobill">📭 Nada que pagar. La próxima factura llega en <b>${next}</b> s.</div>`}
+      <div class="rg-ledgerbox"><div><small>Legado</small><b>⚜️ ${G.legacy || 0}</b></div><div><small>Al quebrar cobras</small><b>+${G.pending || 0} ⚜️</b></div><div><small>Pagadas</small><b>${G.paid || 0}</b></div></div>
+      ${perks.length ? `<div class="rg-perkchips">${perks.map(p => `<span title="${p.desc}"><i>${p.icon}</i>${p.name}${perk(G, p.id) > 1 ? ` ×${perk(G, p.id)}` : ''}</span>`).join('')}</div>` : ''}
+      <div class="row"><button class="rg-jewelbtn">💍 Joyería</button><button class="rg-bankbtn"${G.pending ? '' : ' disabled'}>💼 Bancarrota</button></div>
+      <ul class="rules"><li>Cada factura pagada suma legado: la 1.ª da 1, la 2.ª da 2… y te deja elegir una carta.</li><li>Al quebrar cobras el legado y pierdes monedas, ayudantes, árbol y cartas. Lo pulsado, la historia, los artefactos y las joyas se quedan.</li><li>Con tres días de retraso el cobrador te embarga: bancarrota forzosa.</li></ul></div>`
+    ui.bills.querySelector('.rg-paybtn')?.addEventListener('click', doPayBill)
+    ui.bills.querySelector('.rg-jewelbtn').addEventListener('click', openJeweller)
+    ui.bills.querySelector('.rg-bankbtn').addEventListener('click', askBankrupt)
   }
-  function askRebirth() {
-    if (!ui || fight || root.querySelector('.rg-end')) return
-    const pend = pendingSouls(G)
-    if (!pend) return
+  // a new bill drops on the table
+  function showBill() {
+    if (!ui || !G.bill || fight || root.querySelector('.rg-sheet, .rg-end, .rg-cards, .rg-jeweller')) return
+    const sheet = document.createElement('div')
+    sheet.className = 'rg-sheet'
+    sheet.innerHTML = `${billPaper(true)}<div class="row"><button class="later">Todavía no</button><button class="pay">Pagar factura</button></div>`
+    sheet.querySelector('.pay').disabled = G.coins < billAmount(G)
+    sheet.querySelector('.later').addEventListener('click', () => fadeOut(sheet))
+    sheet.querySelector('.pay').addEventListener('click', () => {
+      fadeOut(sheet)
+      doPayBill()
+    })
+    root.appendChild(sheet)
+    sheet.querySelector('.rg-paper').animate([{ transform: 'translateY(-130%) rotate(-7deg)' }, { transform: 'translateY(3%) rotate(1deg)', offset: 0.75 }, { transform: 'none' }], { duration: 560, easing: 'cubic-bezier(.2,.9,.3,1)' })
+  }
+  function fadeOut(el) {
+    el.style.pointerEvents = 'none'
+    el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160 }).onfinish = () => el.remove()
+  }
+  function doPayBill() {
+    const gain = payBill(G)
+    if (!gain) return
+    const p = toScreen(0, -40)
+    coinsBurst(p.x, p.y, 20)
+    sparks(p.x, p.y, 30, '#E8C870', 6)
+    bigText(`🧾 ¡Pagada! +${gain} ⚜️ al quebrar`, '#E8C870')
+    SL().beep([523, 659, 784], 0.06)
+    if (G.paid >= 10) ach('redbills')
+    save(true)
+    refresh()
+    setTimeout(chooseCard, 450)
+  }
+  // ELIGE UNA: three cards (four with the charm bracelet), each a perk until the next bankruptcy
+  function chooseCard() {
+    if (!ui || root.querySelector('.rg-cards')) return
+    const offer = perkOffer(G)
+    if (!offer.length) return
+    const el = document.createElement('div')
+    el.className = 'rg-cards'
+    el.innerHTML = `<h3>ELIGE UNA</h3><div class="row">${offer
+      .map(p => {
+        const l = perk(G, p.id) + 1
+        return `<button class="rg-pcard" data-perk="${p.id}"><b>${p.name}</b><i>${p.icon}</i><hr><span>${p.desc}</span><hr><small>${l >= p.max ? 'MÁX' : `${l} / ${p.max}`}</small></button>`
+      })
+      .join('')}</div>`
+    el.querySelectorAll('[data-perk]').forEach(b =>
+      b.addEventListener('click', () => {
+        if (!takePerk(G, b.dataset.perk)) return
+        const r = b.getBoundingClientRect()
+        const box = root.getBoundingClientRect()
+        sparks(r.left - box.left + r.width / 2, r.top - box.top + r.height / 2, 40, '#E8C870', 7)
+        SL().beep([659, 988], 0.05)
+        save(true)
+        fadeOut(el)
+        refresh()
+      }),
+    )
+    root.appendChild(el)
+    el.querySelectorAll('.rg-pcard').forEach((c, i) => c.animate([{ opacity: 0, transform: 'translateY(40px) rotate(-4deg)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: 90 * i, fill: 'backwards', easing: 'cubic-bezier(.2,.9,.3,1.2)' }))
+  }
+  function askBankrupt() {
+    if (!ui || fight || !G.pending || root.querySelector('.rg-end')) return
     const card = document.createElement('div')
-    card.className = 'rg-end'
-    card.innerHTML = `<div class="big">🔆</div><h3>¿Renacer?</h3><p>Ganas <b>${fmt(pend)} almas</b> y todo irá ×${(1 + SOUL_PCT * ((G.souls || 0) + pend)).toLocaleString('es-ES', { maximumFractionDigits: 2 })}. Se van tus monedas, ayudantes y árbol; lo pulsado, la historia y los artefactos se quedan.</p>
-      <div class="row"><button class="done">Ahora no</button><button class="primary again">🔆 Renacer</button></div>`
+    card.className = 'rg-end rg-broke'
+    card.innerHTML = `<div class="big">💼</div><h3>¿Declararse en bancarrota?</h3><p>Cobras <b>${G.pending} ⚜️ de legado</b> para anillos y pulseras. Pierdes las monedas, los ayudantes, el árbol y las cartas; lo pulsado, la historia, los artefactos y las joyas se quedan. Las facturas vuelven a empezar por la primera.</p>
+      <div class="row"><button class="done">Ahora no</button><button class="primary again">💼 Declararme en bancarrota</button></div>`
     card.querySelector('.done').addEventListener('click', () => card.remove())
     card.querySelector('.again').addEventListener('click', () => {
       card.remove()
-      doRebirth()
+      doBankrupt(false)
     })
     root.appendChild(card)
     card.animate([{ opacity: 0, transform: 'translate(-50%,-46%) scale(.9)' }, { opacity: 1, transform: 'translate(-50%,-50%)' }], { duration: 300, easing: 'cubic-bezier(.2,.9,.3,1)' })
   }
-  function doRebirth() {
-    // the crew goes up in light before the stage is cleared
-    const p = toScreen(0, -10)
+  function doBankrupt(forced) {
     for (const sp of ui.sprites) {
       const q = toScreen(sp.x, sp.y - 20)
-      sparks(q.x, q.y, 8, '#FFF4C8', 4)
-      puff(q.x, q.y, 'rgba(255,240,200,', 0.7)
+      puff(q.x, q.y, 'rgba(120,100,80,', 0.7)
     }
-    const gain = rebirth(G)
-    if (!gain) return
+    const gain = bankrupt(G)
     combo = 0
     chestReady = 0
+    frenzyUntil = 0
+    frenzyMult = 1
+    ui.stage.classList.remove('frenzy')
     ui.g3?.chestHide()
     if (ui.chest) ui.chest.style.display = 'none'
-    SL().unlock('redrebirth')
+    root.querySelectorAll('.rg-sheet, .rg-cards').forEach(el => el.remove())
+    ach('redrebirth')
     save(true)
     hitstop(160)
-    whiteFlash(0.9)
-    punch(1.1)
-    flash(p.x, p.y, 260, '255,240,180')
-    beams(p.x, p.y, '#FFE7A0')
-    confetti(p.x, p.y, 90)
-    bigText(`🔆 ¡Renaces! +${fmt(gain)} almas`, '#FFE7A0')
-    SL().beep([262, 392, 523, 784, 1047, 1568], 0.09)
+    shake(14)
+    whiteFlash(0.4)
+    banner(forced ? 'EMBARGADO' : 'BANCARROTA', `${forced ? 'El cobrador se lo ha llevado todo. ' : ''}Cobras ${gain} ⚜️ de legado: gástalo en la joyería.`, 'broke')
+    SL().beep([392, 294, 196, 131], 0.16)
     buildSprites()
     if (!ui.tree.hidden) buildTree()
     refresh()
+    setTimeout(() => ui && !fight && openJeweller(), 3000)
+  }
+
+  // the jeweller: wooden shelves, rings on one side and bracelets on the other; what you cannot afford yet is a dark silhouette
+  function jewelSvg(j) {
+    const c = j.color
+    if (j.kind === 'ring') {
+      const gem = j.id === 'heir' ? '<path d="M32 6 L40 14 L32 24 L24 14 Z" fill="#C8142A" stroke="#5a0a12" stroke-width="1.5"/><path d="M28 12 L32 8 L35 12" fill="none" stroke="#ff8a9a" stroke-width="1.2"/>' : j.id === 'seal' ? '<rect x="22" y="6" width="20" height="14" rx="3" fill="#B8141E" stroke="#5a0a12" stroke-width="1.5"/><circle cx="32" cy="13" r="4" fill="none" stroke="#ffb0a0" stroke-width="1.3"/>' : '<circle cx="32" cy="14" r="5" fill="#fff" opacity=".85"/>'
+      return `<svg viewBox="0 0 64 64"><ellipse cx="32" cy="40" rx="20" ry="17" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="9" transform="translate(1 2)"/><ellipse cx="32" cy="40" rx="20" ry="17" fill="none" stroke="${c}" stroke-width="8"/><ellipse cx="30" cy="36" rx="17" ry="14" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>${gem}</svg>`
+    }
+    const beads = Array.from({ length: 12 }, (_, i) => {
+      const a = (i / 12) * Math.PI * 2
+      const x = (32 + Math.cos(a) * 22).toFixed(1)
+      const y = (36 + Math.sin(a) * 15).toFixed(1)
+      return j.id === 'beads' ? `<circle cx="${x}" cy="${y}" r="4.6" fill="${i % 2 ? c : '#E8E0D0'}" stroke="#1a1310" stroke-width="1"/>` : j.id === 'chain' ? `<ellipse cx="${x}" cy="${y}" rx="5" ry="3.4" fill="none" stroke="${c}" stroke-width="2.6" transform="rotate(${Math.round((a * 180) / Math.PI + 90)} ${x} ${y})"/>` : ''
+    }).join('')
+    const band = j.id === 'beads' || j.id === 'chain' ? '' : `<ellipse cx="32" cy="36" rx="22" ry="15" fill="none" stroke="${c}" stroke-width="7"/><ellipse cx="32" cy="34" rx="22" ry="15" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="2"/>`
+    const charms = j.id === 'charm' ? '<circle cx="18" cy="50" r="4" fill="#FFD84F"/><path d="M32 52 l3 6 h-6z" fill="#9FE8FF"/><circle cx="46" cy="50" r="4" fill="#FF6A7A"/>' : j.id === 'paw' ? '<g transform="translate(32 51)"><circle r="5" fill="#E8352B"/><circle cx="-5" cy="-6" r="2.2" fill="#E8352B"/><circle cx="0" cy="-8" r="2.2" fill="#E8352B"/><circle cx="5" cy="-6" r="2.2" fill="#E8352B"/></g>' : j.id === 'leather' ? '<rect x="27" y="45" width="10" height="7" rx="1" fill="#C9A24A"/>' : ''
+    return `<svg viewBox="0 0 64 64">${band}${beads}${charms}</svg>`
+  }
+  function openJeweller() {
+    if (!ui || root.querySelector('.rg-jeweller')) return
+    const el = document.createElement('div')
+    el.className = 'rg-jeweller'
+    el.innerHTML = `<header><b>Joyería del legado</b><span class="lg"></span><button class="x">Seguir ▸</button></header>
+      <div class="cab">${['ring', 'bracelet']
+        .map(k => `<section><h4>${k === 'ring' ? 'Anillos' : 'Pulseras'}</h4><div class="shelf">${JEWELS.filter(j => j.kind === k)
+          .map(j => `<button class="jw" data-j="${j.id}">${jewelSvg(j)}<em></em></button>`)
+          .join('')}</div></section>`)
+        .join('')}</div><div class="info"><b>Elige una joya</b><p>Se compran con legado ⚜️ y duran para siempre, quiebres las veces que quiebres.</p></div>`
+    const info = j => {
+      const l = jewel(G, j.id)
+      el.querySelector('.info').innerHTML = `<b>${j.name} <small>${l} / ${j.max}</small></b><p>${l ? `Ahora: ${j.desc(l)}.` : ''}${l < j.max ? ` ${l ? 'Siguiente' : 'Al comprarlo'}: ${j.desc(l + 1)} · ${j.cost(l)} ⚜️` : ' Al máximo.'}</p>`
+    }
+    el.querySelectorAll('[data-j]').forEach(b => {
+      const j = JEWEL_BY_ID[b.dataset.j]
+      b.addEventListener('mouseenter', () => info(j))
+      b.addEventListener('click', () => {
+        if (!buyJewel(G, j)) {
+          b.animate([{ transform: 'translateX(-4px)' }, { transform: 'translateX(4px)' }, { transform: 'none' }], { duration: 200 })
+          return
+        }
+        const r = b.getBoundingClientRect()
+        const box = root.getBoundingClientRect()
+        sparks(r.left - box.left + r.width / 2, r.top - box.top + r.height / 2, 46, j.color, 7)
+        b.querySelector('svg').animate([{ transform: 'scale(1) rotate(0)' }, { transform: 'scale(1.35) rotate(-12deg)', offset: 0.4 }, { transform: 'none' }], { duration: 500, easing: 'cubic-bezier(.2,.9,.3,1.3)' })
+        SL().beep([784, 1175, 1568], 0.05)
+        ach('redjewel')
+        save(true)
+        refreshJeweller(el)
+        info(j)
+        refresh()
+      })
+    })
+    el.querySelector('.x').addEventListener('click', () => fadeOut(el))
+    root.appendChild(el)
+    refreshJeweller(el)
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260 })
+  }
+  function refreshJeweller(el) {
+    el.querySelector('.lg').textContent = `⚜️ ${G.legacy || 0}`
+    for (const b of el.querySelectorAll('[data-j]')) {
+      const j = JEWEL_BY_ID[b.dataset.j]
+      const l = jewel(G, j.id)
+      const max = l >= j.max
+      const cost = max ? 0 : j.cost(l)
+      b.classList.toggle('owned', l > 0)
+      b.classList.toggle('locked', !l && (G.legacy || 0) < cost)
+      b.classList.toggle('afford', !max && (G.legacy || 0) >= cost)
+      b.querySelector('em').textContent = max ? 'Máx' : l ? `Nv ${l} · ${cost} ⚜️` : `${cost} ⚜️`
+    }
   }
 
   // ---------- the story tab ----------
@@ -2252,7 +2633,7 @@
     G.coins -= lost
     const old = G.stain && G.stain.coins
     G.stain = { i: f.i, coins: lost }
-    SL().unlock('reddied')
+    ach('reddied')
     save(true)
     hideTele()
     ui.g3?.knightDie()
@@ -2330,8 +2711,8 @@
     fight = null
     G.beaten = { ...G.beaten, [f.i]: Date.now() }
     G.shards = (G.shards || 0) + f.b.shards
-    if (f.i === BOSSES.length - 1) SL().unlock('redboss')
-    if (f.me && !f.me.hits) SL().unlock('rednohit')
+    if (f.i === BOSSES.length - 1) ach('redboss')
+    if (f.me && !f.me.hits) ach('rednohit')
     const back = G.stain && G.stain.i === f.i ? G.stain.coins : 0
     if (back) {
       G.coins += back
@@ -2405,7 +2786,7 @@
           const n = b.dataset.n === 'max' ? 1000 : Number(b.dataset.n)
           const got = buyHelper(G, h, n)
           if (!got) return
-          SL().unlock('redshop')
+          ach('redshop')
           const r = row.getBoundingClientRect()
           const box = root.getBoundingClientRect()
           const to = { x: r.left - box.left + 20, y: r.top - box.top + r.height / 2 }
@@ -2480,7 +2861,8 @@
     refreshMission()
     refreshArts()
     refreshStory()
-    refreshRebirth()
+    refreshBills()
+    refreshAch()
   }
   function updateComboBar() {
     if (!ui) return
@@ -2622,7 +3004,7 @@
     const n = TREE_BY_ID[id]
     const before = TREE.filter(x => nodeShown(G, x)).length
     if (!buyNode(G, n)) return
-    SL().unlock('redshop')
+    ach('redshop')
     const svg = ui.tree.querySelector('.rg-tree-svg')
     const g = svg.querySelector(`[data-node="${id}"]`)
     g.querySelector('.disc').animate([{ transform: 'scale(1.5)' }, { transform: 'scale(.9)' }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.3,1.6,.5,1)' })
@@ -2716,8 +3098,8 @@
   function act1Done() {
     G.act1 = Date.now()
     save(true)
-    SL().unlock('redend')
-    if (G.act1 - G.start < SPEEDRUN_MS) SL().unlock('redspeed')
+    ach('redend')
+    if (G.act1 - G.start < SPEEDRUN_MS) ach('redspeed')
     SL().mapLabel()
     if (!ui) return
     celebrate('🏁 ¡MIL MILLONES!')
@@ -2734,7 +3116,7 @@
     G.life = GOAL
     G.ended = Date.now()
     save(true)
-    SL().unlock('redocti')
+    ach('redocti')
     SL().mapLabel()
     if (!ui) return
     celebrate('🌌 ¡UN OCTILLÓN!')

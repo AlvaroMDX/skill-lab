@@ -14,15 +14,15 @@
 - **Temporadas.** Halloween, Navidad, Nochevieja, Reyes, Carnaval, San Valentín, San Fermín, las cuatro estaciones… se ponen solas según la fecha, o eliges una.
 - **Disfraces y colores.** Pirata, alien, astronauta, mago, vaquero, ninja, chef o vikingo, por separado para los muñecos, los robots y los drones. Seis paletas para los carteles: cálidos, pasteles, multicolor, fríos, neón y tierra.
 - **Día y noche, avisos y gatos.** La luz sigue la hora real, suena un aviso cuando Claude termina o espera permiso, y los gatos reaccionan a cada sala en la que los sueltes.
-- **62 medallas** escondidas para quien las encuentre. Pistas: en el casino hay tragaperras de verdad, Wally sale a pasear algunas horas, en Navidad Papá Noel cruza el cielo de noche y quien lo consigue todo encuentra algo rojo al final del camino de la puerta lateral, y cuando lo tienes todo, el laboratorio se convierte en un juego incremental con historia: ayudantes, árbol de mejoras, artefactos, cofres, botones dorados y tres combates contra el Doctor Zarpas.
+- **49 medallas** escondidas para quien las encuentre. Pistas: en el casino hay tragaperras de verdad, Wally sale a pasear algunas horas, en Navidad Papá Noel cruza el cielo de noche y quien lo consigue todo encuentra algo rojo al final del camino de la puerta lateral, y cuando lo tienes todo, el laboratorio se convierte en un juego incremental con historia: ayudantes, árbol de mejoras, artefactos, cofres, botones dorados, duelos contra el Doctor Zarpas, facturas que pagar o quebrar, y sus propios logros.
 
 ![El mismo laboratorio de noche](images/night.png)
 
 ## Instalación
 
-1. Descarga `skill-lab-1.7.1.vsix` de la última [release](https://github.com/AlvaroMDX/skill-lab/releases/latest).
+1. Descarga `skill-lab-1.8.0.vsix` de la última [release](https://github.com/AlvaroMDX/skill-lab/releases/latest).
 2. En VS Code: **Extensiones → ··· → Install from VSIX…** y elige el fichero.
-   También desde un terminal: `code --install-extension skill-lab-1.7.1.vsix`.
+   También desde un terminal: `code --install-extension skill-lab-1.8.0.vsix`.
 3. Recarga la ventana (**Developer: Reload Window**).
 
 Para compilarla desde el código:

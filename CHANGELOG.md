@@ -1,5 +1,14 @@
 # Cambios
 
+## 1.8.0 — 2026-10-29
+- El renacer con almas se sustituye por un prestigio como el de Bills Must Be Paid: en el segundo acto llegan **facturas** con fecha de vencimiento. Si se pasa el plazo, el cobrador se lleva del 20 al 50 % de todo lo que ganas; con tres días de retraso te embarga.
+- Cada factura pagada suma **legado** ⚜️ (la 1.ª da 1, la 2.ª da 2…) y te deja **elegir una carta** entre tres: interés, horas extra, nudillos de hierro, rebaja, prórroga, ganzúa, racha, congelación o trato con Zarpas.
+- La **bancarrota** cobra el legado y se lleva monedas, ayudantes, árbol y cartas. El legado se gasta en la **joyería**: cinco anillos y cinco pulseras que duran para siempre.
+- Estética de escritorio con flexo: facturas en papel, cartas oscuras con borde dorado, joyería en estanterías de madera y los artefactos en un álbum de monedas.
+- El juego tiene sus **propios logros** (pestaña 🏆, 20 en total). Las medallas del laboratorio ya no los mezclan: solo queda una, **Platino del botón**, por conseguirlos todos. Las partidas guardadas los conservan y las almas se convierten en legado.
+- Balance: los cofres y los botones dorados ya no dan más que la producción, el frenesí no los multiplica otra vez y el Gato cerrajero cuenta las pulsaciones de los ayudantes a una fracción.
+- Duelos: los golpes de Zarpas hacen daño fijo, así que la Armadura forjada y la vida por cada Zarpas vencido ya cuentan. Hay menos frascos y curan menos, y los Zarpas tienen menos vida.
+
 ## 1.7.1 — 2026-10-29
 - El tutorial de Mishi ya para el primer duelo hasta que terminas de leerlo, y mientras habla no se puede atacar.
 - El espacio siempre ataca en el duelo, aunque antes hayas pulsado Rodar o Frasco con el ratón; el clic derecho sobre el botón solo rueda.

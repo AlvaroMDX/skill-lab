@@ -308,3 +308,121 @@
 #rg .rg-actions button { position: relative; overflow: hidden; }
 #rg .rg-actions button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--cd, 0) * 100%); background: rgba(0, 0, 0, .62); pointer-events: none; }
 #rg .rg-actions button.off { opacity: .45; filter: grayscale(.8); }
+/* bills, bankruptcy, jeweller and the coin album: the warm desk look of the piggy bank game */
+#rg { --cond: 'Bahnschrift', 'Bahnschrift SemiCondensed', 'Arial Narrow', 'Roboto Condensed', sans-serif; --mono: Consolas, 'Courier New', monospace; --amber: #E8C88A; --wood: #3a2414; --wood-2: #2a180c; }
+#rg .rg-bills-tab.ready { animation: rg-soulglow 1.2s ease-in-out infinite; border-color: var(--amber); color: var(--amber); }
+#rg .rg-billchip { padding: 4px 9px; font: 600 12px var(--cond); letter-spacing: .3px; background: #E9CDA8; color: #2a1a10; border: 1px solid #8a5a2a; box-shadow: 0 2px 6px rgba(0, 0, 0, .5); transform: rotate(-1.5deg); }
+#rg .rg-billchip[hidden] { display: none; }
+#rg .rg-billchip.can { box-shadow: 0 0 0 2px #7FD07F, 0 2px 6px rgba(0, 0, 0, .5); }
+#rg .rg-billchip.soon { animation: rg-throb .6s ease-in-out infinite; }
+#rg .rg-billchip.late { background: #8A1A14; color: #FFE7D0; border-color: #FF5A4A; animation: rg-throb .45s ease-in-out infinite; }
+/* the bill: tan paper, typewriter text, red labels */
+#rg .rg-paper { position: relative; padding: 12px 14px 8px; background: linear-gradient(#EED3AE, #E2BF95); color: #1a1310; font: 12px var(--mono); border-top: 3px solid #7a1a14; border-bottom: 3px solid #7a1a14; box-shadow: 0 8px 22px rgba(0, 0, 0, .55); text-align: left; }
+#rg .rg-paper .from { font-size: 9px; letter-spacing: 3px; color: #5a4636; }
+#rg .rg-paper .title { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #a8896a; padding: 3px 0 6px; }
+#rg .rg-paper .title b { font: 700 16px var(--mono); }
+#rg .rg-paper .title span { font-size: 9px; letter-spacing: 2px; color: #5a4636; }
+#rg .rg-paper .notice { margin: 8px 0; font-size: 10px; line-height: 1.45; color: #3a2a20; border-bottom: 1px solid #a8896a; padding-bottom: 8px; }
+#rg .rg-paper .notice em { font-style: normal; color: #9A1A14; font-weight: 700; }
+#rg .rg-paper .lbl { margin-top: 6px; text-align: center; color: #8A1A14; font-size: 12px; }
+#rg .rg-paper .amount { text-align: center; font: 700 26px var(--mono); line-height: 1.1; }
+#rg .rg-paper .sub { display: block; text-align: center; font-size: 9px; color: #6a5646; border-bottom: 1px solid #a8896a; padding-bottom: 6px; }
+#rg .rg-paper .due { text-align: center; font: 700 17px var(--mono); }
+#rg .rg-paper .foot { margin-top: 8px; text-align: center; font-size: 8px; letter-spacing: 3px; color: #5a4636; }
+#rg .rg-paper .stamp { position: absolute; right: 8px; top: 52%; padding: 2px 8px; border: 3px solid #B8141E; color: #B8141E; font: 900 15px var(--cond); letter-spacing: 2px; transform: rotate(-14deg); opacity: .85; mix-blend-mode: multiply; }
+#rg .rg-paper.big { width: 290px; padding: 18px 22px 12px; }
+#rg .rg-paper.big .title b { font-size: 21px; }
+#rg .rg-paper.big .amount { font-size: 40px; }
+#rg .rg-paper.big .due { font-size: 24px; }
+#rg .rg-paper.big .notice { font-size: 11px; }
+/* a new bill on the table */
+#rg .rg-sheet, #rg .rg-cards, #rg .rg-jeweller { position: absolute; inset: 0; z-index: 11; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: radial-gradient(ellipse at 50% 45%, rgba(40, 24, 14, .55), rgba(0, 0, 0, .86)); backdrop-filter: blur(3px); }
+#rg .rg-sheet .row, #rg .rg-billpane .row { display: flex; gap: 10px; }
+#rg .rg-sheet .row button, #rg .rg-paybtn, #rg .rg-billpane .row button, #rg .rg-jeweller .x { padding: 7px 18px; font: 600 15px var(--cond); color: var(--amber); background: #1d1510; border: 1px solid #8a6a3a; box-shadow: none; }
+#rg .rg-sheet .row button:hover, #rg .rg-paybtn:hover, #rg .rg-billpane .row button:hover, #rg .rg-jeweller .x:hover { background: #2a1e14; }
+#rg .rg-sheet .row .pay { color: #fff3d8; background: #12100c; }
+/* the bills pane */
+#rg .rg-billpane { display: flex; flex-direction: column; gap: 8px; padding: 2px; font-family: var(--cond); }
+#rg .rg-billpane .rg-paper { transform: rotate(-.6deg); }
+#rg .rg-paybtn { width: 100%; }
+#rg .rg-nobill { padding: 14px 10px; text-align: center; color: #d8c8b4; background: rgba(0, 0, 0, .25); border: 1px dashed #6a5a4a; font: 13px var(--cond); line-height: 1.4; }
+#rg .rg-ledgerbox { display: grid; grid-template-columns: 1fr 1fr .7fr; gap: 4px; }
+#rg .rg-ledgerbox div { display: flex; flex-direction: column; padding: 5px 7px; background: rgba(232, 200, 138, .07); border: 1px solid #5a4a2a; }
+#rg .rg-ledgerbox small { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .5px; }
+#rg .rg-ledgerbox b { color: var(--amber); font-size: 15px; }
+#rg .rg-perkchips { display: flex; flex-wrap: wrap; gap: 4px; }
+#rg .rg-perkchips span { padding: 2px 7px; font: 12px var(--cond); color: #f2e6cf; background: #120c08; border: 1px solid #6a5a3a; }
+#rg .rg-perkchips i, #rg .rg-pcard i { font-style: normal; filter: sepia(1) saturate(2.4) hue-rotate(-12deg) brightness(.95); }
+#rg .rg-billpane .row button { flex: 1; padding: 7px 4px; font-size: 14px; }
+#rg .rg-billpane .rules { margin: 0; padding-left: 14px; display: flex; flex-direction: column; gap: 3px; color: #b8a894; font: 11px var(--cond); line-height: 1.35; }
+/* ELIGE UNA */
+#rg .rg-cards h3 { margin: 0; font: 700 30px var(--cond); letter-spacing: 4px; color: #fff; text-shadow: 0 3px 10px #000; }
+#rg .rg-cards .row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; padding: 0 12px; }
+#rg .rg-pcard { width: 150px; min-height: 210px; padding: 0 0 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; background: linear-gradient(#17100b, #0c0806); border: 1px solid #8a6a3a; box-shadow: 0 10px 26px rgba(0, 0, 0, .7), inset 0 0 0 3px #120c08; color: #f2e6cf; cursor: pointer; transition: transform .15s, box-shadow .15s; }
+#rg .rg-pcard:hover { transform: translateY(-6px); box-shadow: 0 16px 30px rgba(0, 0, 0, .75), 0 0 18px #e8c88a55, inset 0 0 0 3px #120c08; background: linear-gradient(#1d150e, #0c0806); }
+#rg .rg-pcard b { width: 100%; padding: 7px 4px; font: 600 17px var(--cond); color: var(--amber); background: #261b10; border-bottom: 1px solid #5a4a2a; }
+#rg .rg-pcard i { font-size: 44px; line-height: 1.3; }
+#rg .rg-pcard hr { width: 70%; margin: 0; border: none; border-top: 1px solid #4a3a26; }
+#rg .rg-pcard span { padding: 0 10px; font: 14px var(--cond); line-height: 1.3; flex: 1; display: flex; align-items: center; }
+#rg .rg-pcard small { font: 10px var(--cond); color: #8a7a64; letter-spacing: 1px; }
+/* bankruptcy */
+#rg .rg-banner.broke b { color: var(--amber); font-family: var(--cond); letter-spacing: 12px; text-shadow: 0 0 30px rgba(232, 200, 138, .55); }
+#rg .rg-end.rg-broke { background: linear-gradient(#EED3AE, #E2BF95); border: none; border-top: 3px solid #7a1a14; border-bottom: 3px solid #7a1a14; color: #1a1310; font-family: var(--mono); }
+#rg .rg-end.rg-broke h3 { color: #1a1310; font-family: var(--cond); font-size: 20px; }
+#rg .rg-end.rg-broke p { color: #3a2a20; }
+#rg .rg-end.rg-broke button { font-family: var(--cond); }
+/* the jeweller: two wooden cabinets with shelves */
+#rg .rg-jeweller { justify-content: flex-start; padding: 12px; gap: 10px; background: radial-gradient(ellipse at 50% 30%, rgba(30, 18, 10, .9), rgba(0, 0, 0, .95)); }
+#rg .rg-jeweller header { width: min(760px, 100%); display: flex; align-items: center; gap: 12px; }
+#rg .rg-jeweller header b { font: 700 24px var(--cond); color: #fff; letter-spacing: 1px; }
+#rg .rg-jeweller .lg { margin-left: auto; padding: 6px 16px; border-radius: 18px; background: #3a302a; color: #fff; font: 700 17px var(--cond); }
+#rg .rg-jeweller .cab { width: min(760px, 100%); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; background: linear-gradient(90deg, var(--wood-2), var(--wood) 6%, var(--wood) 94%, var(--wood-2)); border: 6px solid #22140a; box-shadow: inset 0 0 40px rgba(0, 0, 0, .7), 0 12px 30px rgba(0, 0, 0, .7); }
+#rg .rg-jeweller section { padding: 4px 6px; background: repeating-linear-gradient(90deg, rgba(0, 0, 0, .08) 0 3px, transparent 3px 11px), linear-gradient(#2e1c10, #24160c); border: 3px solid #1a0f07; }
+#rg .rg-jeweller h4 { margin: 2px 0 4px; text-align: center; font: 600 15px var(--cond); color: var(--amber); letter-spacing: 2px; text-transform: uppercase; }
+#rg .rg-jeweller .shelf { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 4px; }
+#rg .jw { position: relative; display: flex; flex-direction: column; align-items: center; padding: 6px 2px 4px; background: none; border: none; border-bottom: 9px solid #4a2c16; box-shadow: 0 6px 0 -2px #1a0f07; cursor: pointer; }
+#rg .jw:hover { background: radial-gradient(ellipse at 50% 60%, rgba(255, 220, 150, .14), transparent 70%); }
+#rg .jw svg { width: 58px; height: 58px; filter: drop-shadow(0 4px 3px rgba(0, 0, 0, .6)); transition: filter .2s; }
+#rg .jw.locked svg { filter: brightness(0) drop-shadow(0 3px 2px rgba(0, 0, 0, .5)); opacity: .85; }
+#rg .jw.afford svg { filter: drop-shadow(0 0 8px rgba(255, 220, 140, .55)) drop-shadow(0 4px 3px rgba(0, 0, 0, .6)); }
+#rg .jw em { margin-top: 2px; padding: 1px 6px; font: 600 11px var(--cond); font-style: normal; color: #c8a878; background: #1a120c; border: 1px solid #3a2a1a; white-space: nowrap; }
+#rg .jw.owned em { color: #fff; }
+#rg .jw.afford em { color: #FFE7A0; border-color: #8a6a3a; }
+#rg .rg-jeweller .info { width: min(760px, 100%); padding: 8px 12px; background: #120c08; border: 1px solid #5a4a2a; font: 14px var(--cond); color: #f2e6cf; min-height: 52px; }
+#rg .rg-jeweller .info b { color: var(--amber); font-size: 17px; }
+#rg .rg-jeweller .info small { color: #8a7a64; font-size: 12px; }
+#rg .rg-jeweller .info p { margin: 3px 0 0; }
+/* the coin album */
+#rg .rg-album { padding: 10px; background: linear-gradient(135deg, #3a2414, #24160c); border: 5px solid #1a0f07; box-shadow: inset 0 0 22px rgba(0, 0, 0, .8), 0 6px 16px rgba(0, 0, 0, .6); }
+#rg .rg-album .felt { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 8px; padding: 10px; background: radial-gradient(ellipse at 40% 30%, #6a2228, #4a1418); box-shadow: inset 0 0 16px rgba(0, 0, 0, .75); }
+#rg .rg-coin { aspect-ratio: 1; width: 100%; padding: 0; border-radius: 50%; border: none; background: radial-gradient(circle at 50% 45%, #250a0c 55%, #3a1216 70%, #5a1c20 100%); box-shadow: inset 0 4px 8px rgba(0, 0, 0, .9), 0 1px 0 rgba(255, 255, 255, .08); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#rg .rg-coin[hidden] { display: none; }
+#rg .rg-coin .ic { font-size: 20px; opacity: .14; filter: grayscale(1) brightness(.6); }
+#rg .rg-coin.afford { box-shadow: inset 0 4px 8px rgba(0, 0, 0, .9), 0 0 0 2px #E8C88A, 0 0 12px #e8c88a88; animation: rg-pulse 1.6s ease-in-out infinite; }
+#rg .rg-coin.afford .ic { opacity: .45; }
+#rg .rg-coin.owned { background: radial-gradient(circle at 38% 32%, #FFF0B0, #E8B84A 45%, #A8761E 80%, #6a4a12); box-shadow: 0 3px 5px rgba(0, 0, 0, .6), inset 0 -3px 4px rgba(90, 50, 10, .6), inset 0 2px 3px rgba(255, 255, 220, .7); animation: none; }
+#rg .rg-coin.owned .ic { opacity: 1; filter: sepia(1) saturate(1.6) brightness(.75) contrast(1.3) drop-shadow(0 1px 0 rgba(255, 240, 200, .8)); }
+#rg .rg-coin:hover { transform: scale(1.08); }
+#rg .rg-coininfo { margin-top: 8px; padding: 7px 9px; background: #120c08; border: 1px solid #5a4a2a; font-family: var(--cond); display: flex; flex-direction: column; gap: 2px; }
+#rg .rg-coininfo b { color: var(--amber); font-size: 15px; }
+#rg .rg-coininfo small { color: #d8c8b4; font-size: 12px; line-height: 1.35; }
+#rg .rg-coininfo em { font-style: normal; color: #9FE8FF; font-size: 12px; }
+/* the game's achievements */
+#rg .rg-achtoast { position: absolute; left: 50%; top: 58px; z-index: 13; display: flex; align-items: center; gap: 10px; padding: 7px 16px 7px 10px; background: #120c08; border: 1px solid #8a6a3a; box-shadow: 0 8px 22px rgba(0, 0, 0, .7), 0 0 16px #e8c88a44; pointer-events: none; font-family: var(--cond); }
+#rg .rg-achtoast i { font-style: normal; font-size: 26px; }
+#rg .rg-achtoast small { display: block; color: #8a7a64; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+#rg .rg-achtoast b { color: var(--amber); font-size: 16px; }
+#rg .rg-ach-tab.ready { animation: rg-soulglow 1.2s ease-in-out infinite; border-color: var(--amber); }
+#rg .rg-achhead { position: relative; display: flex; justify-content: space-between; align-items: baseline; padding: 6px 8px 10px; background: #120c08; border: 1px solid #5a4a2a; font-family: var(--cond); }
+#rg .rg-achhead b { color: var(--amber); font-size: 17px; }
+#rg .rg-achhead span { color: #f2e6cf; font-size: 14px; }
+#rg .rg-achhead i { position: absolute; left: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, #A8761E, #FFE7A0); }
+#rg .rg-achlist { display: flex; flex-direction: column; gap: 4px; }
+#rg .rg-achlist div { display: flex; align-items: center; gap: 8px; padding: 5px 7px; background: rgba(0, 0, 0, .25); border: 1px solid #3a2a1a; opacity: .5; font-family: var(--cond); }
+#rg .rg-achlist div i { font-style: normal; font-size: 20px; filter: grayscale(1); }
+#rg .rg-achlist div b { display: block; color: #d8c8b4; font-size: 14px; }
+#rg .rg-achlist div small { color: #a89884; font-size: 12px; }
+#rg .rg-achlist div.got { opacity: 1; border-color: #6a5a3a; background: rgba(232, 200, 138, .06); }
+#rg .rg-achlist div.got i { filter: none; }
+#rg .rg-achlist div.got b { color: var(--amber); }
+#rg .rg-ach-tab { font-size: 15px !important; }
