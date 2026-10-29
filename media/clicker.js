@@ -152,6 +152,7 @@
     G.helpers = {}
     G.tree = { core: 1 }
     G.chestClicks = 0
+    G.stain = null
     return gain
   }
   const lvl = (G, id) => G.tree[id] || 0
@@ -665,9 +666,9 @@
       c3.addEventListener('pointerdown', e => {
         const r = c3.getBoundingClientRect()
         const hit = ui.g3.pick(e.clientX - r.left, e.clientY - r.top)
-        if (fight && e.button === 0) {
+        if (fight) {
           e.preventDefault()
-          press(e)
+          if (e.button === 0) press(e)
         } else if (hit === 'chest') openChest()
         else if (hit === 'button') {
           e.preventDefault()
@@ -775,6 +776,7 @@
   function close() {
     if (!root) return
     if (fight) loseFight(true)
+    talks.length = 0
     cancelAnimationFrame(ui.raf)
     clearInterval(ui.newsTimer)
     ui.g3?.dispose()
@@ -793,7 +795,8 @@
       if (e.key === 'e' || e.key === 'E') return duelHeal()
     }
     if (e.key === 'Escape') return ui && !ui.tree.hidden ? toggleTree(false) : ui && !ui.talk.hidden ? nextTalk() : close()
-    if ((e.key === ' ' || e.key === 'Enter') && !e.repeat && ui && ui.tree.hidden && !(e.target instanceof HTMLButtonElement)) {
+    const onButton = e.target instanceof HTMLButtonElement
+    if (((e.key === ' ' && (fight || !onButton)) || (e.key === 'Enter' && !onButton)) && !e.repeat && ui && ui.tree.hidden) {
       e.preventDefault()
       press(null)
     }
@@ -962,7 +965,7 @@
       confetti(p.x, p.y, 20)
       return
     }
-    if (fight && !duelCanAttack()) return
+    if (fight && (fight.paused || !duelCanAttack())) return
     const now = Date.now()
     if (now - lastClick < comboCool(G) * 1000) combo = Math.min(50, combo + 1)
     else combo = 1
@@ -1660,7 +1663,10 @@
     }
     const line = talks.shift()
     if (!line) {
-      t.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(10px)' }], { duration: 180 }).onfinish = () => (t.hidden = true)
+      t.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(10px)' }], { duration: 180 }).onfinish = () => {
+        t.hidden = true
+        if (talks.length) nextTalk()
+      }
       return
     }
     const wasHidden = t.hidden
@@ -1892,6 +1898,7 @@
     combo = 0
     chestReady = 0
     ui.g3?.chestHide()
+    if (ui.chest) ui.chest.style.display = 'none'
     SL().unlock('redrebirth')
     save(true)
     hitstop(160)
@@ -1990,6 +1997,7 @@
         say(MISHI, 'Hola, Pulsador. Soy Mishi. Contra Zarpas no basta con aporrear: el Caballero del Botón pelea por ti. Pulsa (clic o espacio) para atacar; cada golpe gasta estamina, la barra verde. Tus ayudantes también le pegan desde las gradas.')
         say(MISHI, 'Cuando Zarpas cargue un golpe verás un anillo rojo cerrándose a tus pies. Rueda (Shift o clic derecho) para esquivarlo, o pulsa Q justo cuando el anillo se pone dorado para pararlo y romperle la guardia. Con E bebes un frasco de atún.')
         say(MISHI, 'Si caes, se te caerá la mitad de las monedas. Las recuperas si le vences. Suerte… y que el botón te guíe.')
+        if (fight) fight.told = true
       }, 900)
     setTimeout(() => {
       if (!ui) return
@@ -2135,7 +2143,7 @@
     const f = fight
     const me = f.me
     if (f.paused) {
-      if (ui.talk.hidden) {
+      if (f.told && ui.talk.hidden && !talks.length) {
         f.paused = false
         G.duelTut = 1
         f.nextMoveAt = now + 1500
@@ -2150,7 +2158,7 @@
       bigText(`${f.b.name} · ¡Fase 2!`, '#FF5A6A')
       taunt('¡Ahora vas a ver de lo que es capaz un gato de verdad!')
       ui.g3?.bossWindup('roar', 500)
-      setTimeout(() => ui?.g3?.bossStrike('roar'), 500)
+      setTimeout(() => fight === f && ui?.g3?.bossStrike('roar'), 500)
       f.move = null
       hideTele()
       f.nextMoveAt = now + 2000
@@ -2329,7 +2337,7 @@
     if (!ui) return
     hideTele()
     banner('ENEMIGO DERROTADO', back ? `Recuperas ${fmt(back)} 🪙` : f.me && !f.me.hits ? '¡Sin un rasguño!' : '', 'won')
-    setTimeout(() => ui?.g3?.knightShow(false), 2600)
+    setTimeout(() => !fight && ui?.g3?.knightShow(false), 2600)
     const p = toScreen(BX, BY - 30)
     hitstop(160)
     whiteFlash(0.7)
@@ -2763,10 +2771,14 @@
       chestReady = 0
       frenzyUntil = 0
       frenzyMult = 1
+      carry = 0
       fight = null
+      talks.length = 0
       save(true)
       card.remove()
+      ui.stage.classList.remove('frenzy')
       ui.g3?.chestHide()
+      if (ui.chest) ui.chest.style.display = 'none'
       buildSprites()
       start()
       refresh()

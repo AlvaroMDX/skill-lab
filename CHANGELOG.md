@@ -1,5 +1,14 @@
 # Cambios
 
+## 1.7.1 — 2026-10-29
+- El tutorial de Mishi ya para el primer duelo hasta que terminas de leerlo, y mientras habla no se puede atacar.
+- El espacio siempre ataca en el duelo, aunque antes hayas pulsado Rodar o Frasco con el ratón; el clic derecho sobre el botón solo rueda.
+- Las monedas caídas en un duelo ya no sobreviven a un renacer.
+- Volver a empezar desde el final limpia el frenesí, el cofre y los diálogos pendientes; el cofre 2D desaparece al renacer.
+- Los diálogos que quedaban en cola al cerrar ya no salen fuera de sitio al volver.
+- El rugido de la fase 2 ya no suena si Zarpas cae justo antes.
+- La escena 3D libera la memoria de la gráfica al quitar ayudantes, jefes, cofres o artefactos, y al cerrar el juego.
+
 ## 1.7.0 — 2026-10-29
 - Duelos estilo souls contra Zarpas: el **Caballero del Botón** pelea por ti. Atacas pulsando (clic o espacio), cada golpe gasta estamina y tiene una pequeña recarga; ruedas con Shift o clic derecho (invulnerable un instante), paras con Q justo cuando el anillo se pone dorado y bebes frascos de atún con E.
 - Zarpas avisa cada golpe con una carga y un anillo rojo que se cierra a tus pies: zarpazo, doble zarpazo, salto aplastante y rugido (no se pueden parar), bola de pelo, zarpazo traicionero, rayo ocular y tajo dimensional. Barra de postura: si la llenas le rompes la guardia y el siguiente golpe es crítico. Los Zarpas de la segunda mitad tienen fase 2.

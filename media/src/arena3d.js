@@ -1047,6 +1047,14 @@ export function create(canvas, opts) {
   }
   const chipGeo = box(0.07, 0.035, 0.07)
   const coinGeo = cyl(0.07, 0.07, 0.02, 16)
+  function drop(obj) {
+    if (!obj) return
+    scene.remove(obj)
+    obj.traverse(o => {
+      if (o.geometry && o.geometry !== chipGeo && o.geometry !== coinGeo) o.geometry.dispose()
+      for (const m of [].concat(o.material || [])) m.dispose()
+    })
+  }
   const chipMats = { red: mat('#E8352B', { roughness: 0.3 }), gold: mat('#FFC83A', { metalness: 0.9, roughness: 0.25, emissive: '#5A3A00' }), cyan: mat('#9FE8FF', { emissive: '#3AA8D0', emissiveIntensity: 0.7 }) }
   // debris that jumps out, bounces on the floor and fades
   function debris(origin, n, kind = 'red', power = 1) {
@@ -1188,7 +1196,7 @@ export function create(canvas, opts) {
   const crew = []
   const homeOf = {}
   function clearCrew() {
-    for (const c of crew) scene.remove(c.rig)
+    for (const c of crew) drop(c.rig)
     crew.length = 0
     for (const k in homeOf) delete homeOf[k]
   }
@@ -1330,8 +1338,8 @@ export function create(canvas, opts) {
     // a restarted game takes its relics off the stage
     for (const id of Object.keys(arts)) {
       if (ids.includes(id)) continue
-      scene.remove(arts[id].g)
-      if (arts[id].ped) scene.remove(arts[id].ped)
+      drop(arts[id].g)
+      drop(arts[id].ped)
       delete arts[id]
     }
     for (const id of ids) {
@@ -1401,7 +1409,7 @@ export function create(canvas, opts) {
   let boss = null
   const BOSS_AT = new THREE.Vector3(2.35, 0, 0.55)
   function bossShow(i) {
-    if (boss) scene.remove(boss.g)
+    if (boss) drop(boss.g)
     boss = bossModel(i)
     boss.g.position.copy(BOSS_AT)
     if (cam.wide) boss.g.position.set(2.1, 0, 1.7)
@@ -1442,7 +1450,7 @@ export function create(canvas, opts) {
   let knight = null
   function knightShow(on) {
     if (knight) {
-      scene.remove(knight.g)
+      drop(knight.g)
       knight = null
     }
     cam.duel = on
@@ -1741,7 +1749,7 @@ export function create(canvas, opts) {
         chest.g.scale.setScalar(Math.max(0.001, s))
         chest.g.rotation.y = k > 0.6 ? (k - 0.6) * 6 : 0
         if (k >= 1) {
-          scene.remove(chest.g)
+          drop(chest.g)
           chest = null
         }
       }
@@ -1842,7 +1850,7 @@ export function create(canvas, opts) {
         b.g.scale.setScalar(b.base * (1 - w * 0.85))
         b.shadow.visible = false
         if (w >= 1) {
-          scene.remove(b.g)
+          drop(b.g)
           boss = null
         }
       } else if (b.state === 'flee') {
@@ -1851,7 +1859,7 @@ export function create(canvas, opts) {
         b.g.position.x = b.at.x + easeIn(w) * 5
         b.g.position.y = Math.abs(Math.sin(w * 18)) * 0.25
         if (w >= 1) {
-          scene.remove(b.g)
+          drop(b.g)
           boss = null
         }
       }
@@ -1973,7 +1981,7 @@ export function create(canvas, opts) {
     setArts,
     chestShow,
     chestOpen,
-    chestHide: () => chest && (scene.remove(chest.g), (chest = null), (pickables.chest = [])),
+    chestHide: () => chest && (drop(chest.g), (chest = null), (pickables.chest = [])),
     bossShow,
     bossHurt,
     bossSwipe,
@@ -2021,8 +2029,10 @@ export function create(canvas, opts) {
     shake: px => (cam.shake = Math.min(14, cam.shake + px)),
     punch: k => (cam.punch = Math.min(1.5, cam.punch + (k - 1) * 18)),
     dispose() {
-      renderer.dispose()
+      scene.traverse(o => o.geometry?.dispose())
       pmrem.dispose()
+      renderer.dispose()
+      renderer.forceContextLoss()
     },
   }
 }
