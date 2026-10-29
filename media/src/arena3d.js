@@ -155,9 +155,30 @@ function catModel(coat) {
 }
 
 // the skill: a little Claude critter in lab goggles
-function skillModel() {
+const SKILL_TINTS = ['#D97757', '#E28A62', '#C9694A', '#E39A6E']
+function skillHat(v) {
+  const h = new THREE.Group()
+  if (v === 1) {
+    h.add(mesh(cone(0.09, 0.22, 16), mat(['#FF5A8A', '#4FA3FF', '#7FE37F'][v % 3])))
+    h.add(mesh(sphere(0.03, 8), basic('#FFE34F'), 0, 0.12, 0))
+  } else if (v === 2) {
+    h.add(mesh(cyl(0.11, 0.1, 0.1, 16), mat('#FFFFFF', { roughness: 0.8 }), 0, 0, 0))
+    h.add(mesh(sphere(0.13, 16), mat('#FFFFFF', { roughness: 0.8 }), 0, 0.1, 0))
+  } else if (v === 3) {
+    const c = mesh(cone(0.13, 0.3, 16), mat('#5A3AB0', { roughness: 0.6 }), 0, 0.1, 0)
+    c.rotation.z = 0.2
+    h.add(c, mesh(cyl(0.2, 0.2, 0.02, 20), mat('#5A3AB0'), 0, -0.05, 0))
+    for (let k = 0; k < 3; k++) h.add(mesh(sphere(0.015, 6), basic('#FFE34F'), rnd(-0.06, 0.06), rnd(0, 0.15), 0.08))
+  } else if (v === 4) {
+    const b = mesh(new THREE.SphereGeometry(0.17, 20, 10, 0, TAU, 0, Math.PI / 2), mat('#3A8A5A', { roughness: 0.9 }))
+    b.scale.set(1.3, 0.7, 1)
+    h.add(b, mesh(sphere(0.04, 10), mat('#FFFFFF', { roughness: 1 }), 0, 0.13, 0))
+  }
+  return h
+}
+function skillModel(variant = 0) {
   const g = new THREE.Group()
-  const m = mat('#D97757', { roughness: 0.45 })
+  const m = mat(SKILL_TINTS[variant % SKILL_TINTS.length], { roughness: 0.45 })
   const body = mesh(new THREE.BoxGeometry(0.42, 0.3, 0.3, 2, 2, 2), m, 0, 0.27, 0)
   g.add(body)
   for (const s of [-1, 1]) {
@@ -170,6 +191,9 @@ function skillModel() {
     g.add(gog)
   }
   g.add(mesh(box(0.42, 0.025, 0.02), mat('#FFFFFF'), 0, 0.31, 0.155))
+  const hat = skillHat(variant % 5)
+  hat.position.y = 0.46
+  g.add(hat)
   return { g, parts: { body } }
 }
 
@@ -381,12 +405,14 @@ function cosmicModel() {
   return m
 }
 
+const CAT_ORDER = ['gris', 'naranja', 'negro', 'blanco', 'siames', 'tricolor', 'militar']
+const ROBOT_PAINT = ['#3D85C6', '#4CAF7A', '#E0A030', '#8A5AD0', '#C9CED6']
 // how each kind looks, where it stands and how it presses; head: height of its head in model units
 const KIND = {
-  cat: { model: coat => catModel(coat), style: 'pounce', scale: 0.85, ring: RING, hover: 0, head: 0.62, crown: { head: true, y: 0.13, s: 0.62 } },
-  skill: { model: skillModel, style: 'hop', scale: 0.85, ring: RING, hover: 0, head: 0.45, crown: { y: 0.43, s: 0.7 } },
-  robot: { model: () => robotModel(), style: 'piston', scale: 0.9, ring: RING, hover: 0, head: 0.88, crown: { head: true, y: 0.12, s: 0.62 } },
-  drone: { model: droneModel, style: 'beam', color: '#FF3A5A', scale: 1, ring: RING * 0.92, hover: 1.45, head: 0.12, crown: { y: 0.1, s: 0.55 } },
+  cat: { model: (coat, v) => catModel(v ? CAT_ORDER[(CAT_ORDER.indexOf(coat) + v) % CAT_ORDER.length] : coat), style: 'pounce', scale: 0.85, ring: RING, hover: 0, head: 0.62, crown: { head: true, y: 0.13, s: 0.62 } },
+  skill: { model: (coat, v) => skillModel(v), style: 'hop', scale: 0.85, ring: RING, hover: 0, head: 0.45, crown: { y: 0.43, s: 0.7 } },
+  robot: { model: (coat, v) => robotModel(ROBOT_PAINT[v % ROBOT_PAINT.length]), style: 'piston', scale: 0.9, ring: RING, hover: 0, head: 0.88, crown: { head: true, y: 0.12, s: 0.62 } },
+  drone: { model: (coat, v) => droneModel(v), style: 'beam', color: '#FF3A5A', scale: 1, ring: RING * 0.92, hover: 1.45, head: 0.12, crown: { y: 0.1, s: 0.55 } },
   claude: { model: claudeModel, style: 'beam', color: '#FFD84F', big: true, scale: 0.75, ring: RING * 0.92, hover: 1.95, head: 0.4, crown: { y: 0.36, s: 0.6 } },
   factory: { model: factoryModel, style: 'piston', scale: 1.1, ring: OUTER, hover: 0, head: 1.05, crown: { y: 0.72, s: 0.9 } },
   mech: { model: mechModel, style: 'piston', scale: 1.6, ring: OUTER, hover: 0, head: 0.95, crown: { head: true, y: 0.12, s: 0.62 } },
@@ -397,9 +423,11 @@ const KIND = {
   cosmic: { model: cosmicModel, style: 'pounce', scale: 1.5, ring: OUTER, hover: 0, head: 0.62, crown: { head: true, y: 0.13, s: 0.62 } },
 }
 
-function droneModel() {
+const DRONE_LOOKS = [['#E9EEF5', '#FF3A5A'], ['#2A2F38', '#3AF0FF'], ['#F2C230', '#FF5A2A'], ['#E9EEF5', '#7FFF6A']]
+function droneModel(variant = 0) {
+  const [shellColor, eyeColor] = DRONE_LOOKS[variant % DRONE_LOOKS.length]
   const g = new THREE.Group()
-  const shell = mat('#E9EEF5', { metalness: 0.3, roughness: 0.3 })
+  const shell = mat(shellColor, { metalness: 0.3, roughness: 0.3 })
   const dark = mat('#2A3340', { metalness: 0.6, roughness: 0.35 })
   const core = mesh(sphere(0.16), shell)
   core.scale.set(1.2, 0.55, 1.2)
@@ -419,8 +447,8 @@ function droneModel() {
     rotors.push(rotor)
     g.add(armM, rotor)
   }
-  const eye = mesh(sphere(0.05, 12), basic('#FF3A5A'), 0, -0.04, 0.17)
-  const eyeGlow = glow('#FF3A5A', 0.4, 0.8)
+  const eye = mesh(sphere(0.05, 12), basic(eyeColor), 0, -0.04, 0.17)
+  const eyeGlow = glow(eyeColor, 0.4, 0.8)
   eyeGlow.position.set(0, -0.04, 0.2)
   const muzzle = new THREE.Object3D()
   muzzle.position.set(0, -0.06, 0.22)
@@ -816,6 +844,52 @@ function bossModel(i) {
   return { g, body, head, cape, paw, tail, eyes: eyesG, aura, furMats, shadow }
 }
 
+// the player's champion in a duel: a small knight with a red button for a shield
+function knightModel() {
+  const g = new THREE.Group()
+  const steel = mat('#C9D1DC', { metalness: 0.85, roughness: 0.28 })
+  const dark = mat('#3A3F48', { metalness: 0.6, roughness: 0.4 })
+  const body = new THREE.Group()
+  g.add(body)
+  for (const sd of [-1, 1]) body.add(mesh(box(0.09, 0.22, 0.1), dark, sd * 0.07, 0.11, 0))
+  body.add(mesh(new THREE.CylinderGeometry(0.15, 0.12, 0.28, 16), steel, 0, 0.36, 0))
+  body.add(mesh(cyl(0.128, 0.128, 0.04, 16), mat('#6A4A2A'), 0, 0.24, 0))
+  for (const sd of [-1, 1]) body.add(mesh(sphere(0.07, 12), steel, sd * 0.17, 0.47, 0))
+  const head = new THREE.Group()
+  head.position.y = 0.62
+  const helm = mesh(sphere(0.12, 20), steel)
+  helm.scale.y = 1.1
+  const plume = mesh(cone(0.05, 0.22, 8), mat('#C8252B'), 0, 0.15, -0.04)
+  plume.rotation.x = -0.6
+  const visorGlow = glow('#7FD0FF', 0.22, 0.8)
+  visorGlow.position.set(0, 0.01, 0.13)
+  head.add(helm, mesh(box(0.16, 0.025, 0.02), basic('#141820'), 0, 0.01, 0.115), plume, visorGlow)
+  body.add(head)
+  const capeGeo = new THREE.PlaneGeometry(0.26, 0.34, 2, 4)
+  // a cape that narrows at the neck
+  const cp = capeGeo.attributes.position
+  for (let i = 0; i < cp.count; i++) cp.setX(i, cp.getX(i) * (0.55 + (0.17 - cp.getY(i)) * 1.3))
+  const cape = mesh(capeGeo, mat('#8E1A22', { side: THREE.DoubleSide, roughness: 0.6 }), 0, 0.36, -0.14)
+  cape.rotation.x = 0.12
+  body.add(cape)
+  const swordArm = new THREE.Group()
+  swordArm.position.set(0.2, 0.44, 0.02)
+  const blade = mesh(box(0.035, 0.46, 0.012), mat('#E8EEF5', { metalness: 1, roughness: 0.15, emissive: '#5A7AA0', emissiveIntensity: 0.25 }), 0, 0.3, 0.04)
+  swordArm.add(mesh(box(0.06, 0.06, 0.06), steel), blade, mesh(box(0.14, 0.025, 0.035), mat('#F5C02A', { metalness: 0.9 }), 0, 0.07, 0.04), mesh(cyl(0.015, 0.015, 0.09, 6), mat('#4A2A1A'), 0, 0.02, 0.04))
+  swordArm.rotation.x = -0.5
+  const trail = glow('#BFE4FF', 0.01, 0)
+  trail.position.set(0, 0.45, 0.04)
+  swordArm.add(trail)
+  const shieldArm = new THREE.Group()
+  shieldArm.position.set(-0.19, 0.4, 0.06)
+  const shield = mesh(cyl(0.15, 0.15, 0.04, 28), mat('#E8352B', { roughness: 0.25, metalness: 0.1 }))
+  shield.rotation.x = Math.PI / 2
+  const rim = mesh(torus(0.15, 0.018), steel)
+  shieldArm.add(shield, rim, mesh(sphere(0.05, 12), mat('#FF8A7A', { roughness: 0.2 }), 0, 0, 0.03))
+  body.add(swordArm, shieldArm)
+  return { g, body, head, swordArm, shieldArm, cape, trail, mats: [steel, dark] }
+}
+
 function chestModel() {
   const g = new THREE.Group()
   const wood = mat('#8A5A2B', { roughness: 0.7 })
@@ -1069,7 +1143,11 @@ export function create(canvas, opts) {
       if (k >= 1) viewBack = null
     }
     const fit = cam.wide ? [5.7, 3.5] : [3.95, 2.45]
-    const dist = Math.max(fit[0] / Math.tan(hf / 2), fit[1] / Math.tan(vf / 2)) * view.zoom * (1 - cam.punch * 0.06 - f * 0.22)
+    if (cam.duel && knight && boss) {
+      cam.duelK = Math.min(1, (cam.duelK || 0) + 0.04)
+      look.lerp(knight.g.position.clone().lerp(boss.at, 0.5).setY(0.55), 0.85 * smooth(cam.duelK))
+    } else cam.duelK = Math.max(0, (cam.duelK || 0) - 0.04)
+    const dist = Math.max(fit[0] / Math.tan(hf / 2), fit[1] / Math.tan(vf / 2)) * view.zoom * (1 - cam.punch * 0.06 - f * 0.22) * (1 - 0.38 * smooth(cam.duelK || 0))
     const el = THREE.MathUtils.degToRad(view.el)
     const az = view.az + (calm() ? 0 : Math.sin(now * 0.00017) * 0.06)
     camera.position.set(look.x + Math.sin(az) * Math.cos(el) * dist, look.y + Math.sin(el) * dist, look.z + Math.cos(az) * Math.cos(el) * dist)
@@ -1114,9 +1192,9 @@ export function create(canvas, opts) {
     crew.length = 0
     for (const k in homeOf) delete homeOf[k]
   }
-  function addHelper(kind, angle, coat, king = false) {
+  function addHelper(kind, angle, coat, king = false, variant = 0) {
     const K = KIND[kind]
-    const built = K.model(coat)
+    const built = K.model(coat, variant)
     const rig = new THREE.Group()
     const r = K.ring
     const hover = K.hover
@@ -1359,6 +1437,125 @@ export function create(canvas, opts) {
   }
   const bossHead = () => (boss ? toPx(boss.head.localToWorld(new THREE.Vector3(0, 0.45, 0))) : null)
 
+  // ---------- the duel ----------
+
+  let knight = null
+  function knightShow(on) {
+    if (knight) {
+      scene.remove(knight.g)
+      knight = null
+    }
+    cam.duel = on
+    if (!on || !boss) return
+    knight = knightModel()
+    // in front of Zarpas, on the camera's side: the duel is seen over the knight's shoulder
+    const toCam = new THREE.Vector3(camera.position.x - boss.at.x, 0, camera.position.z - boss.at.z).normalize()
+    const side = new THREE.Vector3(-toCam.z, 0, toCam.x)
+    knight.home = boss.at.clone().addScaledVector(toCam, 1.15).addScaledVector(side, 0.35)
+    knight.side = side
+    knight.offset = 0
+    knight.g.position.copy(knight.home)
+    knight.g.scale.setScalar(cam.wide ? 1.6 : 1.25)
+    knight.state = 'enter'
+    knight.t0 = performance.now()
+    scene.add(knight.g)
+  }
+  const kAnim = (state, ms) => knight && knight.state !== 'dead' && Object.assign(knight, { state, t0: performance.now(), ms })
+  function knightAttack(crit) {
+    kAnim('attack', 300)
+    if (!knight || !boss || calm()) return
+    setTimeout(() => {
+      if (!boss) return
+      const p = boss.head.getWorldPosition(new THREE.Vector3()).setY(boss.g.position.y + 0.7 * boss.g.scale.y)
+      flare(p, crit ? '#FFE07A' : '#BFE4FF', crit ? 1.6 : 0.8, 0.09)
+      if (crit) debris(p, 6, 'gold', 0.8)
+    }, 120)
+  }
+  function knightRoll() {
+    if (!knight) return
+    knight.rollDir = knight.offset > 0 ? -1 : 1
+    knight.rollFrom = knight.offset
+    kAnim('roll', 450)
+    shockwave(0.02, '#CFC8C0', 0.25, 2)
+  }
+  function knightParry(ok) {
+    kAnim('parry', 260)
+    if (ok && knight) {
+      const p = knight.shieldArm.getWorldPosition(new THREE.Vector3())
+      flare(p, '#FFE07A', 2.4, 0.05)
+      debris(p, 10, 'gold', 1)
+      cam.shake = Math.min(14, cam.shake + 6)
+    }
+  }
+  function knightHeal() {
+    kAnim('heal', 700)
+    if (knight) flare(knight.g.position.clone().setY(0.6), '#7FFF8A', 1.6, 0.03)
+  }
+  function knightHurt() {
+    kAnim('hurt', 320)
+    if (knight) {
+      flare(knight.g.position.clone().setY(0.6), '#FF3A3A', 1.4, 0.07)
+      cam.shake = Math.min(14, cam.shake + 9)
+    }
+  }
+  function knightDie() {
+    if (!knight) return
+    knight.state = 'dead'
+    knight.t0 = performance.now()
+  }
+  const knightPx = () => (knight ? toPx(knight.g.position.clone().setY(0.45 * knight.g.scale.y)) : null)
+  // the wind-up of a move: he coils, glows red and lifts the paw; the strike follows from the screen side
+  function bossWindup(kind, ms) {
+    if (!boss) return
+    boss.wind = { kind, t0: performance.now(), ms }
+    if (kind === 'laser') flare(boss.head.getWorldPosition(new THREE.Vector3()), '#FF2A3A', 1.2, 1000 / ms / 60)
+  }
+  function bossStrike(kind) {
+    if (!boss || !knight) return
+    boss.wind = null
+    const at = knight.g.position.clone().setY(0.4)
+    boss.strike = { kind, t0: performance.now() }
+    if (kind === 'swipe' || kind === 'delayed' || kind === 'combo') {
+      boss.swipe = performance.now()
+      setTimeout(() => flare(at, '#FFFFFF', 1.2, 0.12), 120)
+    } else if (kind === 'slam') {
+      setTimeout(() => {
+        shockwave(0.03, '#FF5A4A', 1.4, 0.8)
+        debris(at.clone().setY(0.1), 10, 'red', 1.2)
+        cam.shake = Math.min(14, cam.shake + 10)
+      }, 260)
+    } else if (kind === 'hairball') {
+      const from = boss.head.getWorldPosition(new THREE.Vector3())
+      const ball = new THREE.Mesh(sphere(0.14, 14), mat(boss.furMats[0].color.getStyle(), { roughness: 1 }))
+      ball.castShadow = true
+      scene.add(ball)
+      fxObjs.push({ m: ball, life: 1, decay: 16 / 400, update: (o, k) => {
+        const t = 1 - k
+        o.m.position.lerpVectors(from, at, t)
+        o.m.position.y += Math.sin(t * Math.PI) * 0.8
+        o.m.rotation.x += 0.4
+      } })
+    } else if (kind === 'laser') {
+      beam(boss.head.getWorldPosition(new THREE.Vector3()), at, '#FF2A3A', 0.06, 350)
+    } else if (kind === 'teleport') {
+      boss.blink = { t0: performance.now() }
+      setTimeout(() => flare(at, '#B46CFF', 1.8, 0.08), 80)
+    } else if (kind === 'roar') {
+      shockwave(0.05, '#FF2A3A', 1, 0.5)
+      shockwave(0.05, '#FFFFFF', 0.6, 0.7)
+      cam.shake = Math.min(14, cam.shake + 12)
+    }
+  }
+  function bossStagger(ms) {
+    if (!boss) return
+    boss.wind = null
+    boss.dizzy = performance.now() + ms
+    if (!boss.stars) {
+      boss.stars = [0, 1, 2].map(() => glow('#FFE34F', 0.25, 0.9))
+      for (const st of boss.stars) boss.head.add(st)
+    }
+  }
+
   // ---------- picking ----------
 
   const ray = new THREE.Raycaster()
@@ -1555,7 +1752,8 @@ export function create(canvas, opts) {
       const k = (now - b.t0) / 800
       const t = now * 0.001
       // he always faces the camera, halfway turned to the button
-      if (b.state === 'drop' || b.state === 'fight') {
+      if (knight && (b.state === 'drop' || b.state === 'fight')) b.g.rotation.y = Math.atan2(knight.g.position.x - b.g.position.x, knight.g.position.z - b.g.position.z)
+      else if (b.state === 'drop' || b.state === 'fight') {
         const toCam = Math.atan2(camera.position.x - b.g.position.x, camera.position.z - b.g.position.z)
         const toBtn = Math.atan2(-b.g.position.x, -b.g.position.z)
         b.g.rotation.y = toCam + (((toBtn - toCam + Math.PI * 3) % TAU) - Math.PI) * 0.35
@@ -1572,6 +1770,64 @@ export function create(canvas, opts) {
         b.knock = (b.knock || 0) * 0.85
         b.body.position.x = b.knock * 0.6
         b.body.rotation.x = -b.knock
+        // wind-up: he leans back and lifts the paw, glowing hotter as the hit gets close
+        let windGlow = 0
+        if (b.wind) {
+          const w = clamp01((now - b.wind.t0) / b.wind.ms)
+          windGlow = w
+          const shake = b.wind.kind === 'delayed' && w > 0.5 ? Math.sin(now * 0.08) * 0.04 : 0
+          if (b.wind.kind === 'slam') {
+            b.body.scale.set(1 + w * 0.15, 1 - w * 0.25, 1 + w * 0.15)
+          } else if (b.wind.kind === 'teleport') {
+            b.g.scale.setScalar(b.base * (1 - smooth(w) * 0.95))
+          } else if (b.wind.kind === 'hairball' || b.wind.kind === 'roar') {
+            b.head.scale.setScalar(1 + w * 0.2)
+            b.head.rotation.x = -w * 0.5
+          } else {
+            b.paw.position.set(0.36 + w * 0.1, 0.62 + w * 0.45 + shake, 0.22 - w * 0.2)
+            b.body.rotation.x = -w * 0.25
+          }
+        } else if (!b.strike) {
+          b.head.scale.setScalar(1)
+          b.head.rotation.x = 0
+          if (!b.blink) b.g.scale.setScalar(b.base)
+          b.body.scale.set(1, 1, 1)
+          if (!b.swipe) b.paw.position.set(0.36, 0.62, 0.22)
+        }
+        // strike: the slam jumps at the knight and comes back; the teleport pops out next to him
+        if (b.strike) {
+          const k2 = (now - b.strike.t0) / 700
+          if (b.strike.kind === 'slam' && knight) {
+            const mid = b.at.clone().lerp(knight.g.position, 0.55)
+            const e = k2 < 0.4 ? smooth(k2 / 0.4) : 1 - smooth((k2 - 0.4) / 0.6)
+            b.g.position.set(lerp(b.at.x, mid.x, e), Math.sin(clamp01(k2 / 0.4) * Math.PI) * 1.1, lerp(b.at.z, mid.z, e))
+            b.body.scale.set(1, 1, 1)
+          }
+          if (k2 >= 1) {
+            b.strike = null
+            b.g.position.copy(b.at)
+          }
+        }
+        if (b.blink) {
+          const k3 = (now - b.blink.t0) / 650
+          if (knight && k3 < 0.6) {
+            b.g.scale.setScalar(b.base)
+            b.g.position.copy(knight.g.position).addScaledVector(knight.side, -0.7)
+          } else {
+            b.g.position.copy(b.at)
+            if (k3 >= 1) b.blink = null
+          }
+        }
+        // stagger: he wobbles with stars round his head
+        if (b.dizzy && now < b.dizzy) {
+          b.body.rotation.z = Math.sin(now * 0.012) * 0.25
+          b.stars.forEach((st, i) => {
+            st.visible = true
+            const a = now * 0.006 + (i * TAU) / 3
+            st.position.set(Math.cos(a) * 0.3, 0.35, Math.sin(a) * 0.3)
+          })
+        } else if (b.stars) for (const st of b.stars) st.visible = false
+        b.windGlow = windGlow
         if (b.swipe) {
           const s = (now - b.swipe) / 500
           if (s >= 1) b.swipe = 0
@@ -1602,7 +1858,7 @@ export function create(canvas, opts) {
       if (boss) {
         b.hurt = (b.hurt || 0) * 0.6 ** dt
         for (const m of b.furMats) {
-          m.emissive.setRGB(b.hurt * 0.45, b.hurt * 0.05, b.hurt * 0.08)
+          m.emissive.setRGB(b.hurt * 0.45 + (b.windGlow || 0) * 0.55, b.hurt * 0.05, b.hurt * 0.08)
         }
         for (const e of b.eyes) e.material.opacity = 0.6 + Math.sin(t * 5) * 0.3
         b.tail.rotation.z = -0.5 + Math.sin(t * 2.6) * 0.35
@@ -1618,6 +1874,63 @@ export function create(canvas, opts) {
         }
         pos.needsUpdate = true
       }
+    }
+    // the knight
+    if (knight) {
+      const K = knight
+      const k = (now - K.t0) / (K.ms || 1)
+      const t = now * 0.001
+      const done = k >= 1
+      K.g.lookAt(boss ? boss.g.position.x : 0, 0, boss ? boss.g.position.z : 0)
+      K.body.position.set(0, 0, 0)
+      K.body.rotation.set(0, 0, 0)
+      K.body.scale.set(1, 1, 1)
+      K.trail.material.opacity = 0
+      if (K.state === 'enter') {
+        const e = clamp01((now - K.t0) / 600)
+        K.body.position.y = (1 - easeOutBack(e)) * 1.5
+        if (e >= 1) K.state = 'idle'
+      } else if (K.state === 'attack' && !done) {
+        // wind back, slash down, follow through
+        K.swordArm.rotation.x = k < 0.3 ? lerp(-0.5, -2.2, smooth(k / 0.3)) : k < 0.55 ? lerp(-2.2, 1.3, smooth((k - 0.3) / 0.25)) : lerp(1.3, -0.5, smooth((k - 0.55) / 0.45))
+        K.body.position.z = k < 0.55 ? Math.sin((k / 0.55) * Math.PI) * 0.22 : 0
+        K.body.rotation.y = k < 0.55 ? -0.3 * Math.sin((k / 0.55) * Math.PI) : 0
+        K.trail.material.opacity = k > 0.3 && k < 0.6 ? 0.9 : 0
+        K.trail.scale.setScalar(0.5)
+      } else if (K.state === 'roll' && !done) {
+        // a tumble to the side: the offset sticks, he comes up somewhere else
+        K.offset = lerp(K.rollFrom, K.rollFrom + K.rollDir * 0.5, smooth(k))
+        K.body.rotation.z = -K.rollDir * k * TAU
+        K.body.position.y = Math.sin(k * Math.PI) * 0.12
+        K.body.scale.set(1, 1 - Math.sin(k * Math.PI) * 0.35, 1)
+      } else if (K.state === 'parry' && !done) {
+        K.shieldArm.position.z = 0.06 + Math.sin(k * Math.PI) * 0.16
+        K.shieldArm.rotation.y = Math.sin(k * Math.PI) * 0.5
+      } else if (K.state === 'heal' && !done) {
+        K.head.rotation.x = -Math.sin(k * Math.PI) * 0.5
+        K.swordArm.rotation.x = -0.5 + Math.sin(k * Math.PI) * 0.6
+        K.body.position.y = Math.abs(Math.sin(k * Math.PI * 3)) * 0.03
+      } else if (K.state === 'hurt' && !done) {
+        K.body.position.z = -Math.sin(k * Math.PI) * 0.25
+        K.body.rotation.x = -Math.sin(k * Math.PI) * 0.35
+        for (const m of K.mats) m.emissive.setRGB((1 - k) * 0.8, 0, 0)
+      } else if (K.state === 'dead') {
+        const e = clamp01((now - K.t0) / 900)
+        K.body.rotation.x = -smooth(e) * Math.PI * 0.48
+        K.body.position.y = -e * 0.05
+      } else {
+        if (K.state !== 'idle') {
+          K.state = 'idle'
+          for (const m of K.mats) m.emissive.setRGB(0, 0, 0)
+        }
+        K.swordArm.rotation.x = -0.5 + Math.sin(t * 2) * 0.05
+        K.shieldArm.position.z = 0.06
+        K.shieldArm.rotation.y = 0
+        K.head.rotation.x = 0
+        K.body.scale.set(1, 1 + Math.sin(t * 3) * 0.02, 1)
+      }
+      K.g.position.copy(K.home).addScaledVector(K.side, K.offset)
+      K.cape.rotation.x = 0.12 + Math.sin(t * 4) * 0.08 + (K.state === 'roll' ? 0.5 : 0)
     }
     // effects
     for (let i = fxObjs.length - 1; i >= 0; i--) {
@@ -1664,6 +1977,17 @@ export function create(canvas, opts) {
     bossShow,
     bossHurt,
     bossSwipe,
+    knightShow,
+    knightAttack,
+    knightRoll,
+    knightParry,
+    knightHeal,
+    knightHurt,
+    knightDie,
+    knightPx,
+    bossWindup,
+    bossStrike,
+    bossStagger,
     bossGone,
     bossHead,
     arena: (x, y) => toPx(arenaWorld(x, y)),

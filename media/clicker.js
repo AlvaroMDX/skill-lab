@@ -59,6 +59,14 @@
     NODE('droneC', '🏷️', 'Hangar compartido', 4, 600000, 3, ['droneU'], 4.8, 1.1, l => `Drones un ${5 * l} % más baratos`),
     NODE('claudeU', '🧠', 'Contexto infinito', 3, 2000000, 4, ['droneU'], 5.7, -0.4, l => `Claude ×${2 ** l}`),
     NODE('sing', '🌀', 'Singularidad', 3, 3000000, 5, ['claudeU', 'c3', 'l4'], 4.2, -2.9, l => `Todo ×${2 ** l}`),
+    // the knight's branch: what you buy here only shows in the duels
+    NODE('duel', '⚔️', 'Caballero del Botón', 1, 300, 1, ['core'], -1.5, 1.8, () => 'Un caballero lucha por ti contra Zarpas: abre su rama'),
+    NODE('dHp', '🛡️', 'Armadura forjada', 10, 600, 3, ['duel'], -2.6, 1.9, l => `El caballero tiene un ${15 * l} % más de vida`),
+    NODE('dFlask', '🐟', 'Más atún', 3, 5000, 12, ['dHp'], -3.6, 2.3, l => `+${l} frascos de atún por duelo`),
+    NODE('dSta', '🫁', 'Buen fuelle', 5, 2000, 5, ['duel'], -2.4, 2.9, l => `La estamina se recupera un ${20 * l} % más rápido`),
+    NODE('dRoll', '🌀', 'Voltereta ágil', 3, 4000, 8, ['dSta'], -3.4, 3.3, l => `Rodar gasta ${5 * l} de estamina menos y te hace invulnerable más tiempo`),
+    NODE('dParry', '🤺', 'Parada maestra', 3, 8000, 10, ['dFlask', 'dRoll'], -4.5, 2.8, l => `Más margen para parar (+${60 * l} ms) y cada parada rompe más la guardia`),
+    NODE('dRip', '🗡️', 'Estocada', 3, 20000, 15, ['dParry'], -4.5, 3.9, l => `El golpe crítico tras romper la guardia hace ×${5 + 2 * l} y cada golpe castiga más su postura`),
     // second act
     NODE('act2', '🌌', 'Más allá', 1, 1e9, 1, ['core'], 1.5, 2.7, () => 'Abre la segunda mitad del árbol', 2),
     NODE('f6', '🖐️', 'Mano cósmica', 10, 2e10, 30, ['act2'], 0.2, 3.1, l => `Cada clic suma además el ${(l * 0.2).toLocaleString('es-ES')} % de lo que haces por segundo`, 2),
@@ -292,6 +300,18 @@
   ]
   // a fight scales with how hard you hit right now (crits and doubles included; frenzies do not hurt him): helpers plus three clicks a second at a fair combo
   const bossHp = (G, b) => Math.max(b.floor, Math.round((rate(G) + clickValue(G, { combo: Math.min(3, comboMax(G)) }) * (1 + critChance(G) * (critMult(G) - 1)) * (1 + doubleChance(G)) * 3) * b.seconds * b.k * (art(G, 'trophy') ? 0.75 : 1)))
+  const knightHp = G => Math.round((100 + 30 * Object.keys(G.beaten || {}).length) * (1 + 0.15 * lvl(G, 'dHp')))
+  const knightFlasks = G => 3 + Math.min(3, Math.floor((G.chests || 0) / 25)) + (art(G, 'tuna') ? 1 : 0) + lvl(G, 'dFlask')
+  // the knight's numbers in a duel, from his branch of the tree
+  const duelStats = G => ({
+    regen: 40 * (1 + 0.2 * lvl(G, 'dSta')),
+    rollCost: 28 - 5 * lvl(G, 'dRoll'),
+    iframes: 420 + 60 * lvl(G, 'dRoll'),
+    parryMs: 230 + 60 * lvl(G, 'dParry'),
+    parryPosture: 45 + 15 * lvl(G, 'dParry'),
+    riposte: 5 + 2 * lvl(G, 'dRip'),
+    hitPosture: 7 + 2 * lvl(G, 'dRip'),
+  })
   const chapter = G => CHAPTERS[Math.min(G.chapter || 0, CHAPTERS.length - 1)]
   const chapterDone = G => chapter(G).objs.every(o => o.cur(G) >= o.target)
   // moves on to the next chapter once its objectives (and its fight) are done; returns the shards it paid
@@ -343,7 +363,7 @@
     return counted
   }
 
-  const ECON = { SOUL_PCT, REBIRTH_AT, soulsFor, pendingSouls, soulMult, rebirth, doubleChance, ACT1, ACT1_LAST, artShown, goldenFrenzy, chestBonus, maxedAct1, helpersOf, HELPERS, TREE, TREE_BY_ID, ARTS, CHAPTERS, BOSSES, MILESTONES, GOAL, RARITIES, CHEST_SHARDS, fresh, lvl, count, art, milestoneMult, helperMult, helperCost, nodeCost, nodeShown, helperShown, comboMax, rate, helperRate, clickValue, critChance, critMult, comboCool, chestEvery, goldenEvery, offlineShare, frenzySeconds, rarityWeights, treeLevels, artCount, maxedAll, chapter, chapterDone, bossHp, advance, storyCap, buyArt, buyHelper, buyNode, earn }
+  const ECON = { duelStats, knightHp, knightFlasks, SOUL_PCT, REBIRTH_AT, soulsFor, pendingSouls, soulMult, rebirth, doubleChance, ACT1, ACT1_LAST, artShown, goldenFrenzy, chestBonus, maxedAct1, helpersOf, HELPERS, TREE, TREE_BY_ID, ARTS, CHAPTERS, BOSSES, MILESTONES, GOAL, RARITIES, CHEST_SHARDS, fresh, lvl, count, art, milestoneMult, helperMult, helperCost, nodeCost, nodeShown, helperShown, comboMax, rate, helperRate, clickValue, critChance, critMult, comboCool, chestEvery, goldenEvery, offlineShare, frenzySeconds, rarityWeights, treeLevels, artCount, maxedAll, chapter, chapterDone, bossHp, advance, storyCap, buyArt, buyHelper, buyNode, earn }
   if (typeof module !== 'undefined') module.exports = ECON
   if (typeof window === 'undefined') return
 
@@ -470,8 +490,7 @@
     const whole = Math.floor(carry)
     carry -= whole
     if (whole) earn(G, whole)
-    if (fight && whole) hurtBoss(whole, false)
-    if (fight && now > fight.until) loseFight(false)
+    if (fight && whole && !fight.paused) hurtBoss(whole, false)
     if (checkEnds()) return
     checkMedals()
     save()
@@ -551,7 +570,11 @@
         <button class="rg-close" title="Volver al mapa (Esc)">✕</button>
       </header>
       <section class="rg-mission"></section>
-      <div class="rg-bosshud" hidden><b class="name"></b><div class="hp"><i></i><span></span></div><div class="time"></div></div>
+      <div class="rg-bosshud" hidden><b class="name"></b><div class="hp"><i></i><span></span></div><div class="posture"><i></i></div></div>
+      <div class="rg-me" hidden><b>🛡️ Caballero del Botón</b><div class="bar life"><i></i><span></span></div><div class="bar sta"><i></i></div><div class="flasks"></div></div>
+      <div class="rg-actions" hidden><button data-act="roll" title="Rodar: invulnerable un instante (Shift o clic derecho)">🌀 Rodar <kbd>Shift</kbd></button><button data-act="parry" title="Parar justo antes del golpe (Q)">🛡️ Parar <kbd>Q</kbd></button><button data-act="heal" title="Beber un frasco de atún (E)">🐟 Frasco <kbd>E</kbd></button><button data-act="attack" title="Atacar (clic o espacio)">⚔️ Atacar <kbd>Espacio</kbd></button></div>
+      <div class="rg-tele" hidden><i></i><span></span></div>
+      <div class="rg-banner" hidden><b></b><small></small></div>
       <div class="rg-talk" hidden><div class="who"></div><p></p><button>Continuar ▸</button></div>
       <aside class="rg-side">
         <nav class="rg-tabs"><button data-tab="helpers" class="on">🐾 Ayudantes</button><button data-tab="arts">🏺 Artefactos</button><button data-tab="story">📖 Historia</button><button data-tab="rebirth" class="rg-rebirth-tab">🔆 Renacer</button></nav>
@@ -586,6 +609,10 @@
       shards: root.querySelector('.rg-shards'),
       mission: root.querySelector('.rg-mission'),
       bossHud: root.querySelector('.rg-bosshud'),
+      me: root.querySelector('.rg-me'),
+      actions: root.querySelector('.rg-actions'),
+      tele: root.querySelector('.rg-tele'),
+      banner: root.querySelector('.rg-banner'),
       boss: root.querySelector('.rg-boss'),
       hint: root.querySelector('.rg-hint'),
       talk: root.querySelector('.rg-talk'),
@@ -638,7 +665,10 @@
       c3.addEventListener('pointerdown', e => {
         const r = c3.getBoundingClientRect()
         const hit = ui.g3.pick(e.clientX - r.left, e.clientY - r.top)
-        if (hit === 'chest') openChest()
+        if (fight && e.button === 0) {
+          e.preventDefault()
+          press(e)
+        } else if (hit === 'chest') openChest()
         else if (hit === 'button') {
           e.preventDefault()
           press(e)
@@ -667,6 +697,10 @@
         e.preventDefault()
         ui.g3.zoom(e.deltaY > 0 ? 1.08 : 0.93)
       })
+      c3.addEventListener('contextmenu', e => {
+        e.preventDefault()
+        if (fight) duelRoll()
+      })
       c3.addEventListener('dblclick', e => {
         const r = c3.getBoundingClientRect()
         if (!ui.g3.pick(e.clientX - r.left, e.clientY - r.top)) ui.g3.resetView()
@@ -687,6 +721,16 @@
     })
     root.querySelector('.rg-close').addEventListener('click', close)
     root.querySelector('.rg-restart').addEventListener('click', askRestart)
+    ui.actions.querySelectorAll('[data-act]').forEach(b =>
+      b.addEventListener('click', e => {
+        e.stopPropagation()
+        const act = b.dataset.act
+        if (act === 'attack') press(null)
+        else if (act === 'roll') duelRoll()
+        else if (act === 'parry') duelParry()
+        else duelHeal()
+      }),
+    )
     root.querySelector('.rg-treebtn').addEventListener('click', () => toggleTree(true))
     root.querySelector('.rg-tree-close').addEventListener('click', () => toggleTree(false))
     ui.chest.addEventListener('pointerdown', e => {
@@ -743,6 +787,11 @@
     save(true)
   }
   function onKey(e) {
+    if (fight && ui && !e.repeat) {
+      if (e.key === 'Shift') return duelRoll()
+      if (e.key === 'q' || e.key === 'Q') return duelParry()
+      if (e.key === 'e' || e.key === 'E') return duelHeal()
+    }
     if (e.key === 'Escape') return ui && !ui.tree.hidden ? toggleTree(false) : ui && !ui.talk.hidden ? nextTalk() : close()
     if ((e.key === ' ' || e.key === 'Enter') && !e.repeat && ui && ui.tree.hidden && !(e.target instanceof HTMLButtonElement)) {
       e.preventDefault()
@@ -790,7 +839,7 @@
         const [a0, a1] = ARCS[h.id]
         for (let i = 0; i < n; i++) {
           const a = ((a0 + ((a1 - a0) * (i + 0.5)) / n) * Math.PI) / 180
-          const c = ui.g3.addHelper(h.id, a, SL().catCoat(), isKing(h))
+          const c = ui.g3.addHelper(h.id, a, SL().catCoat(), isKing(h), i)
           ui.sprites.push({ h, c, x: Math.cos(a) * 205, y: 30 + Math.sin(a) * 92, next: performance.now() + rnd(200, h.every * 1000) })
         }
       }
@@ -913,6 +962,7 @@
       confetti(p.x, p.y, 20)
       return
     }
+    if (fight && !duelCanAttack()) return
     const now = Date.now()
     if (now - lastClick < comboCool(G) * 1000) combo = Math.min(50, combo + 1)
     else combo = 1
@@ -923,6 +973,7 @@
     const dbl = Math.random() < doubleChance(G)
     if (crit) value *= critMult(G)
     if (dbl) value *= 2
+    if (fight) value = duelAttack(value, crit)
     G.clicks++
     const got = earn(G, Math.max(1, Math.floor(value)))
     if (fight) hurtBoss(Math.max(1, Math.floor(value)), crit)
@@ -1148,6 +1199,8 @@
       }
       led.setAttribute('fill', gold ? `rgba(255,216,79,${(0.25 + b * 0.75).toFixed(2)})` : `rgba(255,${Math.round(80 + b * 150)},${Math.round(60 + b * 120)},${(0.25 + b * 0.75).toFixed(2)})`)
     })
+    if (fight) duelStep(now, Math.min(0.1, (now - (ui.lastFrame || now)) / 1000))
+    ui.lastFrame = now
     if (ui.g3) {
       ui.g3.frame({ heat, gold, rayBoost, ledFlash, speed, frozen })
       const moved = ui.g3.viewMoved()
@@ -1900,12 +1953,44 @@
       </g>
       <g class="rg-boss-bubble" opacity="0"><rect x="-300" y="-78" width="256" height="34" rx="10" fill="#FFF" stroke="#1a1310" stroke-width="2"/><path d="M-46 -68 l16 8 l-16 8z" fill="#FFF" stroke="#1a1310" stroke-width="2"/><text x="-172" y="-56" text-anchor="middle"></text></g>`
   }
+  // ---------- the duel: Zarpas telegraphs, you roll, parry, heal and hit back ----------
+
+  const MISHI = { name: 'Mishi, la doncella', face: '🐈‍⬛' }
+  const MOVES = {
+    swipe: { name: 'Zarpazo', wind: 700, dmg: 0.2 },
+    combo: { name: 'Doble zarpazo', wind: 650, dmg: 0.16, hits: 2, gap: 480 },
+    slam: { name: 'Salto aplastante', wind: 1200, dmg: 0.36, heavy: true },
+    hairball: { name: 'Bola de pelo', wind: 900, dmg: 0.24, travel: 400 },
+    delayed: { name: 'Zarpazo traicionero', wind: 1550, dmg: 0.28 },
+    laser: { name: 'Rayo ocular', wind: 1000, dmg: 0.3 },
+    teleport: { name: 'Tajo dimensional', wind: 950, dmg: 0.3 },
+    roar: { name: 'Rugido imperial', wind: 1300, dmg: 0.42, heavy: true },
+  }
+  const MOVESETS = [['swipe', 'slam'], ['swipe', 'combo', 'slam'], ['swipe', 'combo', 'hairball', 'delayed'], ['swipe', 'laser', 'slam', 'combo'], ['combo', 'teleport', 'hairball', 'delayed'], ['combo', 'slam', 'delayed', 'laser', 'teleport', 'roar']]
+  const STA = { max: 100, attack: 14, parry: 8 }
+  // cooldowns: a swing, a roll and a parry each need their moment
+  const CD = { attack: 280, roll: 650, parry: 600 }
+  const POSTURE_MAX = 100
   function startFight(i) {
     const b = BOSSES[i]
     const hp = bossHp(G, b)
-    fight = { i, b, hp, max: hp, until: Date.now() + b.seconds * 1000, nextTaunt: Date.now() + 3000 }
-    if (ui.g3) ui.g3.bossShow(i)
-    else bossSvg(i)
+    const me = { hp: knightHp(G), max: knightHp(G), sta: STA.max, staAt: 0, flasks: knightFlasks(G), iframesUntil: 0, rollUntil: 0, rollCd: 0, parryUntil: 0, parryCd: 0, atkCd: 0, busyUntil: 0, hits: 0, ds: duelStats(G) }
+    const first = !G.duelTut
+    fight = { i, b, hp, max: hp, me, posture: 0, postureAt: 0, staggerUntil: 0, riposte: false, phase: 1, move: null, nextMoveAt: performance.now() + 2600, nextTaunt: Date.now() + 3000, paused: first, last: '' }
+    if (ui.g3) {
+      ui.g3.bossShow(i)
+      setTimeout(() => fight && ui?.g3?.knightShow(true), 700)
+    } else bossSvg(i)
+    root.classList.add('rg-duel')
+    ui.me.hidden = false
+    ui.actions.hidden = false
+    requestAnimationFrame(sizeCanvases)
+    if (first)
+      setTimeout(() => {
+        say(MISHI, 'Hola, Pulsador. Soy Mishi. Contra Zarpas no basta con aporrear: el Caballero del Botón pelea por ti. Pulsa (clic o espacio) para atacar; cada golpe gasta estamina, la barra verde. Tus ayudantes también le pegan desde las gradas.')
+        say(MISHI, 'Cuando Zarpas cargue un golpe verás un anillo rojo cerrándose a tus pies. Rueda (Shift o clic derecho) para esquivarlo, o pulsa Q justo cuando el anillo se pone dorado para pararlo y romperle la guardia. Con E bebes un frasco de atún.')
+        say(MISHI, 'Si caes, se te caerá la mitad de las monedas. Las recuperas si le vences. Suerte… y que el botón te guíe.')
+      }, 900)
     setTimeout(() => {
       if (!ui) return
       shake(14)
@@ -1915,13 +2000,271 @@
     }, 560)
     ui.bossHud.hidden = false
     ui.bossHud.querySelector('.name').textContent = `😼 ${b.name}`
-    ui.bossHud.animate([{ transform: 'translate(-50%,-40px)', opacity: 0 }, { transform: 'translate(-50%,0)', opacity: 1 }], { duration: 400, easing: 'cubic-bezier(.2,.9,.3,1.3)' })
+    ui.bossHud.animate([{ transform: 'translate(-50%,40px)', opacity: 0 }, { transform: 'translate(-50%,0)', opacity: 1 }], { duration: 500, easing: 'cubic-bezier(.2,.9,.3,1.3)' })
     root.classList.add('rg-fighting')
+    updateMeHud()
     bigText(`⚔️ ¡${b.name}!`, '#FF5A6A')
     SL().beep([196, 185, 175, 165], 0.12)
     taunt(b.taunts[0])
     refresh()
     updateBossHud()
+  }
+  function duelCanAttack() {
+    const me = fight.me
+    const now = performance.now()
+    if (now < me.rollUntil || now < me.busyUntil || now < me.atkCd) return false
+    if (me.sta < STA.attack) {
+      if (ui) floatNum(toScreen(-60, -40), '😮‍💨 Sin estamina', '#9FE87F', 13)
+      ui?.me.querySelector('.sta').animate([{ transform: 'translateX(-4px)' }, { transform: 'translateX(4px)' }, { transform: 'none' }], { duration: 200 })
+      return false
+    }
+    return true
+  }
+  function duelAttack(value, crit) {
+    const me = fight.me
+    const now = performance.now()
+    me.sta -= STA.attack
+    me.staAt = now
+    me.atkCd = now + CD.attack
+    const staggered = now < fight.staggerUntil
+    if (staggered && fight.riposte) {
+      // the riposte: the first hit on a broken guard is a critical blow
+      fight.riposte = false
+      value *= me.ds.riposte
+      bigText('¡GOLPE CRÍTICO!', '#FFD84F')
+      hitstop(160)
+      shake(14)
+      SL().beep([880, 1320], 0.06)
+    } else if (staggered) value *= 2
+    else addPosture(crit ? me.ds.hitPosture + 5 : me.ds.hitPosture)
+    ui?.g3?.knightAttack(crit || staggered)
+    updateMeHud()
+    return value
+  }
+  function addPosture(n) {
+    if (!fight || performance.now() < fight.staggerUntil) return
+    fight.posture = Math.min(POSTURE_MAX, fight.posture + n)
+    fight.postureAt = performance.now()
+    if (fight.posture >= POSTURE_MAX) {
+      // the guard breaks: he reels for a moment, the next hit is a riposte
+      fight.posture = 0
+      fight.staggerUntil = performance.now() + 2600
+      fight.riposte = true
+      fight.move = null
+      hideTele()
+      fight.nextMoveAt = fight.staggerUntil + 600
+      ui?.g3?.bossStagger(2600)
+      bigText('¡GUARDIA ROTA!', '#FFE34F')
+      SL().beep([392, 523], 0.07)
+    }
+  }
+  function duelRoll() {
+    if (!fight || fight.paused) return
+    const me = fight.me
+    const now = performance.now()
+    if (now < me.rollCd || now < me.busyUntil || me.sta < me.ds.rollCost) return
+    me.sta -= me.ds.rollCost
+    me.staAt = now
+    me.rollUntil = now + 450
+    me.rollCd = now + CD.roll
+    me.iframesUntil = now + me.ds.iframes
+    ui?.g3?.knightRoll()
+    updateMeHud()
+  }
+  function duelParry() {
+    if (!fight || fight.paused) return
+    const me = fight.me
+    const now = performance.now()
+    if (now < me.parryCd || now < me.busyUntil || me.sta < STA.parry) return
+    me.sta -= STA.parry
+    me.staAt = now
+    me.parryUntil = now + me.ds.parryMs
+    me.parryCd = now + CD.parry
+    ui?.g3?.knightParry(false)
+    updateMeHud()
+  }
+  function duelHeal() {
+    if (!fight || fight.paused) return
+    const me = fight.me
+    const now = performance.now()
+    if (!me.flasks || now < me.busyUntil || now < me.rollUntil || me.hp >= me.max) return
+    me.flasks--
+    me.busyUntil = now + 700
+    ui?.g3?.knightHeal()
+    SL().beep([523, 659], 0.05)
+    setTimeout(() => {
+      if (!fight || fight.me !== me) return
+      const gain = Math.round(me.max * 0.5)
+      me.hp = Math.min(me.max, me.hp + gain)
+      floatNum(toScreen(-60, -50), `+${gain} ❤`, '#7FFF8A', 16, true)
+      updateMeHud()
+    }, 450)
+    updateMeHud()
+  }
+  function updateMeHud() {
+    if (!fight || !ui) return
+    const me = fight.me
+    ui.me.querySelector('.life i').style.width = `${Math.max(0, (me.hp / me.max) * 100).toFixed(1)}%`
+    ui.me.querySelector('.life span').textContent = `${Math.max(0, Math.ceil(me.hp))} / ${me.max}`
+    ui.me.querySelector('.sta i').style.width = `${Math.max(0, me.sta).toFixed(1)}%`
+    const fl = '🐟'.repeat(me.flasks) + '<i>🐟</i>'.repeat(Math.max(0, knightFlasks(G) - me.flasks))
+    if (ui.me.querySelector('.flasks').innerHTML !== fl) ui.me.querySelector('.flasks').innerHTML = fl
+    ui.bossHud.querySelector('.posture i').style.width = `${(fight.posture / POSTURE_MAX) * 100}%`
+    ui.bossHud.classList.toggle('broken', performance.now() < fight.staggerUntil)
+    const heal = ui.actions.querySelector('[data-act="heal"]')
+    heal.firstChild.textContent = `🐟 Frasco ×${me.flasks} `
+    const now = performance.now()
+    const cd = (until, len) => Math.max(0, Math.min(1, (until - now) / len))
+    const state = {
+      attack: [cd(Math.max(me.atkCd, me.busyUntil), CD.attack), me.sta < STA.attack],
+      roll: [cd(Math.max(me.rollCd, me.busyUntil), CD.roll), me.sta < me.ds.rollCost],
+      parry: [cd(Math.max(me.parryCd, me.busyUntil), CD.parry), me.sta < STA.parry],
+      heal: [cd(me.busyUntil, 700), !me.flasks || me.hp >= me.max],
+    }
+    for (const [act, [left, off]] of Object.entries(state)) {
+      const b = ui.actions.querySelector(`[data-act="${act}"]`)
+      b.style.setProperty('--cd', left.toFixed(3))
+      b.classList.toggle('off', off)
+    }
+  }
+  function hideTele() {
+    if (ui) ui.tele.hidden = true
+  }
+  // runs every frame while a duel is on
+  function duelStep(now, dt) {
+    const f = fight
+    const me = f.me
+    if (f.paused) {
+      if (ui.talk.hidden) {
+        f.paused = false
+        G.duelTut = 1
+        f.nextMoveAt = now + 1500
+      }
+      return
+    }
+    if (now - me.staAt > 450) me.sta = Math.min(STA.max, me.sta + me.ds.regen * dt)
+    if (now - f.postureAt > 1500) f.posture = Math.max(0, f.posture - 10 * dt)
+    // phase two: from half life the later Zarpas fight faster and harder
+    if (f.phase === 1 && f.i >= 2 && f.hp < f.max / 2) {
+      f.phase = 2
+      bigText(`${f.b.name} · ¡Fase 2!`, '#FF5A6A')
+      taunt('¡Ahora vas a ver de lo que es capaz un gato de verdad!')
+      ui.g3?.bossWindup('roar', 500)
+      setTimeout(() => ui?.g3?.bossStrike('roar'), 500)
+      f.move = null
+      hideTele()
+      f.nextMoveAt = now + 2000
+    }
+    const fast = f.phase === 2 ? 0.85 : 1
+    if (!f.move && now >= f.nextMoveAt && now >= f.staggerUntil) {
+      const set = MOVESETS[Math.min(f.i, MOVESETS.length - 1)]
+      let kind = set[Math.floor(Math.random() * set.length)]
+      if (kind === f.last && set.length > 1) kind = set[(set.indexOf(kind) + 1) % set.length]
+      f.last = kind
+      const M = MOVES[kind]
+      const wind = M.wind * fast
+      const hits = M.hits || 1
+      f.move = { kind, M, t0: now, wind, impacts: Array.from({ length: hits }, (_, k) => now + wind + k * (M.gap || 0)), done: 0, struck: 0 }
+      ui.g3?.bossWindup(kind, wind)
+      ui.tele.querySelector('span').textContent = M.heavy ? `⚠ ${M.name} · ¡no se puede parar!` : M.name
+      ui.tele.classList.toggle('heavy', !!M.heavy)
+      ui.tele.hidden = false
+    }
+    const mv = f.move
+    if (mv) {
+      const next = mv.impacts[mv.done]
+      const lead = mv.M.travel || 120
+      if (mv.struck <= mv.done && now >= next - lead) {
+        mv.struck = mv.done + 1
+        ui.g3?.bossStrike(mv.done && mv.kind === 'combo' ? 'swipe' : mv.kind)
+      }
+      // the ring closes on the knight; gold while a parry would land
+      const from = mv.done ? mv.impacts[mv.done - 1] : mv.t0
+      const k = Math.min(1, (now - from) / (next - from))
+      const kp = ui.g3?.knightPx()
+      const box = root.getBoundingClientRect()
+      const st = ui.stage.getBoundingClientRect()
+      const p = kp ? g3px(kp) : { x: st.left - box.left + st.width / 2, y: st.top - box.top + st.height * 0.62 }
+      ui.tele.style.left = `${p.x}px`
+      ui.tele.style.top = `${p.y}px`
+      ui.tele.querySelector('i').style.transform = `translate(-50%,-50%) scale(${(2.6 - k * 1.85).toFixed(3)})`
+      ui.tele.classList.toggle('now', next - now <= me.ds.parryMs && !mv.M.heavy)
+      if (now >= next) {
+        resolveHit(mv)
+        mv.done++
+        if (!fight) return
+        if (mv.done >= mv.impacts.length) {
+          f.move = null
+          hideTele()
+          f.nextMoveAt = now + rnd(1700, 2600) * (f.phase === 2 ? 0.7 : 1)
+        }
+      }
+    }
+    updateMeHud()
+  }
+  function resolveHit(mv) {
+    const f = fight
+    const me = f.me
+    const now = performance.now()
+    const p = toScreen(-60, -30)
+    if (now < me.iframesUntil) {
+      floatNum(p, '¡Esquivado!', '#7FD0FF', 16, true)
+      return
+    }
+    if (now <= me.parryUntil && !mv.M.heavy) {
+      floatNum(p, '¡PARADA!', '#FFE34F', 20, true)
+      ui.g3?.knightParry(true)
+      hitstop(120)
+      SL().beep([1047, 1568], 0.05)
+      addPosture(me.ds.parryPosture)
+      return
+    }
+    const dmg = Math.round(me.max * mv.M.dmg * (f.phase === 2 ? 1.15 : 1))
+    me.hp -= dmg
+    me.hits++
+    combo = 0
+    updateCombo()
+    ui.g3?.knightHurt()
+    floatNum(p, `-${dmg} ❤`, '#FF4A4A', 18, true)
+    ui.white.animate([{ opacity: 0.35, background: '#ff1a1a' }, { opacity: 0, background: '#ff1a1a' }], { duration: 300 })
+    shake(10)
+    SL().beep([110, 90], 0.08)
+    if (me.hp <= 0) duelDeath()
+  }
+  // you died: half your coins stay on the floor until you beat him
+  function duelDeath() {
+    const f = fight
+    fight = null
+    fightCooldown = Date.now() + 8000
+    const lost = Math.floor(G.coins / 2)
+    G.coins -= lost
+    const old = G.stain && G.stain.coins
+    G.stain = { i: f.i, coins: lost }
+    SL().unlock('reddied')
+    save(true)
+    hideTele()
+    ui.g3?.knightDie()
+    taunt('¡Miau-ja-ja-ja! ¡Otra vez será!')
+    banner('HAS MUERTO', `Se te caen ${fmt(lost)} 🪙${old ? ` (las ${fmt(old)} que habías dejado se pierden)` : ''}. Vence a ${f.b.name} para recuperarlas.`, 'died')
+    SL().beep([196, 147, 98], 0.25)
+    setTimeout(() => {
+      if (!ui) return
+      ui.g3?.bossGone('flee')
+      ui.g3?.knightShow(false)
+      endFightHud()
+      refresh()
+    }, 2800)
+  }
+  function banner(title, sub, kind) {
+    if (!ui) return
+    const el = ui.banner
+    el.className = `rg-banner ${kind}`
+    el.querySelector('b').textContent = title
+    el.querySelector('small').textContent = sub
+    el.hidden = false
+    el.animate([{ opacity: 0, letterSpacing: '2px' }, { opacity: 1, letterSpacing: '10px', offset: 0.2 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }], { duration: 3600, easing: 'ease-out' }).onfinish = () => {
+      if (ui) el.hidden = true
+    }
   }
   function bossSvg(i) {
     ui.boss.innerHTML = drawBoss(i)
@@ -1965,22 +2308,9 @@
     const pct = Math.max(0, fight.hp / fight.max)
     ui.bossHud.querySelector('.hp i').style.width = `${(pct * 100).toFixed(1)}%`
     ui.bossHud.querySelector('.hp span').textContent = `${fmt(Math.max(0, fight.hp))} / ${fmt(fight.max)}`
-    const left = Math.max(0, Math.ceil((fight.until - Date.now()) / 1000))
-    ui.bossHud.querySelector('.time').textContent = `⏱️ ${left} s`
-    ui.bossHud.classList.toggle('hurry', left <= 10)
-    // every few seconds he swipes at you: the combo is lost, keep pressing
     if (Date.now() > fight.nextTaunt) {
-      fight.nextTaunt = Date.now() + 7000
+      fight.nextTaunt = Date.now() + 9000
       taunt(fight.b.taunts[Math.floor(Math.random() * fight.b.taunts.length)])
-      if (combo > 8) {
-        combo = 0
-        updateCombo()
-        bigText('¡Zarpazo! Combo perdido', '#FF8A7A')
-        ui.g3?.bossSwipe()
-        const p = toScreen(60, -10)
-        slash(p.x, p.y, -1)
-        shake(10)
-      }
     }
   }
   function winFight() {
@@ -1989,8 +2319,17 @@
     G.beaten = { ...G.beaten, [f.i]: Date.now() }
     G.shards = (G.shards || 0) + f.b.shards
     if (f.i === BOSSES.length - 1) SL().unlock('redboss')
+    if (f.me && !f.me.hits) SL().unlock('rednohit')
+    const back = G.stain && G.stain.i === f.i ? G.stain.coins : 0
+    if (back) {
+      G.coins += back
+      G.stain = null
+    }
     save(true)
     if (!ui) return
+    hideTele()
+    banner('ENEMIGO DERROTADO', back ? `Recuperas ${fmt(back)} 🪙` : f.me && !f.me.hits ? '¡Sin un rasguño!' : '', 'won')
+    setTimeout(() => ui?.g3?.knightShow(false), 2600)
     const p = toScreen(BX, BY - 30)
     hitstop(160)
     whiteFlash(0.7)
@@ -2014,6 +2353,11 @@
     const f = fight
     fight = null
     fightCooldown = Date.now() + 20000
+    if (ui) {
+      hideTele()
+      ui.g3?.knightShow(false)
+      if (quiet) endFightHud()
+    }
     if (!ui || quiet) return
     taunt('¡Miau-ja-ja-ja! ¡Demasiado lento!')
     if (ui.g3) ui.g3.bossGone('flee')
@@ -2026,7 +2370,10 @@
     refresh()
   }
   function endFightHud() {
-    root.classList.remove('rg-fighting')
+    root.classList.remove('rg-fighting', 'rg-duel')
+    ui.me.hidden = true
+    ui.actions.hidden = true
+    requestAnimationFrame(sizeCanvases)
     ui.bossHud.animate([{ opacity: 1 }, { opacity: 0, transform: 'translate(-50%,-30px)' }], { duration: 300 }).onfinish = () => {
       if (ui) ui.bossHud.hidden = true
     }

@@ -163,7 +163,7 @@ class LabView implements vscode.WebviewViewProvider {
   <button class="primary" data-act="newAgent" title="Lanzar Claude Code en una carpeta"><svg viewBox="0 0 16 16"><path d="M7 2h2v5h5v2H9v5H7V9H2V7h5z"/></svg>Agent</button>
   <button data-act="layout" data-tab="labs" title="Editar labs y skills"><svg viewBox="0 0 16 16"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>Layout</button>
   <button data-act="layout" data-tab="settings" title="Ajustes"><svg viewBox="0 0 16 16"><path d="M7 1h2v2h2v2h2v2h2v2h-2v2h-2v2H9v2H7v-2H5v-2H3V9H1V7h2V5h2V3h2zm0 5v4h2V6z"/></svg>Settings</button>
-  <button data-act="layout" data-tab="medals" title="Medallas: los easter eggs que has encontrado">🏅 <span class="count">0/64</span></button>
+  <button data-act="layout" data-tab="medals" title="Medallas: los easter eggs que has encontrado">🏅 <span class="count">0/66</span></button>
 </div>
 <aside id="drawer" class="panel" aria-hidden="true">
   <header><h2>Layout</h2><button class="icon ghost" data-act="close" title="Cerrar"><svg viewBox="0 0 16 16"><path d="M3 3h2v2h2v2h2V5h2V3h2v2h-2v2h-2v2h2v2h2v2h-2v-2h-2V9H7v2H5v2H3v-2h2V9h2V7H5V5H3z"/></svg></button></header>

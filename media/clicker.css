@@ -266,3 +266,45 @@
 #rg .rg-soul .gain.none { border-color: #5a4a3a; color: var(--muted); }
 #rg .rg-soul ul { margin: 0; padding-left: 4px; list-style: none; display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: #d8c8b4; }
 #rg .rg-rebirth-btn { padding: 9px; font-size: 13px; font-weight: 900; background: linear-gradient(#FFE7A0, #E8B84A); color: #3a2a10; border-color: #8a6a2a; }
+/* the duel: souls-like HUD */
+#rg.rg-duel .rg-side, #rg.rg-duel .rg-mission, #rg.rg-duel .rg-viewbtn { display: none; }
+#rg.rg-duel .rg-stage { grid-column: 1 / 3; }
+#rg.rg-duel .rg-vignette { box-shadow: inset 0 0 180px rgba(0, 0, 0, .85), inset 0 0 60px rgba(120, 10, 20, .35); }
+#rg.rg-duel .rg-talk { right: 12px; }
+#rg.rg-duel .rg-bosshud { top: auto; bottom: 34px; left: 50%; width: min(680px, 78%); background: none; border: none; box-shadow: none; text-align: left; padding: 0; }
+#rg.rg-duel .rg-bosshud .name { font: 400 17px Georgia, 'Times New Roman', serif; color: #F2E6CF; letter-spacing: 1px; text-shadow: 0 2px 4px #000; }
+#rg.rg-duel .rg-bosshud .hp { height: 10px; border: 1px solid #6a5a4a; background: rgba(10, 4, 4, .8); margin: 3px 0 2px; }
+#rg.rg-duel .rg-bosshud .hp i { background: linear-gradient(#C8202A, #7A0A12); box-shadow: none; }
+#rg.rg-duel .rg-bosshud .hp span { position: absolute; right: 4px; top: -15px; color: #d8c8b4; font: 400 10px Georgia, serif; }
+#rg .rg-bosshud .posture { height: 4px; width: 60%; margin: 0 auto; background: rgba(0, 0, 0, .5); display: none; }
+#rg.rg-duel .rg-bosshud .posture { display: block; }
+#rg .rg-bosshud .posture i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #E8B84A, #FFE7A0); transition: width .1s; }
+#rg .rg-bosshud.broken .posture { box-shadow: 0 0 10px #FFE34F; }
+#rg .rg-me { position: absolute; left: 14px; top: 60px; z-index: 6; width: 240px; font: 400 12px Georgia, serif; color: #F2E6CF; text-shadow: 0 1px 2px #000; }
+#rg .rg-me[hidden], #rg .rg-actions[hidden], #rg .rg-tele[hidden], #rg .rg-banner[hidden] { display: none; }
+#rg .rg-me .bar { position: relative; height: 9px; margin-top: 4px; background: rgba(10, 6, 4, .75); border: 1px solid #5a4a3a; }
+#rg .rg-me .bar i { position: absolute; left: 0; top: 0; bottom: 0; transition: width .12s; }
+#rg .rg-me .life i { background: linear-gradient(#D8323A, #8A1018); }
+#rg .rg-me .life span { position: absolute; right: 4px; top: -1px; font: 400 9px Verdana, sans-serif; color: #fff; }
+#rg .rg-me .sta { width: 80%; }
+#rg .rg-me .sta i { background: linear-gradient(#5AC85A, #2A7A2A); }
+#rg .rg-me .flasks { margin-top: 5px; font-size: 15px; letter-spacing: 2px; }
+#rg .rg-me .flasks i { font-style: normal; filter: grayscale(1); opacity: .35; }
+#rg .rg-actions { position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%); z-index: 6; display: flex; gap: 6px; }
+#rg .rg-actions button { padding: 6px 10px; font: 700 11px Verdana, sans-serif; background: rgba(20, 14, 12, .85); border: 1px solid #6a5a4a; color: #F2E6CF; }
+#rg .rg-actions kbd { margin-left: 4px; padding: 0 4px; border: 1px solid #8a7a6a; border-radius: 3px; font: 400 9px Verdana, sans-serif; color: #c8b8a4; }
+#rg .rg-tele { position: absolute; z-index: 5; pointer-events: none; width: 0; height: 0; }
+#rg .rg-tele i { position: absolute; left: 0; top: 0; width: 60px; height: 60px; border: 3px solid #FF3A3A; border-radius: 50%; box-shadow: 0 0 14px #ff3a3a, inset 0 0 10px #ff3a3a66; }
+#rg .rg-tele::after { content: ''; position: absolute; left: -24px; top: -24px; width: 48px; height: 48px; border: 2px dashed rgba(255, 255, 255, .5); border-radius: 50%; }
+#rg .rg-tele.now i { border-color: #FFE34F; box-shadow: 0 0 22px #ffe34f, inset 0 0 12px #ffe34f88; }
+#rg .rg-tele.heavy i { border-color: #FF1A1A; border-width: 5px; }
+#rg .rg-tele span { position: absolute; left: 0; top: -78px; transform: translateX(-50%); white-space: nowrap; font: 700 13px Georgia, serif; color: #FFD0C8; text-shadow: 0 2px 4px #000, 0 0 10px #ff2a2a; }
+#rg .rg-banner { position: absolute; inset: 0; z-index: 12; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; pointer-events: none; background: linear-gradient(transparent 38%, rgba(0, 0, 0, .78) 44%, rgba(0, 0, 0, .78) 58%, transparent 64%); }
+#rg .rg-banner b { font: 400 54px Georgia, 'Times New Roman', serif; letter-spacing: 10px; text-transform: uppercase; }
+#rg .rg-banner small { font: 400 14px Georgia, serif; color: #d8c8b4; }
+#rg .rg-banner.died b { color: #B8141E; text-shadow: 0 0 30px rgba(184, 20, 30, .6); }
+#rg .rg-banner.won b { color: #E8C870; text-shadow: 0 0 30px rgba(232, 200, 112, .6); }
+/* cooldowns on the duel actions: a dark sweep that empties as the action comes back */
+#rg .rg-actions button { position: relative; overflow: hidden; }
+#rg .rg-actions button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--cd, 0) * 100%); background: rgba(0, 0, 0, .62); pointer-events: none; }
+#rg .rg-actions button.off { opacity: .45; filter: grayscale(.8); }

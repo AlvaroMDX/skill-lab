@@ -1849,6 +1849,8 @@
     ['redend', '🏁', 'Mil millones', 'Llega a 1.000.000.000 pulsaciones y termina el Acto I', 'button'],
     ['redocti', '🌌', 'Octillonario', 'Lleva el botón a un octillón: un 1 con 48 ceros', 'button'],
     ['redrebirth', '🔆', 'Renacido', 'Renace por primera vez en el juego del botón', 'button'],
+    ['reddied', '💀', 'Has muerto', 'Cae en un duelo contra Zarpas', 'button'],
+    ['rednohit', '🛡️', 'Sin un rasguño', 'Vence a un Zarpas sin que te toque', 'button'],
   ]
 
   // counters and sets behind the medals that need more than one go, kept with the medals as '~' keys

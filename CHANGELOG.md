@@ -1,5 +1,14 @@
 # Cambios
 
+## 1.7.0 — 2026-10-29
+- Duelos estilo souls contra Zarpas: el **Caballero del Botón** pelea por ti. Atacas pulsando (clic o espacio), cada golpe gasta estamina y tiene una pequeña recarga; ruedas con Shift o clic derecho (invulnerable un instante), paras con Q justo cuando el anillo se pone dorado y bebes frascos de atún con E.
+- Zarpas avisa cada golpe con una carga y un anillo rojo que se cierra a tus pies: zarpazo, doble zarpazo, salto aplastante y rugido (no se pueden parar), bola de pelo, zarpazo traicionero, rayo ocular y tajo dimensional. Barra de postura: si la llenas le rompes la guardia y el siguiente golpe es crítico. Los Zarpas de la segunda mitad tienen fase 2.
+- Sin reloj: el duelo acaba cuando cae uno de los dos. Si mueres («HAS MUERTO») se te cae la mitad de las monedas; las recuperas venciendo a ese Zarpas («ENEMIGO DERROTADO»). Tu daño sale de tu clic, tus ayudantes siguen pegando desde las gradas y el caballero gana vida con cada jefe y frascos con los cofres.
+- Rama nueva del árbol, «Caballero del Botón»: Armadura forjada, Más atún, Buen fuelle, Voltereta ágil, Parada maestra y Estocada.
+- Los botones de acción del duelo muestran su recarga y se apagan sin estamina.
+- Personajes nuevos: el Caballero del Botón y Mishi, la doncella, que te enseña a pelear la primera vez. Los ayudantes ya no son clones: gatos de pelajes distintos, skills con gorros (fiesta, chef, mago, lana), robots y drones de varios colores.
+- Medallas nuevas: Has muerto y Sin un rasguño (66 en total).
+
 ## 1.6.0 — 2026-10-29
 - Arreglado el atasco del Acto II: al llegar al tope de la historia (esperando a un Zarpas) dejaban de entrar monedas y no se podía comprar nada. Ahora el contador se para pero las monedas siguen.
 - **Renacer** (prestigio), en la pestaña 🔆 Renacer: sueltas monedas, ayudantes y árbol, pero conservas lo pulsado, la historia, los artefactos y los fragmentos, y ganas **almas de botón** (+5 % a todo cada una, para siempre). El capítulo 9 te enseña a usarlo y la pestaña brilla cuando renacer merece la pena.
