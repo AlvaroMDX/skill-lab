@@ -1,0 +1,56 @@
+<!doctype html>
+<!-- README screenshot of the skill manager with made-up skills and repos.
+     "C:/Program Files/Google/Chrome/Application/chrome.exe" --headless=new --allow-file-access-from-files --window-size=1440,860 --virtual-time-budget=3000 --screenshot=images/skills.png tools/skills-demo.html -->
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../media/skills.css">
+<style>:root{--vscode-editor-background:#1e1e1e;--vscode-foreground:#cccccc;--vscode-sideBar-background:#252526;--vscode-input-background:#3c3c3c;--vscode-input-border:#3c3c3c;--vscode-panel-border:#3a3a3a;--vscode-descriptionForeground:#9d9d9d;--vscode-list-activeSelectionBackground:#37373d;--vscode-list-hoverBackground:#2a2d2e;--vscode-badge-background:#4d4d4d;--vscode-badge-foreground:#fff;--vscode-button-secondaryBackground:#3a3d41;--vscode-font-family:'Segoe UI';--vscode-editor-font-family:Consolas}</style></head>
+<body><div id="app"></div><script>
+const path = { win32: { join: (...p) => p.join("\\") } }
+const H = path.win32.join('C:', 'Users', 'demo', '.claude')
+const R = name => path.win32.join('C:', 'Proyectos', name)
+const places = [
+  { id: 'user', kind: 'user', label: 'Usuario', root: H },
+  { id: 'repo:' + R('web-app'), kind: 'repo', label: 'web-app', root: R('web-app') },
+  { id: 'repo:' + R('api'), kind: 'repo', label: 'api', root: R('api') },
+  { id: 'repo:' + R('etl-ventas'), kind: 'repo', label: 'etl-ventas', root: R('etl-ventas') },
+  { id: 'synced', kind: 'synced', label: 'Sincronizadas con tu cuenta', root: '' },
+]
+const S = (name, place, description, files = 1, bytes = 4200) => ({ id: path.win32.join(place === 'user' ? path.win32.join(H, 'skills') : path.win32.join(place.slice(5), '.claude', 'skills'), name), folder: name, name, description, place, files, bytes, mtime: 1, readonly: place === 'synced' })
+const skills = [
+  S('estilo-commits', 'user', 'Cómo escribir los mensajes de commit del equipo: inglés, una línea, con el módulo entre corchetes. Úsala antes de cada git commit.'),
+  S('revisar-pr', 'user', 'Revisa una pull request buscando fallos reales, no estilo. Úsala cuando pidan «revisa la PR», «mira este diff» o antes de aprobar.', 3, 11800),
+  S('informe-semanal', 'user', 'Genera el informe semanal a partir de los tickets cerrados y las horas registradas. Úsala los viernes o cuando pidan «el informe».', 2, 7400),
+  S('desplegar-staging', 'repo:' + R('web-app'), 'Despliega la rama actual en staging con el script del repo, comprueba la salud y deja el enlace. Úsala con «súbelo a staging».', 4, 15200),
+  S('componentes-ui', 'repo:' + R('web-app'), 'Reglas para crear componentes nuevos de la web: nombres, estilos por tema y pruebas visuales.', 2, 6100),
+  S('migraciones-bd', 'repo:' + R('api'), 'Cómo se escriben y prueban las migraciones de base de datos del API, con su script de rollback.', 3, 9800),
+  S('cargar-ventas', 'repo:' + R('etl-ventas'), 'Lanza la carga de ventas contra preproducción en modo prueba y compara totales con el día anterior.', 5, 21400),
+  S('docx', 'synced', 'Crear y editar documentos de Word.', 12, 240000),
+]
+const body = `# Desplegar en staging
+
+Despliega la rama actual en **staging** y comprueba que responde.
+
+## Pasos
+
+1. Comprueba que no hay cambios sin commitear (\`git status\`).
+2. Lanza \`scripts/deploy.sh staging\` y espera al final.
+3. Llama a \`/health\` hasta que devuelva 200 (máximo 2 minutos).
+4. Deja en el chat el enlace de staging y el commit desplegado.
+
+## Si falla
+
+- Si el build falla, enseña las últimas 30 líneas del log.
+- Nunca despliegues en producción desde esta skill.
+`
+const send = m => setTimeout(() => window.postMessage(m, "*"), 0)
+window.acquireVsCodeApi = () => ({
+  getState: () => ({ place: "repo:" + R("web-app"), skill: skills[3].id }),
+  setState() {},
+  postMessage(m) {
+    if (m.type === "ready") send({ type: "list", places, skills })
+    if (m.type === "open") {
+      const s = skills.find(x => x.id === m.id)
+      send({ type: "skill", skill: { ...s, folderName: s.folder, extra: "allowed-tools: Bash(git:*), Bash(./scripts/deploy.sh:*)", body, lead: 1, files: [{ rel: "SKILL.md", size: 1450 }, { rel: "scripts/deploy.sh", size: 5300 }, { rel: "scripts/health.js", size: 2100 }, { rel: "references/entornos.md", size: 6350 }], twins: [], path: s.id, mtime: 1 } })
+    }
+  },
+})
+</script><script src="../media/skills.js"></script></body></html>

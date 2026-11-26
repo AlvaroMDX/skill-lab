@@ -9,6 +9,7 @@ import { COATS, SKINS, colorOf, darkness, renderScene } from './scene'
 import type { Cat, ClockMode, Skin } from './scene'
 import { SEASONS, SEASON_NAMES, SEASON_WHEN } from './season'
 import { ServiceMonitor } from './services'
+import { SkillManager } from './skills'
 import { Tracker, countPastUses } from './tracker'
 
 const HOME = os.homedir()
@@ -95,6 +96,8 @@ function installedSkills(extraRepos: string[] = []): string[] {
 
 // set in activate: re-reads every skills folder; called when puestos or repos change
 let rescanSkills: (() => void) | undefined
+// set in activate: the skill manager tab
+let skillManager: SkillManager | undefined
 
 function clockMode(): ClockMode {
   const m = setting<string>('clockMode', 'auto')
@@ -162,6 +165,7 @@ class LabView implements vscode.WebviewViewProvider {
 <div id="toolbar" class="panel">
   <button class="primary" data-act="newAgent" title="Lanzar Claude Code en una carpeta"><svg viewBox="0 0 16 16"><path d="M7 2h2v5h5v2H9v5H7V9H2V7h5z"/></svg>Agent</button>
   <button data-act="layout" data-tab="labs" title="Editar labs y skills"><svg viewBox="0 0 16 16"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>Layout</button>
+  <button data-act="openSkills" title="Gestor de skills: ver, editar, mover entre repos y descargar">📚 Skills</button>
   <button data-act="layout" data-tab="settings" title="Ajustes"><svg viewBox="0 0 16 16"><path d="M7 1h2v2h2v2h2v2h2v2h-2v2h-2v2H9v2H7v-2H5v-2H3V9H1V7h2V5h2V3h2zm0 5v4h2V6z"/></svg>Settings</button>
   <button data-act="layout" data-tab="medals" title="Medallas: los easter eggs que has encontrado">🏅 <span class="count">0/49</span></button>
 </div>
@@ -329,6 +333,8 @@ class LabView implements vscode.WebviewViewProvider {
         return this.refreshAll()
       case 'newAgent':
         return newAgent()
+      case 'openSkills':
+        return skillManager?.open()
       case 'model':
         return this.pushModel()
       case 'trash':
@@ -647,6 +653,9 @@ export function activate(ctx: vscode.ExtensionContext) {
   ctx.subscriptions.push(vscode.commands.registerCommand('skillLab.refresh', () => view?.push(true)))
   ctx.subscriptions.push(vscode.commands.registerCommand('skillLab.newAgent', newAgent))
   ctx.subscriptions.push(vscode.commands.registerCommand('skillLab.layout', openLayout))
+  skillManager = new SkillManager(ctx, () => [...projectRepos(), ...tracker.sessionCwds()], () => rescanSkills?.())
+  ctx.subscriptions.push({ dispose: () => skillManager?.dispose() })
+  ctx.subscriptions.push(vscode.commands.registerCommand('skillLab.skills', () => skillManager?.open()))
 
   // seed the counters once from history (1.5 GB of transcripts), late enough not to slow VS Code's start
   if (!ctx.globalState.get(SEEDED_KEY)) {

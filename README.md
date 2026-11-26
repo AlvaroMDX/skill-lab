@@ -13,16 +13,19 @@
 - **Cinco mundos.** El edificio puede estar en la ciudad, en la playa, en el bosque, en la nieve o en la Luna.
 - **Temporadas.** Halloween, Navidad, Nochevieja, Reyes, Carnaval, San Valentín, San Fermín, las cuatro estaciones… se ponen solas según la fecha, o eliges una.
 - **Disfraces y colores.** Pirata, alien, astronauta, mago, vaquero, ninja, chef o vikingo, por separado para los muñecos, los robots y los drones. Seis paletas para los carteles: cálidos, pasteles, multicolor, fríos, neón y tierra.
+- **Gestor de skills.** El botón **📚 Skills** abre una pestaña con todas tus skills: las de usuario, que afectan a todos los repos, y las de cada repo. Para cada repo ves cuáles le afectan. Puedes editar el nombre, la descripción, el contenido y los campos de la cabecera; moverlas o copiarlas entre repos y a nivel de usuario (también arrastrando); ver y abrir sus ficheros, y descargarlas en un zip para llevártelas a otro PC, donde **Importar** las deja en su sitio.
 - **Día y noche, avisos y gatos.** La luz sigue la hora real, suena un aviso cuando Claude termina o espera permiso, y los gatos reaccionan a cada sala en la que los sueltes.
 - **49 medallas** escondidas para quien las encuentre. Pistas: en el casino hay tragaperras de verdad, Wally sale a pasear algunas horas, en Navidad Papá Noel cruza el cielo de noche y quien lo consigue todo encuentra algo rojo al final del camino de la puerta lateral, y cuando lo tienes todo, el laboratorio se convierte en un juego incremental con historia: ayudantes, árbol de mejoras, artefactos, cofres, botones dorados, duelos contra el Doctor Zarpas, facturas que pagar o quebrar, y sus propios logros.
 
 ![El mismo laboratorio de noche](images/night.png)
 
+![Gestor de skills: un repo con sus skills propias y las de usuario que también le afectan](images/skills.png)
+
 ## Instalación
 
-1. Descarga `skill-lab-1.8.2.vsix` de la última [release](https://github.com/AlvaroMDX/skill-lab/releases/latest).
+1. Descarga `skill-lab-1.9.0.vsix` de la última [release](https://github.com/AlvaroMDX/skill-lab/releases/latest).
 2. En VS Code: **Extensiones → ··· → Install from VSIX…** y elige el fichero.
-   También desde un terminal: `code --install-extension skill-lab-1.8.2.vsix`.
+   También desde un terminal: `code --install-extension skill-lab-1.9.0.vsix`.
 3. Recarga la ventana (**Developer: Reload Window**).
 
 Para compilarla desde el código:
@@ -44,6 +47,7 @@ npx @vscode/vsce@3.2.1 package
    - **Clic en un muñeco**: ver su nombre. **Doble clic**: abrir su ficha.
    - **+ Agent**: lanzar una sesión nueva de Claude Code en una carpeta.
    - **Layout**: puestos (tema, fila, ancho, carpeta y servicios), paleta de colores, skills fijas, medallas y ajustes.
+   - **📚 Skills**: el gestor de skills. Elige una ubicación a la izquierda, una skill en el centro y edítala a la derecha (**Ctrl+S** guarda). Para moverla, arrástrala sobre otra ubicación; con **Ctrl**, se copia. **Descargar** genera un zip con las de usuario y las de cada repo, y **Importar** lo restaura en otro PC: si un repo no está en la misma ruta, te pregunta dónde ponerlas.
 
 ![Ajustes: mundo, temporada y disfraces](images/settings.png)
 
@@ -66,7 +70,7 @@ En los ajustes de VS Code (`skillLab.*`) quedan además el ejecutable de Claude 
 
 ## Privacidad
 
-Skill Lab lee las transcripciones locales de Claude Code (`~/.claude/projects`) para saber qué skills se usan y qué hace cada sesión, y lo procesa todo en tu equipo. Solo hace peticiones de red a las direcciones que tú pongas como servicios de un puesto, para saber si responden.
+Skill Lab lee las transcripciones locales de Claude Code (`~/.claude/projects`) para saber qué skills se usan y qué hace cada sesión, y lo procesa todo en tu equipo. El gestor de skills solo toca las carpetas `~/.claude/skills` y `.claude/skills` de tus repos; lo que borra va a la papelera, y las skills que sincroniza tu cuenta las deja en solo lectura. Solo hace peticiones de red a las direcciones que tú pongas como servicios de un puesto, para saber si responden.
 
 ## Comandos
 
@@ -75,6 +79,7 @@ Skill Lab lee las transcripciones locales de Claude Code (`~/.claude/projects`) 
 | `Skill Lab: Redibujar` | Vuelve a pintar el laboratorio. |
 | `Skill Lab: Lanzar Claude Code (+ Agent)` | Abre una sesión nueva en la carpeta que elijas. |
 | `Skill Lab: Editar layout (labs y skills)` | Abre el cajón para organizar puestos y skills. |
+| `Skill Lab: Gestor de skills` | Abre el gestor para ver, editar, mover y descargar tus skills. |
 
 ---
 

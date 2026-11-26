@@ -3,7 +3,7 @@
   "displayName": "Skill Lab",
   "description": "Un laboratorio isométrico donde ves trabajar a Claude Code: cada skill es un muñeco que va al puesto de tu proyecto cuando se usa.",
   "publisher": "skill-lab",
-  "version": "1.8.2",
+  "version": "1.9.0",
   "author": {
     "name": "Alvaro Martos Diez"
   },
@@ -73,6 +73,10 @@
       {
         "command": "skillLab.layout",
         "title": "Skill Lab: Editar layout (labs y skills)"
+      },
+      {
+        "command": "skillLab.skills",
+        "title": "Skill Lab: Gestor de skills"
       }
     ],
     "configuration": {

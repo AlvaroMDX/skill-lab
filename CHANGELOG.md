@@ -1,5 +1,11 @@
 # Cambios
 
+## 1.9.0 — 2026-11-26
+- **Gestor de skills** (botón **📚 Skills** del laboratorio o comando `Skill Lab: Gestor de skills`). Muestra las skills de usuario, que afectan a todos los repos, y las de cada repo; en cada repo se ven sus propias y las de usuario que también le afectan.
+- Desde el gestor se edita todo: nombre (la carpeta se renombra igual), descripción, contenido con vista previa y campos extra de la cabecera. Lo que no se toca se guarda exactamente como estaba.
+- Mover o copiar skills entre repos y a nivel de usuario, con el selector de ubicación o arrastrando; con Ctrl se copia. Ver, abrir, añadir y borrar ficheros de una skill. Lo borrado va a la papelera.
+- **Descargar** genera un zip con las skills de usuario y las de cada repo, para migrarlas a otro PC; **Importar** lo restaura y, si un repo no está en la misma ruta, pregunta dónde ponerlas. Las sincronizadas con tu cuenta se ven en solo lectura y no se exportan.
+
 ## 1.8.2 — 2026-10-29
 - Las fotos de los modelos 3D ya se ven en las estanterías: la política de seguridad del panel bloqueaba las imágenes.
 
